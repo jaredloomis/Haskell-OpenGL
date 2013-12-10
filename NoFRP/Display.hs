@@ -5,7 +5,7 @@ import Graphics.Rendering.OpenGL as GL
 --import Graphics.UI.GLUT as GLUT hiding (renderObject)
 
 
-renderObjects :: (GameObject a) => [a] -> IO ()
+renderObjects :: [GameObject] -> IO ()
 renderObjects (x:xs) = do
     --GL.preservingMatrix $ do
     loadIdentity
@@ -14,7 +14,7 @@ renderObjects (x:xs) = do
     renderObjects xs
 renderObjects [] = return ()
 
-renderObjectsIO :: (GameObject a) => IORef [a] -> IO ()
+renderObjectsIO :: IORef [GameObject] -> IO ()
 renderObjectsIO xsRef = do
     xs <- readIORef xsRef
     renderObjects xs

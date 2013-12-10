@@ -10,7 +10,7 @@ import Graphics.UI.GLUT as GLUT (Key)
 
 -- | Add a GameObject to an IORef containg a list of
 -- | GameObjects.
-addToUpdate :: (GameObject a) => IORef [a] -> a -> IO ()
+addToUpdate :: IORef [GameObject] -> GameObject -> IO ()
 addToUpdate ref object = do
     os <- readIORef ref
     ref $= os ++ [object]
@@ -21,18 +21,47 @@ moveActor actor aPos = do
     object <- readIORef actor
     actor $= moveObject object aPos
 
+setPos :: GameObject -> Vec2 -> GameObject
+setPos player@(Player{}) goPos = player{playerPosition = goPos}
+setPos entity@(Entity{}) goPos = entity{entityPosition = goPos}
+
+getPos :: GameObject -> Vec2
+getPos player@(Player{}) = playerPosition player
+getPos entity@(Entity{}) = entityPosition entity
+
 -- | Calculate new GameObject based on old GameObject
 -- | and new Vec2 position.
-moveObject :: GameObject a => a -> Vec2 -> a
-moveObject object (dx, dy) =    let (ix, iy) = getPos object 
-                                in setPos object (ix+dx, iy+dy)
+moveObject :: GameObject -> Vec2 -> GameObject
+moveObject p@(Player (ix, iy) _ _ _) (dx, dy) = setPos p (ix+dx, iy+dy)
+
+renderObject :: GameObject -> IO ()
+renderObject player@(Player{}) = playerDisplay player
+renderObject entity@(Entity{}) = entityDisplay entity
+
+update :: GameObject -> GameObject
+update player@(Player _ _ origIn _) =
+    (innerUpdate player){playerInput = origIn}
+    where 
+        innerUpdate innerP@(Player _ _ (Input ((_, isDown, func):xs)) _) =
+            let newInput = Input xs
+                newPlayer = if isDown then func innerP else innerP
+                newPlayer2 = Player (playerPosition newPlayer) (playerDisplay newPlayer) newInput (playerPhysics newPlayer)
+            in innerUpdate newPlayer2
+
+--innerUpdate $ newPlayer{playerInput = newInput}
+        innerUpdate p@(Player _ _ (Input []) _) = p
+{-
+if isDown 
+                then update $ (func player){playerInput = newInput}
+            else update $ player{playerInput = newInput}  -}
+update entity@(Entity{}) = entity
 
 ----------------------------------
 -- | ----- Type Synonyms ---- | --
 ----------------------------------
 
 -- | Any Entity whose values change.
-type Actor = IORef Entity
+type Actor = IORef GameObject
 
 -- | Simplifies type signatures mostly.
 type Vec2 = (GL.GLfloat, GL.GLfloat)
@@ -41,29 +70,17 @@ type Vec2 = (GL.GLfloat, GL.GLfloat)
 type DrawAction = IO ()
 
 ----------------------------------
---- | - Classes & Instances - | --
+-- | -- Classes/Instances -- | ---
 ----------------------------------
 
--- | Class to be used by anything that will be
--- | rendered on screen and has a position.
-class GameObject o where
-    getPos :: o -> Vec2
-    setPos :: o -> Vec2 -> o
-    renderObject :: o -> DrawAction
-    update :: o -> o
+instance Show GameObject where
+    show (Player pos _ input physics) = 
+        "Player:\n\tPosition: " ++ (show pos) ++ "\n\tInput: " ++ (show input)-- ++ "\n\tPhysics" ++ (show physics)
 
-instance GameObject Player where
-    getPos = playerPosition
-    setPos player goPos = player{playerPosition = goPos}
-    renderObject = playerDisplay
-    update player = let newX = min ((fst $ playerPosition player) + 1.0e-4) 1
-                    in player{playerPosition = (newX, snd $ playerPosition player)}
-
-instance GameObject Entity where
-    getPos = entityPosition
-    setPos entity goPos = entity{entityPosition = goPos}
-    renderObject = entityDisplay
-    update entity = entity
+instance Show Input where
+    show (Input ((key, isDown, _):rest)) = 
+        "(" ++ (show key) ++ ", down: " ++ (show isDown) ++ ")" ++ (show $ Input rest)
+    show (Input []) = []
 
 ----------------------------------
 -- | ------ Data Types ------ | --
@@ -76,7 +93,7 @@ instance GameObject Entity where
 -- | instead of wrapping them all in one
 -- | big data.
 data World = World {
-    worldPlayer :: Player,
+    worldPlayer :: GameObject,
     worldInput :: Input
 }
 
@@ -85,20 +102,24 @@ data GameState = GameState {
     delta :: GL.GLfloat
 }
 
--- | Data type for player.
-data Player = Player {
+data GameObject = Player {
     playerPosition :: Vec2,
     playerDisplay :: DrawAction,
-    playerInput :: Input
-}
--- | Data type for other things on screen.
-data Entity = Entity {
+    playerInput :: Input,
+    playerPhysics :: Physics
+} | Entity {
     entityPosition :: Vec2,
-    entityDisplay :: DrawAction
+    entityDisplay :: DrawAction,
+    entityPhysics :: Physics
 }
 
 -- | Data type for encapsulating
 -- | values relating to player input.
 data Input = Input {
-    inputKeys :: [(GLUT.Key, Bool)]
+    inputKeys :: [(GLUT.Key, Bool, GameObject -> GameObject)]
+}
+
+data Physics = Physics {
+    physicsUpdate :: GameObject -> GameObject,
+    velocity :: GLfloat
 }
