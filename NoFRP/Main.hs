@@ -2,7 +2,7 @@ module Main where
 import Framework
 import Display
 
-import Control.Monad
+--import Control.Monad
 import Data.IORef
 
 import Graphics.Rendering.OpenGL as GL
@@ -12,22 +12,41 @@ import Graphics.UI.GLUT as GLUT hiding (renderObject)
 -- | ------ Test values -------- | --
 -------------------------------------
 
-allPoints :: [(GLfloat, GLfloat)]
-allPoints = [(0, 0), (1, 0), (0, 1)]
+allPoints :: [Vec2]
+allPoints = [(0, 0), (0.3, 0), (0, 0.3), (0.3, 0), (0.3, 0.3), (0, 0.3)]
 
+entityPoints :: [Vec2]
+entityPoints = [(0, 0), (0.3, 0), (0, 0.3), (0.3, 0), (0.3, 0.3), (0, 0.3)]
+
+testInput :: Input
 testInput = Input [(Char 'a', False, aIn), (Char 'd', False, dIn),
                     (Char 'w', False, wIn), (Char 's', False, sIn)]
-aIn p = moveObject p (-0.001, 0)
-dIn p = moveObject p (0.001, 0)
-wIn p = moveObject p (0, 0.001)
-sIn p = moveObject p (0, -0.001)
 
-mainPlayer = Player (0, 0) (renderTriangles allPoints) testInput (Physics (\x -> x) 0)
+aIn :: GameObject -> Maybe [GameObject] -> GameObject
+aIn p (Just others) = moveObjectSafe p others (-0.001, 0)
+aIn p Nothing = p
+dIn :: GameObject -> Maybe [GameObject] -> GameObject 
+dIn p (Just others) = moveObjectSafe p others (0.001, 0)
+dIn p Nothing = p
+wIn :: GameObject -> Maybe [GameObject] -> GameObject
+wIn p (Just others) = moveObjectSafe p others (0, 0.001)
+wIn p Nothing = p
+sIn :: GameObject -> Maybe [GameObject] -> GameObject
+sIn p (Just others) = moveObjectSafe p others (0, -0.001)
+sIn p Nothing = p
 
------------------------------------
--- | ---------- Main --------- | --
------------------------------------
 
+mainPlayer :: GameObject
+mainPlayer = Player (0, 0) (renderTriangles allPoints) (Physics (\x -> x) (0.3, 0.3) 0)
+
+testEntity :: GameObject
+testEntity = Entity (-0.5, 0) (renderTriangles entityPoints) (Physics (\x -> x) (0.3, 0.3) 0)
+
+mainWorld :: IORef ConPlayer -> IORef ConEntity -> World
+mainWorld pRef eRef = World pRef (Just eRef) Nothing Nothing
+
+
+-- | Main function, runs a test game
 main :: IO ()
 main = do
     -- Set initialWindowSize
@@ -40,78 +59,67 @@ main = do
     -- Create window
     window <- GLUT.createWindow "Hello World"
 
-    --playerRef <- newIORef mainPlayer
-    worldObjects <- newIORef [mainPlayer]
+    -- Set up world
+    dynamics <- newIORef $ ConEntity [testEntity]
+    playerRef <- newIORef $ ConPlayer mainPlayer testInput
+    let world = mainWorld playerRef dynamics
 
     -- Set displayCallback
-    GLUT.displayCallback $= display worldObjects
+    GLUT.displayCallback $= displayWorld world
     -- Set input callback function
-    keyboardMouseCallback $= Just (inputCallbackArray worldObjects)
+    keyboardMouseCallback $= Just (inputCallback playerRef)
     -- Set callback for when the window is resized
     reshapeCallback $= Just reshape
 
     -- Begin GLUT main loop
     GLUT.mainLoop
 
-display :: IORef [GameObject] -> GLUT.DisplayCallback
-display xsRef = do
-    -- Update objects
-    updateObjects xsRef
+displayWorld :: World -> GLUT.DisplayCallback
+displayWorld world = do
+    -- Set values
+    let player = worldPlayer world
+        (Just dynamic) = worldDynamic world
+        static = worldStatic world
+--        setting = worldSettings world
+    dyn@(ConEntity dEntities) <- readIORef dynamic
+    p <- readIORef player
 
-    -- Clear screen
+    -- Update dynamic entities
+    updateConEntity dynamic
+
+    -- Update player
+    -- TODO : updateConPlayer player (dyn++static)
+    updateConPlayer player (Just dEntities)
+
+     -- Clear screen
     GLUT.clear [GLUT.ColorBuffer]
     -- Reset transformations
     loadIdentity
-
+    
     -- Render all objects
-    renderObjectsIO xsRef
+    renderConObject (ConObject p dyn)
 
-    -- Refresh screen (bring back buffer to front.)
+     -- Refresh screen (bring back buffer to front.)
     GLUT.swapBuffers
     -- Tell GL to start next frame
     GLUT.postRedisplay Nothing
 
-updateObjects :: IORef [GameObject] -> IO ()
-updateObjects xsRef = do
-    xs <- readIORef xsRef
-    xsRef $= updateUnwrapped xs
+inputCallback :: IORef ConPlayer -> GLUT.KeyboardMouseCallback
+inputCallback cPlayerRef k a x y = do
+    cPlayer <- readIORef cPlayerRef
+    let player = conPlayerPlayer cPlayer
+        input = conPlayerInput cPlayer
+    checkType player cPlayerRef input k a x y
     where
-        updateUnwrapped :: [GameObject] -> [GameObject]
-        updateUnwrapped (x:xs) = [update x] ++ updateUnwrapped xs
+        checkType :: GameObject -> IORef ConPlayer -> Input -> GLUT.KeyboardMouseCallback
+        checkType player@(Player{}) reference (Input keyMap) key action _ _ = do
+            let isPressed = if action == Down then True else False
 
-        updateUnwrapped [] = []
+            let newIn = (Input (map (\w@(ckey, _, func) ->
+                    if ckey == key then (key, isPressed, func) else w) $ keyMap))
 
-renderScene :: IO ()
-renderScene = do
-    renderPrimitive Triangles $ do
-        mapM_ (\(x, y) -> vertex $ Vertex3 x y 0) allPoints
-
-inputCallbackArray :: IORef [GameObject] -> KeyboardMouseCallback
-inputCallbackArray objects key action x y = do
-    inArray <- readIORef objects
-    checkType (inArray !! 0) objects
-    where 
-        checkType :: GameObject -> IORef [GameObject] -> IO ()
-        checkType p@(Player{}) objects = do
-        os <- readIORef objects
-        pl <- newIORef p
-        inputCallback pl key action x y
-        pp <- readIORef pl
-        objects $= pp:(tail os)
-
-inputCallback :: IORef GameObject -> KeyboardMouseCallback
-inputCallback player key action _ _ = do
-    p <- readIORef player
-    let isPressed = if action == Down then True else False
-
-    --let (_, yes, _) = ((inputKeys $ playerInput p) !! 0)
-    --putStrLn $ show yes
-    --putStrLn $ show $ (snd $ ((inputKeys $ playerInput p) !! 0) :: Bool)
-
-    let newIn = (Input (map (\x@(ckey, _, func) ->
-            if ckey == key then (key, isPressed, func) else x) $ inputKeys $ playerInput p))
-    player $= p{playerInput=newIn}
-
+            reference $= ConPlayer player newIn
+ 
 reshape :: Size -> IO ()
 reshape s = do
     GL.viewport $= (Position 0 0, s)

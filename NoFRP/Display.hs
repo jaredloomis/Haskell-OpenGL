@@ -4,6 +4,14 @@ import Data.IORef
 import Graphics.Rendering.OpenGL as GL
 --import Graphics.UI.GLUT as GLUT hiding (renderObject)
 
+renderConObject :: ConObject -> IO ()
+renderConObject co = do
+    let cPlayer = conObjectPlayer co
+        player = conPlayerPlayer cPlayer
+        cEntity = conObjectEntity co
+        entities = conEntityEntities cEntity
+  
+    renderObjects (player:entities)
 
 renderObjects :: [GameObject] -> IO ()
 renderObjects (x:xs) = do
