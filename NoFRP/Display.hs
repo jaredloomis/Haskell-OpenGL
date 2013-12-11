@@ -1,8 +1,9 @@
 module Display where
-import Framework
 import Data.IORef
-import Graphics.Rendering.OpenGL as GL
---import Graphics.UI.GLUT as GLUT hiding (renderObject)
+
+import qualified Graphics.Rendering.OpenGL as GL
+
+import Framework
 
 renderConObject :: ConObject -> IO ()
 renderConObject co = do
@@ -13,21 +14,20 @@ renderConObject co = do
   
     renderObjects (player:entities)
 
+renderObject :: GameObject -> IO ()
+renderObject player@(Player{}) = playerDisplay player
+renderObject entity@(Entity{}) = entityDisplay entity
+
 renderObjects :: [GameObject] -> IO ()
 renderObjects (x:xs) = do
     --GL.preservingMatrix $ do
-    loadIdentity
-    translate $ Vector3 (fst $ getPos x) (snd $ getPos x) 0
+    GL.loadIdentity
+    GL.translate $ GL.Vector3 (fst $ getPos x) (snd $ getPos x) 0
     renderObject x
     renderObjects xs
 renderObjects [] = return ()
 
-renderObjectsIO :: IORef [GameObject] -> IO ()
-renderObjectsIO xsRef = do
-    xs <- readIORef xsRef
-    renderObjects xs
-
-renderTriangles :: [(GLfloat, GLfloat)] -> IO ()
+renderTriangles :: [(GL.GLfloat, GL.GLfloat)] -> IO ()
 renderTriangles xs =
     GL.renderPrimitive GL.Triangles $
         mapM_ (\(x, y) -> GL.vertex $ GL.Vertex3 x y 0) xs

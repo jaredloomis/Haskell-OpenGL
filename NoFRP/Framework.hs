@@ -1,43 +1,55 @@
-{-# LANGUAGE RankNTypes #-}
 module Framework where
 
 import Data.IORef
 import Data.List
 
-import Graphics.Rendering.OpenGL as GL
-import Graphics.UI.GLUT as GLUT (Key)
+import qualified Graphics.Rendering.OpenGL as GL
+import qualified Graphics.UI.GLUT as GLUT (Key)
 
 ----------------------------------
 -- | ------ Functions ------- | --
 ----------------------------------
 
+-- | No using GL.$=, makes it look better
+($=) :: GL.HasSetter s => s a -> a -> IO ()
+($=) a b = a GL.$= b
+
 ---- | ConX functions | ----
 
-updateConPlayer :: IORef ConPlayer -> Maybe [GameObject] -> IO ()
-updateConPlayer cpRef others = do
+-- | Apply updateCP
+updateConPlayerRef :: IORef ConPlayer -> Maybe [GameObject] -> IO ()
+updateConPlayerRef cpRef others = do
     cp <- readIORef cpRef
-    cpRef $= updateCP cp others
+    cpRef $= updateConPlayer cp others
 
-updateConEntity :: IORef ConEntity -> IO ()
-updateConEntity con = do
+-- | Apply update function to entity
+updateConEntityRef :: IORef ConEntity -> IO ()
+updateConEntityRef con = do
     container <- readIORef con
     let entities = conEntityEntities container
     con $= ConEntity (updateObjects entities)
 
-updateCP :: ConPlayer -> Maybe [GameObject] -> ConPlayer
-updateCP cp@(ConPlayer _ origIn) others =
+-- | Apply the ConPlayer's Input's update functions
+--   for each key that is down. Collision detection is
+--   done on the array of GameObjects given as a second
+--   argument.
+updateConPlayer :: ConPlayer -> Maybe [GameObject] -> ConPlayer
+updateConPlayer cp@(ConPlayer _ origIn) others =
+    -- | Let inner function do the work, then replace the
+    --   Input that was affected by recursion.
     (innerUpdate cp){conPlayerInput = origIn}
     where
+        innerUpdate :: ConPlayer -> ConPlayer
         innerUpdate (ConPlayer innerP (Input ((_, isDown, func):xs))) =
-            let newInput = Input xs
-                newPlayer = if isDown then func innerP others else innerP
-                newCP = ConPlayer newPlayer newInput
+            -- | If the key is down, apply corresponding function to player
+            let newPlayer = if isDown then func innerP others else innerP
+                newCP = ConPlayer newPlayer $ Input xs
             in innerUpdate newCP
         innerUpdate innerCP@(ConPlayer _ (Input [])) = innerCP
 
-updateCE :: ConEntity -> ConEntity
-updateCE ce =
-    ConEntity (updateObjects (conEntityEntities ce))
+-- | Call updateObjects on all GameObjects in ConEntity
+updateConEntity :: ConEntity -> ConEntity
+updateConEntity ce = ConEntity (updateObjects (conEntityEntities ce))
 
 ---- | Normal functions | ----
 
@@ -54,14 +66,19 @@ getPhysics p@(Player{}) = playerPhysics p
 getPhysics e@(Entity{}) = entityPhysics e
 
 -- | Calculate new GameObject based on old GameObject
--- | and new Vec2 position.
+--   and new Vec2 position.
 moveObject :: GameObject -> Vec2 -> GameObject
 moveObject p@(Player (ix, iy)  _ _) (dx, dy) = setPos p (ix+dx, iy+dy)
 moveObject e@(Entity (ix, iy)  _ _) (dx, dy) = setPos e (ix+dx, iy+dy)
 
+-- | Do same as moveObject, but use collision detection on given
+--   GameObjects.
 moveObjectSafe :: GameObject -> [GameObject] -> Vec2 -> GameObject
 moveObjectSafe mover collide (dx, dy) =
+    -- | GameObject that will be returned if in passes collision test.
     let movedObject = setPos mover (fst (getPos mover)+dx, snd (getPos mover)+dy)
+    -- | if any of the tests of (x `objectsCollide` movedObject) are true,
+    --   return the original object. Otherwise, return the movedObject.
     in if [True] `isInfixOf` map (`objectsCollide` movedObject) collide
         then mover
     else movedObject
@@ -75,10 +92,6 @@ objectsCollide a b =
     in ax < (bx+bw) && ay < (by+bh) && 
         (ax+aw) > bx && (ay+ah) > by
 
-renderObject :: GameObject -> IO ()
-renderObject player@(Player{}) = playerDisplay player
-renderObject entity@(Entity{}) = entityDisplay entity
-
 updateObjects :: [GameObject] -> [GameObject]
 updateObjects = map update
 
@@ -89,9 +102,6 @@ update entity@(Entity{}) = entity
 ----------------------------------
 -- | ----- Type Synonyms ---- | --
 ----------------------------------
-
--- | Any Entity whose values change.
-type Actor = IORef GameObject
 
 -- | Simplifies type signatures mostly.
 type Vec2 = (GL.GLfloat, GL.GLfloat)
@@ -119,26 +129,26 @@ instance Show Input where
 ---- | -- Conglomerate data types | ----
 
 -- | High level data type containing
--- | other conglomerate datas, used for
--- | representing state of entire game.
+--   other conglomerate datas, used for
+--   representing state of entire game.
 data World = World {
-    worldPlayer :: IORef ConPlayer,
-    worldDynamic :: Maybe (IORef ConEntity),
-    worldStatic :: Maybe ConEntity,
-    worldSettings :: Maybe ConSettings
+    worldPlayer :: !(IORef ConPlayer),
+    worldDynamic :: !(Maybe (IORef ConEntity)),
+    worldStatic :: !(Maybe ConEntity),
+    worldSettings :: !(Maybe ConSettings)
 }
 
 -- | All information relating to the player
--- | and all entities.
+--   and all entities.
 data ConObject = ConObject {
-    conObjectPlayer :: ConPlayer,
-    conObjectEntity :: ConEntity
+    conObjectPlayer :: !ConPlayer,
+    conObjectEntity :: !ConEntity
 }
 
 -- | All information relating to player
 data ConPlayer = ConPlayer {
-    conPlayerPlayer :: GameObject,
-    conPlayerInput :: Input
+    conPlayerPlayer :: !GameObject,
+    conPlayerInput :: !Input
 }
 
 -- | All information relating to entities
@@ -160,25 +170,28 @@ newtype GameState = GameState {
 
 -- | Any object that has a position in the game.
 data GameObject = Player {
-    playerPosition :: Vec2,
-    playerDisplay :: DrawAction,
-    playerPhysics :: Physics
+    playerPosition :: !Vec2,
+    playerDisplay :: !DrawAction,
+    playerPhysics :: !Physics
 } | Entity {
-    entityPosition :: Vec2,
-    entityDisplay :: DrawAction,
-    entityPhysics :: Physics
+    entityPosition :: !Vec2,
+    entityDisplay :: !DrawAction,
+    entityPhysics :: !Physics
 }
 
 -- | Data type for encapsulating
--- | values relating to player input.
+--   values relating to player input.
 newtype Input = Input {
-    inputKeys :: [(GLUT.Key, Bool, GameObject -> Maybe [GameObject] -> GameObject)]
+    inputKeys :: [(GLUT.Key,  -- ^ Referenced key
+                   Bool,      -- ^ Is down
+                   GameObject -> Maybe [GameObject] -> GameObject -- ^ Function
+                  )]
 }
 
 -- | Data type for a collection of
--- | values used in physics calculations
+--   values used in physics calculations
 data Physics = Physics {
     physicsUpdate :: GameObject -> GameObject,
-    boundingBox :: Vec2,
-    physicsVelocity :: GLfloat
+    boundingBox :: !Vec2,
+    physicsVelocity :: !GL.GLfloat
 }

@@ -1,12 +1,11 @@
 module Main where
-import Framework
-import Display
-
---import Control.Monad
 import Data.IORef
 
-import Graphics.Rendering.OpenGL as GL
-import Graphics.UI.GLUT as GLUT hiding (renderObject)
+import qualified Graphics.Rendering.OpenGL as GL
+import qualified Graphics.UI.GLUT as GLUT hiding (renderObject)
+
+import Framework
+import Display
 
 -------------------------------------
 -- | ------ Test values -------- | --
@@ -19,8 +18,8 @@ entityPoints :: [Vec2]
 entityPoints = [(0, 0), (0.3, 0), (0, 0.3), (0.3, 0), (0.3, 0.3), (0, 0.3)]
 
 testInput :: Input
-testInput = Input [(Char 'a', False, aIn), (Char 'd', False, dIn),
-                    (Char 'w', False, wIn), (Char 's', False, sIn)]
+testInput = Input [(GLUT.Char 'a', False, aIn), (GLUT.Char 'd', False, dIn),
+                    (GLUT.Char 'w', False, wIn), (GLUT.Char 's', False, sIn)]
 
 aIn :: GameObject -> Maybe [GameObject] -> GameObject
 aIn p (Just others) = moveObjectSafe p others (-0.001, 0)
@@ -35,12 +34,13 @@ sIn :: GameObject -> Maybe [GameObject] -> GameObject
 sIn p (Just others) = moveObjectSafe p others (0, -0.001)
 sIn p Nothing = p
 
-
 mainPlayer :: GameObject
-mainPlayer = Player (0, 0) (renderTriangles allPoints) (Physics (\x -> x) (0.3, 0.3) 0)
+mainPlayer = Player (0, 0) (renderTriangles allPoints) 
+                (Physics (\x -> x) (0.3, 0.3) 0)
 
 testEntity :: GameObject
-testEntity = Entity (-0.5, 0) (renderTriangles entityPoints) (Physics (\x -> x) (0.3, 0.3) 0)
+testEntity = Entity (-0.5, 0) (renderTriangles entityPoints) 
+                (Physics (\x -> x) (0.3, 0.3) 0)
 
 mainWorld :: IORef ConPlayer -> IORef ConEntity -> World
 mainWorld pRef eRef = World pRef (Just eRef) Nothing Nothing
@@ -67,9 +67,9 @@ main = do
     -- Set displayCallback
     GLUT.displayCallback $= displayWorld world
     -- Set input callback function
-    keyboardMouseCallback $= Just (inputCallback playerRef)
+    GLUT.keyboardMouseCallback $= Just (inputCallback playerRef)
     -- Set callback for when the window is resized
-    reshapeCallback $= Just reshape
+    GLUT.reshapeCallback $= Just reshape
 
     -- Begin GLUT main loop
     GLUT.mainLoop
@@ -85,16 +85,16 @@ displayWorld world = do
     p <- readIORef player
 
     -- Update dynamic entities
-    updateConEntity dynamic
+    updateConEntityRef dynamic
 
     -- Update player
     -- TODO : updateConPlayer player (dyn++static)
-    updateConPlayer player (Just dEntities)
+    updateConPlayerRef player (Just dEntities)
 
      -- Clear screen
     GLUT.clear [GLUT.ColorBuffer]
     -- Reset transformations
-    loadIdentity
+    GLUT.loadIdentity
     
     -- Render all objects
     renderConObject (ConObject p dyn)
@@ -111,15 +111,14 @@ inputCallback cPlayerRef k a x y = do
         input = conPlayerInput cPlayer
     checkType player cPlayerRef input k a x y
     where
-        checkType :: GameObject -> IORef ConPlayer -> Input -> GLUT.KeyboardMouseCallback
         checkType player@(Player{}) reference (Input keyMap) key action _ _ = do
-            let isPressed = if action == Down then True else False
+            let isPressed = if action == GLUT.Down then True else False
 
             let newIn = (Input (map (\w@(ckey, _, func) ->
                     if ckey == key then (key, isPressed, func) else w) $ keyMap))
 
             reference $= ConPlayer player newIn
  
-reshape :: Size -> IO ()
+reshape :: GLUT.Size -> IO ()
 reshape s = do
-    GL.viewport $= (Position 0 0, s)
+    GL.viewport $= (GLUT.Position 0 0, s)
