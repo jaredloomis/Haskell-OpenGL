@@ -1,5 +1,6 @@
 module Main where
 import Data.IORef
+import Data.Time.Clock
 
 import qualified Graphics.Rendering.OpenGL as GL
 import qualified Graphics.UI.GLUT as GLUT hiding (renderObject)
@@ -8,7 +9,7 @@ import Framework
 import Display
 
 -------------------------------------
--- | ------ Test values -------- | --
+----------- Test values -------------
 -------------------------------------
 
 allPoints :: [Vec2]
@@ -40,10 +41,10 @@ mainPlayer = Player (0, 0) (renderTriangles allPoints)
 
 testEntity :: GameObject
 testEntity = Entity (-0.5, 0) (renderTriangles entityPoints) 
-                (Physics (\x -> x) (0.3, 0.3) 0)
+                (Physics (\x -> x) (0.3, 0.3) 0) (\x _ -> x)
 
-mainWorld :: IORef ConPlayer -> IORef ConEntity -> World
-mainWorld pRef eRef = World pRef (Just eRef) Nothing Nothing
+mainWorld :: IORef ConPlayer -> IORef ConEntity -> IORef GL.GLfloat -> World
+mainWorld pRef eRef sTime = World pRef (Just eRef) Nothing Nothing sTime
 
 
 -- | Main function, runs a test game
@@ -61,8 +62,9 @@ main = do
 
     -- Set up world
     dynamics <- newIORef $ ConEntity [testEntity]
-    playerRef <- newIORef $ ConPlayer mainPlayer testInput
-    let world = mainWorld playerRef dynamics
+    playerRef <- newIORef $ ConPlayer mainPlayer testInput (\p _ -> p)
+    startTime <- newIORef (0 :: GL.GLfloat)
+    let world = mainWorld playerRef dynamics startTime
 
     -- Set displayCallback
     GLUT.displayCallback $= displayWorld world
@@ -74,6 +76,7 @@ main = do
     -- Begin GLUT main loop
     GLUT.mainLoop
 
+-- TODO: delta
 displayWorld :: World -> GLUT.DisplayCallback
 displayWorld world = do
     -- Set values
@@ -99,9 +102,12 @@ displayWorld world = do
     -- Render all objects
     renderConObject (ConObject p dyn)
 
+    t <- worldTime
+    lastTime world $= diffToGL t
+
      -- Refresh screen (bring back buffer to front.)
     GLUT.swapBuffers
-    -- Tell GL to start next frame
+    -- Tell GL to start next frame. Remove/Fix?
     GLUT.postRedisplay Nothing
 
 inputCallback :: IORef ConPlayer -> GLUT.KeyboardMouseCallback
@@ -109,16 +115,19 @@ inputCallback cPlayerRef k a x y = do
     cPlayer <- readIORef cPlayerRef
     let player = conPlayerPlayer cPlayer
         input = conPlayerInput cPlayer
-    checkType player cPlayerRef input k a x y
+    checkType player cPlayer cPlayerRef input k a x y
     where
-        checkType player@(Player{}) reference (Input keyMap) key action _ _ = do
+        checkType player@(Player{}) cPlayer reference (Input keyMap) key action _ _ = do
             let isPressed = if action == GLUT.Down then True else False
 
             let newIn = (Input (map (\w@(ckey, _, func) ->
                     if ckey == key then (key, isPressed, func) else w) $ keyMap))
 
-            reference $= ConPlayer player newIn
+            reference $= ConPlayer player newIn (conPlayerUpdate cPlayer)
  
+-- TODO: Reshape will make viewport bigger but will not change
+--       how objects move, so when viewport is bigger, everything
+--       seems to move slower.
 reshape :: GLUT.Size -> IO ()
-reshape s = do
-    GL.viewport $= (GLUT.Position 0 0, s)
+reshape s@(GLUT.Size w h) = do
+    GL.viewport $= (GLUT.Position 0 0, (GLUT.Size (min w h) $ min w h))
