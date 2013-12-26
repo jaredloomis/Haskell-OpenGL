@@ -2,16 +2,21 @@ module Main where
 
 import Data.Bits ((.|.))
 import System.Exit (exitSuccess)
-import Control.Monad (forever, liftM)
+import Control.Monad (forever)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 
 import qualified Graphics.UI.GLFW as GLFW
 import qualified Graphics.Rendering.OpenGL.Raw as GL
-import Graphics.Rendering.GLU.Raw (gluPerspective)
 
-import Framework
+import GameObject
+import Types
+import Graphics
+import Window
+import Util (systemTime)
 
+-------------------
 --- Test Values ---
+-------------------
 
 allPoints :: [Vec3]
 allPoints = [(0, 0, 0), (0.3, 0, 0), (0, 0.3, 0), 
@@ -19,17 +24,16 @@ allPoints = [(0, 0, 0), (0.3, 0, 0), (0, 0.3, 0),
 
 testWorld :: IO World
 testWorld = do
-    worldNoEntity <- liftM World (newIORef testPlayer)
+    defaultWorld <- mkWorld
+    player <- newIORef testPlayer
     entityRef <- testEntityRef
-    return $ worldNoEntity $ Just [entityRef]
+    return $ defaultWorld{worldPlayer = player, worldEntities = Just [entityRef]} 
 
 testPlayer :: GameObject
-testPlayer = mkPlayer{playerRender = renderFunc, playerUpdate = updateFunc}
+testPlayer = mkPlayer{playerUpdate = updateFunc}
     where
+    renderFunc :: GameObject -> IO ()
     renderFunc player@(Player{}) = do
-        -- Make all changes not affect other objects
-        GL.glPushMatrix
-
         -- Translate Player globally
         globalTranslate player
 
@@ -39,22 +43,8 @@ testPlayer = mkPlayer{playerRender = renderFunc, playerUpdate = updateFunc}
         -- Render the array of triangles
         renderTriangles allPoints
 
-        GL.glPopMatrix
-
-        -- glFlush not necessary because of double buffering?
-        --GL.glFlush
-
-    updateFunc player =
-        playerMouseUpdate $ (playerKeyUpdate player){playerInput = playerInput player}
-        {-(inputUpdate player){playerInput = playerInput player}
-        where
-        inputUpdate :: GameObject -> GameObject
-        inputUpdate p@(Player _ _ (Input ((_, isDown, func):xs) mouse) _ _) =
-            -- If the key is down, apply corresponding function to player
-            let newPlayer = if isDown then func p else p
-                retp = newPlayer{playerInput = Input xs mouse}
-            in inputUpdate retp
-        inputUpdate p@(Player _ _ (Input [] _) _ _) = p-}
+    updateFunc :: GameObject -> GameObject
+    updateFunc player = playerMouseUpdate $ playerKeyUpdate player
 
 playerMouseUpdate :: GameObject -> GameObject
 playerMouseUpdate player =
@@ -70,40 +60,54 @@ playerMouseUpdate player =
 
         -- Basic calculation of degrees, 0 is minimum,
         -- 360 is maximum.
-        newRy = if ry + dx >= 360
-                    then ry + dx - 360
-                else if dx + ry < 0
-                    then 360 - ry + dx
-                else ry + dx
+        newRy   
+            | ry + dx >= 360 = ry + dx - 360
+            | dx + ry < 0    = 360 - ry + dx
+            | otherwise      = ry + dx
 
-        -- Lowest angle you can look
+        -- Lowest angle player can look
         maxLookDown = -90
+        -- Highest angle player can look
         maxLookUp = 90
 
         -- Basic calculation for x axis (looking up and down).
         -- Make sure that look direction stays between maxLookDown
         -- and maxLookUp.
-        newRx = if rx - dy >= maxLookDown && rx - dy <= maxLookUp
-                    then rx - dy
-                else if rx - dy < maxLookDown
-                    then maxLookDown
-                else if rx - dy > maxLookUp
-                    then maxLookUp
-                else rx
+        newRx
+            -- If rotation is in bounds, allow rotation.
+            | rx - dy >= maxLookDown && rx - dy <= maxLookUp    = rx - dy
+            -- If player is trying to look down too far, set rotation to maxLookDown.
+            | rx - dy < maxLookDown                             = maxLookDown
+            -- If player is trying to look up too far, set rotation to maxLookUp.
+            | rx - dy > maxLookUp                               = maxLookUp
+            -- I don't think this will ever happen.
+            | otherwise                                         = rx
 
+
+        -- Update inputLastMousePos
         newInput = (playerInput player){inputLastMousePos = curPos}
+
+        -- Return given player with modified rotation.
         newPosRot = (ppos, (newRx, newRy, rz))
     in player{playerPosRot = newPosRot, playerInput = newInput}
 
-
 playerKeyUpdate :: GameObject -> GameObject
-playerKeyUpdate p@(Player _ _ (Input ((_, isDown, func):xs) mouse lm) _ _) =
+playerKeyUpdate player=
+    (playerKeyUpdateTail player){playerInput = playerInput player}
+
+-- | Returns Player after applying all input functions.
+--   UNSAFE! Returns given player with an empty inputKeys!
+--   Use playerKeyUpdate instead.
+playerKeyUpdateTail :: GameObject -> GameObject
+playerKeyUpdateTail p@(Player _ (Input ((_, isDown, func):xs) mouse lm) _) =
     -- If the key is down, apply corresponding function to player
     let newPlayer = if isDown then func p else p
         retp = newPlayer{playerInput = Input xs mouse lm}
-    in playerKeyUpdate retp
-playerKeyUpdate p@(Player _ _ (Input [] _ _) _ _) = p
 
+    -- Give modified player to the function again, to recursively
+    -- apply each key update.
+    in playerKeyUpdateTail retp
+playerKeyUpdateTail p@(Player _ (Input [] _ _) _) = p
 
 testEntityRef :: IO (IORef GameObject)
 testEntityRef = newIORef testEntity
@@ -112,9 +116,6 @@ testEntity :: GameObject
 testEntity = Entity ((0, 0, -6), (0, 0, 0)) id eRender
     where
     eRender e@(Entity{}) = do
-        -- Make all changes not affect other objects
-        GL.glPushMatrix
-
         -- Translate Entity globally
         globalTranslate e
 
@@ -124,20 +125,16 @@ testEntity = Entity ((0, 0, -6), (0, 0, 0)) id eRender
         -- Render the array of triangles
         renderTriangles allPoints
 
-        GL.glPopMatrix
-        -- glFlush not necessary because of double buffering?
-        --GL.glFlush
-
+--------------------
 --- MAIN PROGRAM ---
+--------------------
 
 main :: IO ()
 main = do
     True <- GLFW.init
     
     -- Create a window and open it.
-    Just win <- GLFW.createWindow 800 600 "GLFW + Haskell" Nothing Nothing
-    GLFW.setWindowPos win 400 50
-    GLFW.makeContextCurrent (Just win)
+    win <- createGLFWWindow 800 600
 
     -- Initialize OpenGL.
     initGL win
@@ -171,7 +168,12 @@ main = do
         -- Swap the buffers
         GLFW.swapBuffers win
 
+    -- Close window. I don't think this will ever be called.
     shutdown win
+
+-----------------------------
+--- MAIN DRIVING FUNCTIONS ---
+------------------------------
 
 drawWorld :: World -> GLFW.WindowRefreshCallback
 drawWorld world _ = do
@@ -179,44 +181,39 @@ drawWorld world _ = do
     GL.glClear $ fromIntegral  $  GL.gl_COLOR_BUFFER_BIT
                               .|. GL.gl_DEPTH_BUFFER_BIT
 
-    -- Move and rotate Player
+    -- Reset Matrix.
     GL.glLoadIdentity
     player <- readIORef $ worldPlayer world
-
-    GL.glPushAttrib GL.gl_TRANSFORM_BIT
-
-    let (xr, yr, zr) = snd $ playerPosRot player
-    GL.glRotatef xr (-1) 0 0
-    GL.glRotatef yr 0 (-1) 0
-    GL.glRotatef zr 0 0 (-1)
-
-    let (x, y, z) = fst $ playerPosRot player
-    GL.glTranslatef (-x) (-y) (-z)
-
-    GL.glPopAttrib
-    --globalTranslate player
+    -- Move and rotate Player
+    applyTransformations player
 
     --playerRender player player
  
     -- TODO: make it safe for a world with a Nothing for entities.
     let (Just entities) = worldEntities world
 
-    let e1Ref = head entities
-    e1 <- readIORef e1Ref
-    entityRender e1 e1
+    -- Render all entities
+    renderObjectRefsSafe entities
 
 updateWorld :: World -> IO ()
 updateWorld world = do
+    -- Get worldSettings values
+    let settingsRef = worldSettings world
+    currentSettings <- readIORef settingsRef
+    
+    -- Update settingsTime values
+    let (_, lastTime) = settingsTime currentSettings
+    curTime <- systemTime
+    let newDelta = curTime - lastTime
+    writeIORef settingsRef currentSettings{settingsTime = (newDelta, curTime)}
+
     let playerRef = worldPlayer world
     player <- readIORef playerRef
     
     -- Update player
-    let tmpPlayer = (playerUpdate player player)
+    let tmpPlayer = moveWithDelta updateObject player newDelta
 
-    print $ inputMouseDelta $ playerInput tmpPlayer
-    --print $ inputLastMousePos $ playerInput tmpPlayer
-
-        -- Set mouse delta movement to 0
+    -- Set mouse delta movement to 0
     let pin = (playerInput tmpPlayer){inputMouseDelta = (0, 0)}
         newPlayer = tmpPlayer{playerInput = pin}
 
@@ -224,46 +221,11 @@ updateWorld world = do
     
     -- TODO: make it safe for a world with a Nothing for entities.
     let (Just entities) = worldEntities world
-    updateObjects entities
+    updateObjectRefs entities
 
-    
-initGL :: GLFW.Window -> IO ()
-initGL win = do
-    -- Enables smooth color shading.
-    GL.glShadeModel GL.gl_SMOOTH
-
-    -- Set "background color" to black
-    GL.glClearColor 0 0 0 0
-
-    -- Enables clearing of the depth buffer
-    GL.glClearDepth 1
-    -- Allow depth testing (3D)
-    GL.glEnable GL.gl_DEPTH_TEST
-    -- Tells OpenGL how to deal with overlapping shapes
-    GL.glDepthFunc GL.gl_LEQUAL
-
-    -- Tell OpenGL to use the nicest perspective correction.
-    -- The other choices are gl_FASTEST and gl_DONT_CARE.
-    GL.glHint GL.gl_PERSPECTIVE_CORRECTION_HINT GL.gl_NICEST
-
-    -- Do not render the backs of faces. Increases performance.
-    GL.glCullFace GL.gl_BACK
-
-    -- Call resize function.
-    (w,h) <- GLFW.getFramebufferSize win
-    resizeScene win w h
-
-resizeScene :: GLFW.WindowSizeCallback
-resizeScene win w 0 = resizeScene win w 1 -- prevent divide by zero
-resizeScene _ width height = do
-    GL.glViewport 0 0 (fromIntegral width) (fromIntegral height)
-    GL.glMatrixMode GL.gl_PROJECTION
-    GL.glLoadIdentity
-    gluPerspective 45 (fromIntegral width/fromIntegral height) 0.1 100
-    GL.glMatrixMode GL.gl_MODELVIEW
-    GL.glLoadIdentity
-    -- glFlush not necessary because of double buffering?
-    --GL.glFlush
+--------------------------
+--- CALLBACK FUNCTIONS ---
+--------------------------
 
 shutdown :: GLFW.WindowCloseCallback
 shutdown win = do
@@ -273,7 +235,13 @@ shutdown win = do
     return ()
 
 keyPressed :: IORef GameObject -> GLFW.KeyCallback
-keyPressed _ win GLFW.Key'Escape _ GLFW.KeyState'Pressed _ = shutdown win
+keyPressed _ win GLFW.Key'Escape _ GLFW.KeyState'Pressed _ = do
+    currentCursorMode <- GLFW.getCursorInputMode win
+    if currentCursorMode == GLFW.CursorInputMode'Disabled
+        then GLFW.setCursorInputMode win GLFW.CursorInputMode'Normal
+    else GLFW.setCursorInputMode win GLFW.CursorInputMode'Disabled
+
+--shutdown win
 keyPressed playerRef _ k _ state _ = do
     player <- readIORef playerRef
     let input = playerInput player
@@ -294,44 +262,6 @@ cursorMove playerRef _ x y = do
     player <- (readIORef playerRef)
     let input = playerInput player
 
-    let (xi, yi) = inputLastMousePos input --inputMouseDelta input
+    let (xi, yi) = inputLastMousePos input
     let newInput = input{inputMouseDelta = (realToFrac x - xi, realToFrac y - yi)}
     writeIORef playerRef player{playerInput = newInput}
-
---- HELPERS ---
-
-renderTrianglesColor :: [Vertex] -> IO ()
-renderTrianglesColor verts = do
-    GL.glBegin GL.gl_TRIANGLES
-    callVerts verts
-    GL.glEnd
-
-    where
-    callVerts (((x, y, z), (r, g, b)):xs) = do
-        GL.glColor3f r g b
-        GL.glVertex3f x y z
-        callVerts xs
-    callVerts [] = return ()
-
-renderTriangles :: [Vec3] -> IO ()
-renderTriangles verts = do
-    GL.glBegin GL.gl_TRIANGLES
-    callVerts verts
-    GL.glEnd
-
-    where
-    callVerts ((x, y, z):xs) = do
-        GL.glVertex3f x y z
-        callVerts xs
-    callVerts [] = return ()
-
-
-{-
-fArray :: Storable a => [a] -> IO (ForeignPtr a)
-fArray xs = (newArray xs) >>= newForeignPtr_
-
-infixr 2 |*|
--- | A more natural way to use withForeignPtr
-(|*|) :: (Ptr a -> IO b) -> ForeignPtr a -> IO b
-(|*|) action fptr = withForeignPtr fptr action
--}
