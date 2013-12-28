@@ -17,6 +17,7 @@ data Object = Player {
 } | Entity {
     entityPosition :: Vec3,
     entityVBO :: GL.BufferObject,
+    entityVBOLength :: GLint,
     entityEBO :: GL.BufferObject,
     entityShaders :: Shaders
 }

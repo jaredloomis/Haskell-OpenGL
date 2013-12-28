@@ -1,16 +1,12 @@
 module Main where
 
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
---import Control.Monad (when)
 import Control.Applicative ((<$>), (<*>))
 import System.FilePath ((</>))
 
 import qualified Graphics.UI.GLFW as GLFW
 
 import qualified Graphics.Rendering.OpenGL as GL
---import qualified Graphics.Rendering.GLU.Raw as GLU
-
---import Graphics.Rendering.OpenGL (($=))
 import Graphics.Rendering.OpenGL.Raw
 
 import qualified Graphics.GLUtil as GU
@@ -24,14 +20,30 @@ import Object
 
 main :: IO ()
 main = do
+    -- Does not work for all systems, but asks the OS or WM
+    -- to disable resizing of the window. Does not work on
+    -- Arch Linux 64 with XFCE/XFWM.
+    GLFW.windowHint $ GLFW.WindowHint'Resizable False
+    -- Initialize GLFW, create a window, open it.
     win <- createGLFWWindow 800 600
+    -- Perform some intitial OpenGL configurations.
     initGL win
+
+    -- Create an IORef of an Entity.
     object <- mkObj >>= newIORef
+    -- Create an IORef of a Player.
     player <- newIORef mkPlayer
+    -- Create world with given Objects.
     let world = World player [object]
 
+    -- Register the function to do all OpenGL drawing.
+    -- TODO: Should I remove this?
+    GLFW.setWindowRefreshCallback win (Just (renderWorld world))
+    -- Register the function called when the keyboard is pressed.
     GLFW.setKeyCallback win (Just $ keyPressed (worldPlayer world))
+    -- Register the function called when our window is resized.
     GLFW.setFramebufferSizeCallback win (Just resizeScene)
+    -- Register the function called when cursor moves.
     GLFW.setCursorPosCallback win (Just $ cursorMove player)
 
     -- Make cursor Hidden
@@ -42,32 +54,38 @@ main = do
     
     where
         loop win world = do
+            -- Clear screen.
             GL.clear [GL.ColorBuffer, GL.DepthBuffer]
+            -- Check if any events have occured.
             GLFW.pollEvents
+
+            -- Perform logic update on the world.
             updateWorld world
-            renderWorld world
+            -- Render objects in world.
+            renderWorld world win
+
+            -- Swap back and front buffer.
             GLFW.swapBuffers win
+
+            -- Do I need this?
+            --threadDelay 10000
+
             loop win world
 
-renderWorld :: World -> IO ()
-renderWorld world = do
+renderWorld :: World -> GLFW.Window -> IO ()
+renderWorld world _ = do
+    -- Reset the matrix to a default state.
     glLoadIdentity
     -- Apply player's transformations.
     readIORef (worldPlayer world) >>= applyTransformations
 
     -- Render all entities.
-    renderObjectsVerts (worldEntities world)
+    renderObjectsVAO (worldEntities world)
 
 updateWorld :: World -> IO ()
 updateWorld world = do
     let playerRef = worldPlayer world
     player <- readIORef playerRef
-
-    putStr "Position: "
-    print $ playerPosition player
-
-    putStr "Rotation: "
-    print $ playerRotation player
 
     -- Update Player and Set mouse delta movement to 0
     let tmpPlayer = updateObject player
@@ -79,7 +97,8 @@ updateWorld world = do
 mkObj :: IO Object
 mkObj =
     Entity (0, 0, -3)
-        <$> GU.makeBuffer GL.ArrayBuffer vertexBufferData
+        <$> GU.makeBuffer GL.ArrayBuffer vertexBufferDataWithNormals
+        <*> return 3
         <*> GU.makeBuffer GL.ElementArrayBuffer [0..3 :: GLuint]
         <*> createShaders
                 ("shaders" </> "hello-gl.vert")
@@ -100,6 +119,8 @@ cursorMove playerRef _ x y = do
     let newInput = input{inputMouseDelta = (realToFrac x - xi, realToFrac y - yi)}
     writeIORef playerRef player{playerInput = newInput}
 
+-- | Special case for Escape Key, not necessary to give info
+--   to the Player.
 keyPressed :: IORef Object -> GLFW.KeyCallback
 keyPressed _ win GLFW.Key'Escape _ GLFW.KeyState'Pressed _ = do
     currentCursorMode <- GLFW.getCursorInputMode win

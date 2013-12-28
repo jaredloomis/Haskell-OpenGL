@@ -1,7 +1,8 @@
-#version 110
+#version 330 core
+layout(location = 0) in vec3 position;
 
-attribute vec3 position;
-attribute vec3 normal;
+//in vec3 position;
+in vec3 normal;
 
 void main()
 {

@@ -127,6 +127,69 @@ renderObjects (objectRef:objects) = do
 
 renderObjects [] = return ()
 
+renderObjectsVAO :: [IORef Object] -> IO ()
+renderObjectsVAO (objectRef:objects) = do
+    object <- readIORef objectRef
+    let 
+        -- Object's position
+        (objx, objy, objz) = entityPosition object
+        -- Size of each Vec3 in memory.
+        stride = fromIntegral $ sizeOf (undefined::GLfloat) * 5
+        -- Offset of normals in memory
+        normalOffset = GU.offsetPtr $ 3 * sizeOf (undefined::GLfloat)
+
+    -- Begin some transformations that will not affect the
+    -- entire matrix.
+    glPushMatrix
+
+    -- Move Object
+    glTranslatef objx objy objz
+
+    -- Use object's shader
+    GL.currentProgram $= Just (shadersProgram (entityShaders object))
+
+    -- Enable the 1st attribute buffer, vertices.
+    glEnableVertexAttribArray 0
+    -- Give OpenGL the object's VBO.
+    GL.bindBuffer GL.ArrayBuffer $= Just (entityVBO object)
+
+    glVertexAttribPointer 0 3 gl_FLOAT 0 stride GU.offset0
+    glDrawArrays gl_TRIANGLES 0 (entityVBOLength object)
+    glDisableVertexAttribArray 0
+{-
+    -- Tell OpenGL how to read the data.
+    glVertexPointer 3 gl_FLOAT stride GU.offset0
+    glNormalPointer gl_FLOAT stride normalOffset
+
+    -- "Turn on" drawing of vertices and normals.
+    glEnableClientState gl_VERTEX_ARRAY
+    glEnableClientState gl_NORMAL_ARRAY
+
+    -- Use indexing via the ElementArrayBuffer. This makes connected
+    -- faces share sides, which increases performance.
+    --GL.bindBuffer GL.ElementArrayBuffer $= Just (objectEBO object)
+
+    -- Perform the drawing.
+    --GL.drawElements GL.Triangles 3 GL.UnsignedInt GU.offset0
+    glDrawArrays gl_TRIANGLES 0 6
+
+    -- "Turn on" drawing of vertices and normals.
+    glDisableClientState gl_VERTEX_ARRAY
+    glDisableClientState gl_NORMAL_ARRAY
+-}
+    -- Disable the object's shader.
+    GL.currentProgram $= Nothing
+
+    -- End transformations so that later commands are not
+    -- affected.
+    glPopMatrix
+
+    -- Do the same with the remaining objects.
+    renderObjectsVAO objects
+
+renderObjectsVAO [] = return ()
+
+
 -------------------------------
 -- UTILITY / SETUP FUNCTIONS --
 -------------------------------
