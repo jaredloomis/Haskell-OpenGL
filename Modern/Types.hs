@@ -27,9 +27,12 @@ data Model = Model {
 }
 -}
 data Model = Model {
-    modelShader :: GL.Program,
-    modelAttribLocs :: [GL.AttribLocation],
+    --modelShader :: GL.Program,
+    modelShader :: GLuint,
+    --modelAttribLocs :: [GL.AttribLocation],
+    modelAttribLocs :: [GLuint],
     modelBuffers :: [GL.BufferObject],
+    bufferIds :: [GLuint],
     modelVertCount :: GLint
 }
 

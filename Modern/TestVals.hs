@@ -41,36 +41,23 @@ mkObj :: IO Object
 mkObj =
     Entity (0, 0, -3) <$> mkModel
 
-{-
-mkModel :: IO Model
-mkModel =
-    Model
-        <$> GU.makeBuffer GL.ArrayBuffer vertexBufferData
-        <*> GU.makeBuffer GL.ArrayBuffer normalBufferData
-        <*> GU.makeBuffer GL.ArrayBuffer colorBufferData
-        <*> return 3
-        <*> createShaders
-                ("shaders" </> "hello-gl.vert")
-                ("shaders" </> "hello-gl.frag")
-                "position"
-                "normal"
-                "color"
--}
-
 mkModel :: IO Model
 mkModel = do
-    vb <- GU.makeBuffer GL.ArrayBuffer vertexBufferData
-    nb <- GU.makeBuffer GL.ArrayBuffer normalBufferData
-    cb <- GU.makeBuffer GL.ArrayBuffer colorBufferData
+    --vb <- GU.makeBuffer GL.ArrayBuffer vertexBufferData
+    --nb <- GU.makeBuffer GL.ArrayBuffer normalBufferData
+    --cb <- GU.makeBuffer GL.ArrayBuffer colorBufferData
 
     createModel 
         ("shaders" </> "hello-gl.vert")
         ("shaders" </> "hello-gl.frag")
         ["position", "normal", "color"]
-        [vb, nb, cb]
+        --[vb, nb, cb]
+        [vertexBufferData, normalBufferData, colorBufferData]
         3
 
 
+---------
+---------
 
 createSuperShaders ::
     FilePath ->  -- ^ Vertex Shader.
