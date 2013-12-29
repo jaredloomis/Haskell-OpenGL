@@ -16,10 +16,21 @@ data Object = Player {
     playerInput :: Input
 } | Entity {
     entityPosition :: Vec3,
-    entityVBO :: GL.BufferObject,
-    entityVBOLength :: GLint,
-    entityEBO :: GL.BufferObject,
-    entityShaders :: Shaders
+    entityModel :: Model
+}
+
+{-
+data Model = Model {
+    modelVertices, modelNormals, modelColors :: GL.BufferObject,
+    modelVerticesCount :: GLint,
+    modelShaders :: Shaders
+}
+-}
+data Model = Model {
+    modelShader :: GL.Program,
+    modelAttribLocs :: [GL.AttribLocation],
+    modelBuffers :: [GL.BufferObject],
+    modelVertCount :: GLint
 }
 
 data Input = Input {
@@ -31,7 +42,8 @@ data Input = Input {
 data Shaders = Shaders {
     shadersProgram :: GL.Program,
     shadersVertices :: GL.AttribLocation,
-    shadersNormals :: GL.AttribLocation
+    shadersNormals :: GL.AttribLocation,
+    shadersColors :: GL.AttribLocation
 }
 
 data World = World {

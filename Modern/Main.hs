@@ -1,15 +1,15 @@
 module Main where
 
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
-import Control.Applicative ((<$>), (<*>))
-import System.FilePath ((</>))
+-- import Control.Applicative ((<$>), (<*>))
+-- import System.FilePath ((</>))
 
 import qualified Graphics.UI.GLFW as GLFW
 
 import qualified Graphics.Rendering.OpenGL as GL
 import Graphics.Rendering.OpenGL.Raw
 
-import qualified Graphics.GLUtil as GU
+-- import qualified Graphics.GLUtil as GU
 
 import Types
 import Util
@@ -80,7 +80,8 @@ renderWorld world _ = do
     readIORef (worldPlayer world) >>= applyTransformations
 
     -- Render all entities.
-    renderObjectsVAO (worldEntities world)
+    --renderObjectsVAO2 (worldEntities world)
+    ss1 >>= renderSO
 
 updateWorld :: World -> IO ()
 updateWorld world = do
@@ -93,18 +94,6 @@ updateWorld world = do
         newPlayer = tmpPlayer{playerInput = pin}
 
     writeIORef playerRef newPlayer
-
-mkObj :: IO Object
-mkObj =
-    Entity (0, 0, -3)
-        <$> GU.makeBuffer GL.ArrayBuffer vertexBufferDataWithNormals
-        <*> return 3
-        <*> GU.makeBuffer GL.ElementArrayBuffer [0..3 :: GLuint]
-        <*> createShaders
-                ("shaders" </> "hello-gl.vert")
-                ("shaders" </> "hello-gl.frag")
-                "position"
-                "normal"
 
 ---------------
 -- CALLBACKS --
@@ -121,6 +110,7 @@ cursorMove playerRef _ x y = do
 
 -- | Special case for Escape Key, not necessary to give info
 --   to the Player.
+--   TODO: Give it to Player for pausing. Or something.
 keyPressed :: IORef Object -> GLFW.KeyCallback
 keyPressed _ win GLFW.Key'Escape _ GLFW.KeyState'Pressed _ = do
     currentCursorMode <- GLFW.getCursorInputMode win
