@@ -8,6 +8,6 @@
   - [Yampa](http://www.haskell.org/haskellwiki/Yampa)
   - [Reactive-banana](http://www.haskell.org/haskellwiki/Reactive-banana) - Used more for GUI, still a possibility. [Good tutorial blog](http://alfredodinapoli.wordpress.com/2011/12/24/functional-reactive-programming-kick-starter-guide/) [Good Tutorial / Explanation of FRP](http://www.haskell.org/haskellwiki/FRP_explanation_using_reactive-banana). Recent versions have time leaks and/or space leaks?
 
-<h2>TODO</h2>
+<h2>Todo</h2>
 - Add possibility for uniforms in World data types, like attributes.
 - Make it so that attribute vars in World data type can be of any type and length.
