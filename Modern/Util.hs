@@ -11,8 +11,8 @@ import qualified Graphics.Rendering.OpenGL as GL
 
 import qualified Graphics.GLUtil as GU
 
-import Graphics
 import Types
+import Shaders
 
 ------------------
 -- OPENGL STUFF --
@@ -74,45 +74,37 @@ shutdown win = do
 ---
 
 createModel ::
-    FilePath ->  -- ^ Vertex Shader.
-    FilePath ->  -- ^ Fragment Shader.
-    [String] ->  -- ^ Attribute Variable names.
-    --[GL.BufferObject] ->  -- ^ Corresponding values for attributes.
-    [[GLfloat]] ->
-    GLint ->  -- ^ Number of vertices.
+    FilePath ->     -- ^ Vertex Shader.
+    FilePath ->     -- ^ Fragment Shader.
+    [String] ->     -- ^ Attribute Variable names.
+    [[GLfloat]] ->  -- ^ List containing all the lists of values.
+                    --   (vertices, normals, etc).
+    GLint ->        -- ^ Number of vertices.
     IO Model
 createModel vert frag attrNames buffData vertCount = do
-    program <- loadProgram vert frag--createShaderProgram vert frag
+    program <- loadProgram vert frag
     attribs <- createAttribs program attrNames
     ids <- idAll buffData
-    buffers <- makeBuffers buffData
-    return $ Model program attribs buffers ids vertCount
+    return $ Model program attribs ids vertCount
 
-    where
-{-
-        createAttribs :: GL.Program -> [String] -> IO [GL.AttribLocation]
-        createAttribs prog (attrName:xs) = do
-            cur <- GL.get (GL.attribLocation prog attrName)
-            rest <- createAttribs prog xs
-            return $ cur:rest
-        createAttribs _ [] = return []
--}
-        createAttribs :: GLuint -> [String] -> IO [GLuint]
-        createAttribs prog (attrName:xs) = do
-            --cur <- GL.get (GL.attribLocation prog attrName)
-            --rest <- createAttribs prog xs
-            curN <- withCString attrName $ glGetAttribLocation prog
-            let cur = fromIntegral curN
-            rest <- createAttribs prog xs
-            return $ cur:rest
-        createAttribs _ [] = return []
+--------------------
+--- BUFFER UTILS ---
+--------------------
 
-        idAll :: [[GLfloat]] -> IO [GLuint]
-        idAll (cur:others) = do
-            currentId <- bufferId cur
-            otherId <- idAll others
-            return $ currentId:otherId
-        idAll [] = return []
+idAll :: [[GLfloat]] -> IO [GLuint]
+idAll (cur:others) = do
+    currentId <- bufferId cur
+    otherId <- idAll others
+    return $ currentId:otherId
+idAll [] = return []
+
+createAttribs :: GLuint -> [String] -> IO [GLuint]
+createAttribs prog (attrName:xs) = do
+    curN <- withCString attrName $ glGetAttribLocation prog
+    let cur = fromIntegral curN
+    rest <- createAttribs prog xs
+    return $ cur:rest
+createAttribs _ [] = return []
 
 makeBuffers :: [[GLfloat]] -> IO [GL.BufferObject]
 makeBuffers (cur:rest) = do
@@ -120,30 +112,6 @@ makeBuffers (cur:rest) = do
     restBuffer <- makeBuffers rest
     return $ curBuffer:restBuffer
 makeBuffers [] = return []
-
-loadProgram :: FilePath -> FilePath -> IO GLuint
-loadProgram vertFP fragFP = do
-    shaderIds <- mapM (uncurry loadShader)
-        [(gl_VERTEX_SHADER, vertFP)
-        ,(gl_FRAGMENT_SHADER, fragFP)]
-    progId <- glCreateProgram
-    mapM_ (glAttachShader progId) shaderIds
-    glLinkProgram progId
-    --checkStatus gl_LINK_STATUS glGetProgramiv glGetProgramInfoLog progId
-    mapM_ glDeleteShader shaderIds
-    return progId
-
-loadShader :: GLenum -> FilePath -> IO GLuint
-loadShader shaderTypeFlag filePath = do
-    code <- readFile filePath
-    sid <- glCreateShader shaderTypeFlag
-    withCString code $ \codePtr ->
-        with codePtr $ \codePtrPtr ->
-            glShaderSource sid 1 codePtrPtr nullPtr
-    -- ?log $ "Compiling shader: " ++ filePath
-    glCompileShader sid
-    --checkStatus gl_COMPILE_STATUS glGetShaderiv glGetShaderInfoLog id
-    return sid
 
 bufferId :: [GLfloat] -> IO GLuint
 bufferId info = do

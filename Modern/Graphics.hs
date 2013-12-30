@@ -1,29 +1,77 @@
 module Graphics where
 
-import Foreign.Storable (sizeOf)
-import Control.Applicative ((<$>), (<*>))
-import Data.IORef (IORef, newIORef, readIORef, writeIORef)
+import Data.IORef (IORef, readIORef)
 
 import qualified Graphics.UI.GLFW as GLFW
 
-import qualified Graphics.Rendering.OpenGL as GL
 import qualified Graphics.Rendering.GLU.Raw as GLU
-import Graphics.Rendering.OpenGL (($=))
 import Graphics.Rendering.OpenGL.Raw
 
 import qualified Graphics.GLUtil as GU
 
 import Types
+import Util
+import Shaders
+
 
 -----------------------------
 -- GENERAL RENDERING FUNCS --
 -----------------------------
 
-renderObjects :: [IORef Object] -> IO ()
-renderObjects (objectRef:rest) = do
+-- | Render all entities in the world.
+--   Uses the attributes specified by the world
+--   as well as ones specified by individual
+--   objects.
+renderWorld :: World -> IO ()
+renderWorld world 
+    -- If the array of entities is empty, the
+    -- function is done.
+    | null $ worldEntities world = return ()
+
+    | otherwise = do
+    let objectRef = head $ worldEntities world
     object <- readIORef objectRef
     let model = entityModel object
         (objx, objy, objz) = entityPosition object
+
+    -- Begin a state where transformations remain in affect
+    -- only until glPopMatrix is called.
+    glPushMatrix
+
+    -- Move Object
+    glTranslatef objx objy objz
+
+    -- Use object's shader
+    glUseProgram $ modelShader model
+
+    -- Bind buffers to variable names in shader.
+    bindAll (modelBufferIds model) (modelAttribLocs model)
+    bindWorld world $ modelShader model
+
+    -- Do the drawing.
+    glDrawArrays gl_TRIANGLES 0 (modelVertCount model)
+
+    -- Turn off VBO/VAO
+    glDisableVertexAttribArray 0
+
+    -- Disable the object's shader.
+    glUseProgram 0
+
+    -- End transformations so that later commands are not
+    -- affected.
+    glPopMatrix
+
+    -- Continue rendering the rest of the entities in the world.
+    renderWorld (world{worldEntities = tail $ worldEntities world})
+
+-- | Render all entities in the list.
+--   Uses the attributes specified by
+--   individual objects.
+renderObjects :: [IORef Object] -> IO ()
+renderObjects (objectRef:rest) = do
+    obj <- readIORef objectRef
+    let model = entityModel obj
+        (objx, objy, objz) = entityPosition obj
 
     glPushMatrix
 
@@ -31,10 +79,9 @@ renderObjects (objectRef:rest) = do
     glTranslatef objx objy objz
 
     -- Use object's shader
-    --GL.currentProgram $= Just (modelShader model)
     glUseProgram $ modelShader model
 
-    bindAll (bufferIds model) (modelAttribLocs model) 0
+    bindAll (modelBufferIds model) (modelAttribLocs model)
 
     -- Do the drawing.
     glDrawArrays gl_TRIANGLES 0 (modelVertCount model)
@@ -42,7 +89,6 @@ renderObjects (objectRef:rest) = do
     glDisableVertexAttribArray 0
 
     -- Disable the object's shader.
-    --GL.currentProgram $= Nothing
     glUseProgram 0
 
     -- End transformations so that later commands are not
@@ -50,21 +96,28 @@ renderObjects (objectRef:rest) = do
     glPopMatrix
 
     renderObjects rest
-    
-    where
-        bindAll :: [GLuint] -> [GLuint] -> GLuint -> IO ()
-        bindAll (curId:otherIds) (attribLoc:otherLocs) i = do
-            -- Enable the 1st attribute buffer, vertices.
-            glEnableVertexAttribArray attribLoc
-            -- Give OpenGL the object's vertices.
-            --GL.bindBuffer GL.ArrayBuffer $= Just bufferObj
-            glBindBuffer gl_ARRAY_BUFFER curId
-            -- Tell OpenGL about the info.
-            glVertexAttribPointer i 3 gl_FLOAT 0 0 GU.offset0
-            bindAll otherIds otherLocs (i+1)
-        bindAll _ [] _ = return ()
 
 renderObjects [] = return ()
+
+bindWorld :: World -> GLuint -> IO ()
+bindWorld world shader = do
+    let attribNames = worldAttribNames world
+        ids = worldBufferIds world
+    attribs <- createAttribs shader attribNames
+    bindAll ids attribs
+
+bindAllW :: [GLuint] -> [GLuint] -> IO ()
+bindAllW (curId:otherIds) (attribLoc:otherLocs) = do
+    -- Enable the 1st attribute buffer, vertices.
+    glEnableVertexAttribArray attribLoc
+    -- Give OpenGL the object's vertices.
+    --GL.bindBuffer GL.ArrayBuffer $= Just bufferObj
+    glBindBuffer gl_ARRAY_BUFFER curId
+    -- Tell OpenGL about the info.
+    glVertexAttribPointer attribLoc 1 gl_FLOAT 0 0 GU.offset0
+    bindAllW otherIds otherLocs
+bindAllW _ [] = return ()
+
 
 -------------------------------
 -- UTILITY / SETUP FUNCTIONS --
@@ -102,27 +155,15 @@ resizeScene :: GLFW.WindowSizeCallback
 -- Prevent divide by 0
 resizeScene win w 0 = resizeScene win w 1
 resizeScene _ width height = do
+    -- Make viewport the same size as the screen.
     glViewport 0 0 (fromIntegral width) (fromIntegral height)
+
+    -- Apply projection matrix, load identity, and
+    -- apply perspective.
     glMatrixMode gl_PROJECTION
     glLoadIdentity
     GLU.gluPerspective 45 (fromIntegral width/fromIntegral height) 0.1 100
+
+    -- Go back to default modelview matrix and load identity.
     glMatrixMode gl_MODELVIEW
     glLoadIdentity
-
-------------------
--- SHADER UTILS --
-------------------
-
-createShaders :: FilePath -> FilePath -> String -> String -> String -> IO Shaders
-createShaders vert frag vertsVar normsVar colorVar = do
-    prog <- createShaderProgram vert frag
-    Shaders prog
-        <$> GL.get (GL.attribLocation prog vertsVar)
-        <*> GL.get (GL.attribLocation prog normsVar)
-        <*> GL.get (GL.attribLocation prog colorVar)
-
-createShaderProgram :: FilePath -> FilePath -> IO GL.Program
-createShaderProgram vert frag = do
-    vs <- GU.loadShader GL.VertexShader vert
-    fs <- GU.loadShader GL.FragmentShader frag
-    GU.linkShaderProgram [vs, fs]

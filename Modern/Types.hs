@@ -19,20 +19,10 @@ data Object = Player {
     entityModel :: Model
 }
 
-{-
 data Model = Model {
-    modelVertices, modelNormals, modelColors :: GL.BufferObject,
-    modelVerticesCount :: GLint,
-    modelShaders :: Shaders
-}
--}
-data Model = Model {
-    --modelShader :: GL.Program,
     modelShader :: GLuint,
-    --modelAttribLocs :: [GL.AttribLocation],
     modelAttribLocs :: [GLuint],
-    modelBuffers :: [GL.BufferObject],
-    bufferIds :: [GLuint],
+    modelBufferIds :: [GLuint],
     modelVertCount :: GLint
 }
 
@@ -51,5 +41,7 @@ data Shaders = Shaders {
 
 data World = World {
     worldPlayer :: IORef Object,
-    worldEntities :: [IORef Object]
+    worldEntities :: [IORef Object],
+    worldAttribNames :: [String],
+    worldBufferIds :: [GLuint]
 }

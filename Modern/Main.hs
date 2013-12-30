@@ -1,15 +1,11 @@
 module Main where
 
-import Data.IORef (IORef, newIORef, readIORef, writeIORef)
--- import Control.Applicative ((<$>), (<*>))
--- import System.FilePath ((</>))
+import Data.IORef (IORef, readIORef, writeIORef)
 
 import qualified Graphics.UI.GLFW as GLFW
 
 import qualified Graphics.Rendering.OpenGL as GL
 import Graphics.Rendering.OpenGL.Raw
-
--- import qualified Graphics.GLUtil as GU
 
 import Types
 import Util
@@ -29,22 +25,19 @@ main = do
     -- Perform some intitial OpenGL configurations.
     initGL win
 
-    -- Create an IORef of an Entity.
-    object <- mkObj >>= newIORef
-    -- Create an IORef of a Player.
-    player <- newIORef mkPlayer
-    -- Create world with given Objects.
-    let world = World player [object]
+    -- Create default world with a Player
+    -- and one Entity.
+    world <- mkWorld
 
     -- Register the function to do all OpenGL drawing.
     -- TODO: Should I remove this?
-    GLFW.setWindowRefreshCallback win (Just (renderWorld world))
+    GLFW.setWindowRefreshCallback win (Just (renderStep world))
     -- Register the function called when the keyboard is pressed.
     GLFW.setKeyCallback win (Just $ keyPressed (worldPlayer world))
     -- Register the function called when our window is resized.
     GLFW.setFramebufferSizeCallback win (Just resizeScene)
     -- Register the function called when cursor moves.
-    GLFW.setCursorPosCallback win (Just $ cursorMove player)
+    GLFW.setCursorPosCallback win (Just $ cursorMove $ worldPlayer world)
 
     -- Make cursor Hidden
     GLFW.setCursorInputMode win GLFW.CursorInputMode'Disabled
@@ -60,9 +53,9 @@ main = do
             GLFW.pollEvents
 
             -- Perform logic update on the world.
-            updateWorld world
+            updateStep world
             -- Render objects in world.
-            renderWorld world win
+            renderStep world win
 
             -- Swap back and front buffer.
             GLFW.swapBuffers win
@@ -72,19 +65,19 @@ main = do
 
             loop win world
 
-renderWorld :: World -> GLFW.Window -> IO ()
-renderWorld world _ = do
+renderStep :: World -> GLFW.Window -> IO ()
+renderStep world _ = do
     -- Reset the matrix to a default state.
     glLoadIdentity
+
     -- Apply player's transformations.
     readIORef (worldPlayer world) >>= applyTransformations
 
     -- Render all entities.
-    --renderObjectsVAO2 (worldEntities world)
-    ss1 >>= renderSO
+    renderWorld world
 
-updateWorld :: World -> IO ()
-updateWorld world = do
+updateStep :: World -> IO ()
+updateStep world = do
     let playerRef = worldPlayer world
     player <- readIORef playerRef
 
@@ -101,7 +94,7 @@ updateWorld world = do
 
 cursorMove :: IORef Object -> GLFW.CursorPosCallback
 cursorMove playerRef _ x y = do
-    player <- (readIORef playerRef)
+    player <- readIORef playerRef
     let input = playerInput player
 
     let (xi, yi) = inputLastMousePos input
@@ -114,9 +107,10 @@ cursorMove playerRef _ x y = do
 keyPressed :: IORef Object -> GLFW.KeyCallback
 keyPressed _ win GLFW.Key'Escape _ GLFW.KeyState'Pressed _ = do
     currentCursorMode <- GLFW.getCursorInputMode win
-    if currentCursorMode == GLFW.CursorInputMode'Disabled
-        then GLFW.setCursorInputMode win GLFW.CursorInputMode'Normal
-    else GLFW.setCursorInputMode win GLFW.CursorInputMode'Disabled
+    GLFW.setCursorInputMode win $
+        if currentCursorMode == GLFW.CursorInputMode'Disabled
+            then GLFW.CursorInputMode'Normal
+        else GLFW.CursorInputMode'Disabled
 
 keyPressed playerRef _ k _ state _ = do
     player <- readIORef playerRef
@@ -132,5 +126,5 @@ keyPressed playerRef _ k _ state _ = do
                 newIn = Input (map (\w@(ckey, _, func) ->
                     if ckey == key
                         then (key, isPressed, func)
-                    else w) $ keyMap) mouse lm
+                    else w) keyMap) mouse lm
             in newIn
