@@ -77,20 +77,20 @@ shutdown win = do
 createModel ::
     FilePath ->     -- ^ Vertex Shader.
     FilePath ->     -- ^ Fragment Shader.
-    FilePath ->     -- ^ Image File.
+    [FilePath] ->   -- ^ Image Files.
     [String] ->     -- ^ Attribute Variable names.
     [[GLfloat]] ->  -- ^ List containing all the lists of values.
                     --   (vertices, normals, etc).
     GLint ->        -- ^ Number of vertices.
     IO Model
-createModel vert frag image attrNames buffData vertCount = do
+createModel vert frag images attrNames buffData vertCount = do
     program <- loadProgram vert frag
     attribs <- createAttribs program attrNames
     ids <- idAll buffData
-    textureObj <- loadGLTextures image
+    textureObjs <- loadGLTextures images
     let lens = lengthAll buffData
         sAttribs = createShaderAttribs attribs ids lens
-    return $ Model program sAttribs [textureObj] vertCount
+    return $ Model program sAttribs textureObjs vertCount
 
 --------------------
 --- BUFFER UTILS ---

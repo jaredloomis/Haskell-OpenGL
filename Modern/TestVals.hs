@@ -67,7 +67,7 @@ mkModel =
     createModel 
         ("shaders" </> "hello-gl.vert")
         ("shaders" </> "hello-gl.frag")
-        ("res" </> "cube.bmp")
+        [("res" </> "cube.bmp")]
         ["position", "normal", "color", "texCoord", "textId"]
         [vertexBufferData, normalBufferData, colorBufferData, textureBufferData, 
          textureIdBufferData]
@@ -78,12 +78,12 @@ mkModel2 =
     createModel 
         ("shaders" </> "hello-gl.vert")
         ("shaders" </> "hello-gl.frag")
-        ("res" </> "Crate.bmp")
+        [("res" </> "Crate.bmp")]
         ["position", "normal", "color", "texCoord", "textId"]
         [vertexBufferData, normalBufferData, colorBufferData, textureBufferData, 
          textureIdBufferData]
         3
 
 
-testTexture :: IO GL.TextureObject
-testTexture = loadGLTextures $ "res" </> "Crate.bmp"
+--testTexture :: IO GL.TextureObject
+--testTexture = loadGLTextures $ "res" </> "Crate.bmp"

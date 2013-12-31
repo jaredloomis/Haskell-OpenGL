@@ -23,8 +23,23 @@ import Types
 data Endian = LittleEndian | BigEndian
               deriving (Eq, Ord, Show)
 
-loadGLTextures :: FilePath -> IO GL.TextureObject
-loadGLTextures file = do
+loadGLTextures :: [FilePath] -> IO [GL.TextureObject]
+loadGLTextures files = loadGLTexturesIndex files 0
+
+loadGLTexturesIndex :: [FilePath] -> Integer -> IO [GL.TextureObject]
+loadGLTexturesIndex (file:others) i = do
+    (Image (Size w h) pd) <- bitmapLoad file
+    texName <- liftM head (GL.genObjectNames 1)
+    GL.textureBinding GL.Texture2D $= Just texName
+    GL.textureFilter GL.Texture2D $= ((GL.Nearest, Nothing), GL.Nearest)
+    GL.texImage2D GL.Texture2D GL.NoProxy (fromIntegral i) GL.RGB' (GL.TextureSize2D w h) 0 pd
+    
+    texNames <- loadGLTexturesIndex others (i+1)
+    return $ texName:texNames
+loadGLTexturesIndex [] _ = return []
+
+loadGLTexture :: FilePath -> IO GL.TextureObject
+loadGLTexture file = do
     (Image (Size w h) pd) <- bitmapLoad file
     texName <- liftM head (GL.genObjectNames 1)
     GL.textureBinding GL.Texture2D $= Just texName
