@@ -86,3 +86,6 @@ bindUniforms shader ((name, len, vals):xs) = do
 
     bindUniforms shader xs
 bindUniforms _ [] = return ()
+
+quickGetUniform :: GLuint -> String -> IO GLint
+quickGetUniform shader name = withCString name $ glGetUniformLocation shader

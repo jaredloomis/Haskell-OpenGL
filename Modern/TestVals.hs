@@ -4,11 +4,13 @@ import Control.Applicative ((<$>), (<*>))
 import System.FilePath ((</>))
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 
+import qualified Graphics.Rendering.OpenGL as GL
 import Graphics.Rendering.OpenGL.Raw
 
 import Types
 import Util
 import Player
+import Textures
 
 vertexBufferData :: [GLfloat]
 vertexBufferData = [0, 0, 0,
@@ -58,6 +60,10 @@ mkModel =
     createModel 
         ("shaders" </> "hello-gl.vert")
         ("shaders" </> "hello-gl.frag")
+        ("res" </> "Crate.bmp")
         ["position", "normal", "color", "texCoord"]
         [vertexBufferData, normalBufferData, colorBufferData, textureBufferData]
         3
+
+testTexture :: IO GL.TextureObject
+testTexture = loadGLTextures $ "res" </> "Crate.bmp"

@@ -12,7 +12,9 @@ layout(location = 3) in vec3 color2;
 // 0.5, comes from World.
 layout(location = 4) uniform float test;
 
-layout(location = 5) uniform sampler2D texture;
+//layout(location = 5) uniform sampler2D tex;
+
+out vec2 texCoordFrag;
 
 out vec3 fragColor;
 
@@ -20,4 +22,5 @@ void main()
 {
     gl_Position = gl_ModelViewProjectionMatrix * vec4(position, 1.0);
     fragColor = color;
+    texCoordFrag = texCoord;
 }

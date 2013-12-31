@@ -13,6 +13,7 @@ import qualified Graphics.GLUtil as GU
 
 import Types
 import Shaders
+import Textures
 
 ------------------
 -- OPENGL STUFF --
@@ -76,18 +77,20 @@ shutdown win = do
 createModel ::
     FilePath ->     -- ^ Vertex Shader.
     FilePath ->     -- ^ Fragment Shader.
+    FilePath ->     -- ^ Image File.
     [String] ->     -- ^ Attribute Variable names.
     [[GLfloat]] ->  -- ^ List containing all the lists of values.
                     --   (vertices, normals, etc).
     GLint ->        -- ^ Number of vertices.
     IO Model
-createModel vert frag attrNames buffData vertCount = do
+createModel vert frag image attrNames buffData vertCount = do
     program <- loadProgram vert frag
     attribs <- createAttribs program attrNames
     ids <- idAll buffData
+    textureObj <- loadGLTextures image
     let lens = lengthAll buffData
         sAttribs = createShaderAttribs attribs ids lens
-    return $ Model program sAttribs vertCount
+    return $ Model program sAttribs textureObj vertCount
 
 --------------------
 --- BUFFER UTILS ---
@@ -127,5 +130,4 @@ bufferId info = do
     fillNewBuffer info
 
 lengthAll :: [[GLfloat]] -> [GLuint]
-lengthAll (x:xs) = (fromIntegral $ length x `div` 3) : lengthAll xs
-lengthAll [] = []
+lengthAll = map (\x -> fromIntegral $ length x `div` 3)

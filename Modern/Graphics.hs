@@ -5,6 +5,7 @@ import Data.IORef (IORef, readIORef)
 import qualified Graphics.UI.GLFW as GLFW
 
 import qualified Graphics.Rendering.GLU.Raw as GLU
+import Graphics.Rendering.OpenGL as GL
 import Graphics.Rendering.OpenGL.Raw
 
 import qualified Graphics.GLUtil as GU
@@ -12,6 +13,7 @@ import qualified Graphics.GLUtil as GU
 import Types
 import Util
 import Shaders
+import TestVals
 
 
 -----------------------------
@@ -48,6 +50,7 @@ renderWorld world
     --bindAll (modelBufferIds model) (modelAttribLocs model)
     bindShaderAttribs $ modelShaderVars model
     bindWorld world $ modelShader model
+    bindTextures (modelShader model) $ modelTexture model
 
     -- Do the drawing.
     glDrawArrays gl_TRIANGLES 0 (modelVertCount model)
@@ -100,6 +103,23 @@ renderObjects (objectRef:rest) = do
     renderObjects rest
 
 renderObjects [] = return ()
+
+bindTextures :: GLuint -> GL.TextureObject -> IO ()
+bindTextures shader texture = do
+    GL.textureBinding GL.Texture2D $= Just texture
+    loc <- quickGetUniform shader "tex"
+    glUniform1i loc 0
+
+{-
+bindTextures :: GLuint -> IO ()
+bindTextures shader = do
+    tt <- testTexture
+    GL.textureBinding GL.Texture2D $= Just tt
+
+    loc <- quickGetUniform shader "tex"
+    glUniform1i loc 0
+    return ()
+-}
 
 bindShaderAttribs :: [ShaderAttrib] -> IO ()
 bindShaderAttribs ((attr, buf, len):rest) = do
