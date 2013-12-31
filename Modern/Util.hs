@@ -85,11 +85,18 @@ createModel vert frag attrNames buffData vertCount = do
     program <- loadProgram vert frag
     attribs <- createAttribs program attrNames
     ids <- idAll buffData
-    return $ Model program attribs ids vertCount
+    let lens = lengthAll buffData
+        sAttribs = createShaderAttribs attribs ids lens
+    return $ Model program sAttribs vertCount
 
 --------------------
 --- BUFFER UTILS ---
 --------------------
+
+createShaderAttribs :: [GLuint] -> [GLuint] -> [GLuint] -> [ShaderAttrib]
+createShaderAttribs (attr:attrs) (buff:buffs) (size:sizes)=
+    (attr, buff, size) : createShaderAttribs attrs buffs sizes
+createShaderAttribs [] [] [] = []
 
 idAll :: [[GLfloat]] -> IO [GLuint]
 idAll (cur:others) = do
@@ -118,3 +125,7 @@ bufferId info = do
     vertexArrayId <- withNewPtr (glGenVertexArrays 1)
     glBindVertexArray vertexArrayId
     fillNewBuffer info
+
+lengthAll :: [[GLfloat]] -> [GLuint]
+lengthAll (x:xs) = (fromIntegral $ length x `div` 3) : lengthAll xs
+lengthAll [] = []

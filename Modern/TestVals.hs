@@ -25,6 +25,12 @@ colorBufferData = [1, 0, 0,
                    0, 1, 0,
                    0, 0, 1]
 
+textureBufferData :: [GLfloat]
+textureBufferData = [0, 0,
+                     1, 0,
+                     0, 1]
+
+
 lightPos :: [GLfloat]
 lightPos = [1, 0, 0]
 
@@ -41,6 +47,7 @@ mkWorld =
         <*> (mkObj >>= newIORef >>= \x -> return [x])
         <*> return ["color2"]
         <*> (bufferId colorBufferData >>= \x -> return [x])
+        <*> return [("test", 1, [0.5])]
 
 mkObj :: IO Object
 mkObj =
@@ -51,14 +58,6 @@ mkModel =
     createModel 
         ("shaders" </> "hello-gl.vert")
         ("shaders" </> "hello-gl.frag")
-        ["position", "normal", "color"]
-        [vertexBufferData, normalBufferData, colorBufferData]
+        ["position", "normal", "color", "texCoord"]
+        [vertexBufferData, normalBufferData, colorBufferData, textureBufferData]
         3
-
---mkWorld :: IO World
-{-
-mkWorld = World
-            <$> newIORef mkPlayer
-            <*> ((mkObj >>= newIORef) >>= \x -> return [x])
-            <*> 
--}

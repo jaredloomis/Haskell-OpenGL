@@ -71,3 +71,18 @@ bindAll (curId:otherIds) (attribLoc:otherLocs) = do
     glVertexAttribPointer attribLoc 3 gl_FLOAT 0 0 GU.offset0
     bindAll otherIds otherLocs
 bindAll _ [] = return ()
+
+bindUniforms :: GLuint -> [ShaderUniform] -> IO ()
+bindUniforms shader ((name, len, vals):xs) = do
+    loc <- withCString name $ glGetUniformLocation shader
+
+    case len of
+        1 -> glUniform1f loc $ head vals
+        2 -> glUniform2f loc (head vals) $ vals !! 1
+        3 -> glUniform3f loc (head vals) (vals !! 1) (vals !! 2)
+        4 -> glUniform4f loc (head vals) (vals !! 1) (vals !! 2) (vals !! 3)
+        _ -> putStrLn $ "Bad length value in ShaderUniform " 
+                        ++ name ++ ": " ++ show len
+
+    bindUniforms shader xs
+bindUniforms _ [] = return ()

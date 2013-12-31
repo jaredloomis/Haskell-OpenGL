@@ -1,10 +1,11 @@
 module Types where
 
 import Data.IORef (IORef)
+import Data.Word (Word8)
 
 import qualified Graphics.UI.GLFW as GLFW
 import qualified Graphics.Rendering.OpenGL as GL
-import Graphics.Rendering.OpenGL.Raw
+import Graphics.Rendering.OpenGL.Raw (GLfloat, GLuint, GLint)
 
 type Vec2 = (GLfloat, GLfloat)
 type Vec3 = (GLfloat, GLfloat, GLfloat)
@@ -21,8 +22,7 @@ data Object = Player {
 
 data Model = Model {
     modelShader :: GLuint,
-    modelAttribLocs :: [GLuint],
-    modelBufferIds :: [GLuint],
+    modelShaderVars :: [ShaderAttrib],
     modelVertCount :: GLint
 }
 
@@ -43,5 +43,14 @@ data World = World {
     worldPlayer :: IORef Object,
     worldEntities :: [IORef Object],
     worldAttribNames :: [String],
-    worldBufferIds :: [GLuint]
+    worldBufferIds :: [GLuint],
+    worldUniforms :: [ShaderUniform]
 }
+
+data Image = Image GL.Size (GL.PixelData Word8)
+
+-- | Attrib id, Buffer id, size of attrib.
+type ShaderAttrib = (GLuint, GLuint, GLuint)
+
+-- | Name, Number of Floats, Values
+type ShaderUniform = (String, GLuint, [GLfloat])

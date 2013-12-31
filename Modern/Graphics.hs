@@ -45,7 +45,8 @@ renderWorld world
     glUseProgram $ modelShader model
 
     -- Bind buffers to variable names in shader.
-    bindAll (modelBufferIds model) (modelAttribLocs model)
+    --bindAll (modelBufferIds model) (modelAttribLocs model)
+    bindShaderAttribs $ modelShaderVars model
     bindWorld world $ modelShader model
 
     -- Do the drawing.
@@ -81,7 +82,8 @@ renderObjects (objectRef:rest) = do
     -- Use object's shader
     glUseProgram $ modelShader model
 
-    bindAll (modelBufferIds model) (modelAttribLocs model)
+    --bindAll (modelBufferIds model) (modelAttribLocs model)
+    bindShaderAttribs $ modelShaderVars model
 
     -- Do the drawing.
     glDrawArrays gl_TRIANGLES 0 (modelVertCount model)
@@ -99,12 +101,26 @@ renderObjects (objectRef:rest) = do
 
 renderObjects [] = return ()
 
+bindShaderAttribs :: [ShaderAttrib] -> IO ()
+bindShaderAttribs ((attr, buf, len):rest) = do
+    -- Enable the attribute buffer.
+    glEnableVertexAttribArray attr
+    -- Give OpenGL the information.
+    --GL.bindBuffer GL.ArrayBuffer $= Just bufferObj
+    glBindBuffer gl_ARRAY_BUFFER buf
+    -- Tell OpenGL about the info.
+    glVertexAttribPointer attr (fromIntegral len) gl_FLOAT 0 0 GU.offset0
+    bindShaderAttribs rest
+bindShaderAttribs [] = return ()
+
 bindWorld :: World -> GLuint -> IO ()
 bindWorld world shader = do
     let attribNames = worldAttribNames world
         ids = worldBufferIds world
     attribs <- createAttribs shader attribNames
     bindAll ids attribs
+
+    bindUniforms shader $ worldUniforms world
 
 bindAllW :: [GLuint] -> [GLuint] -> IO ()
 bindAllW (curId:otherIds) (attribLoc:otherLocs) = do
@@ -146,6 +162,8 @@ initGL win = do
     glEnable gl_CULL_FACE
     -- Do not render the backs of faces. Increases performance.
     glCullFace gl_BACK
+
+    glEnable gl_TEXTURE
 
     -- Call resize function.
     (w,h) <- GLFW.getFramebufferSize win
