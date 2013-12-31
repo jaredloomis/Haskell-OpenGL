@@ -32,10 +32,11 @@ textureBufferData = [0, 0,
                      1, 0,
                      0, 1]
 
+textureIdBufferData :: [GLfloat]
+textureIdBufferData = [0, 0, 0]
 
 lightPos :: [GLfloat]
 lightPos = [1, 0, 0]
-
 
 vertexBufferDataWithNormals :: [GLfloat]
 vertexBufferDataWithNormals = [0, 0, 0,   0, 0, 1,
@@ -43,10 +44,12 @@ vertexBufferDataWithNormals = [0, 0, 0,   0, 0, 1,
                                0, 1, 0,   0, 0, 1]
 
 mkWorld :: IO World
-mkWorld =
+mkWorld = do
+    obj1 <- mkObj >>= newIORef
+    obj2 <- mkObj2 >>= newIORef
     World
         <$> newIORef mkPlayer
-        <*> (mkObj >>= newIORef >>= \x -> return [x])
+        <*> return [obj1, obj2]
         <*> return ["color2"]
         <*> (bufferId colorBufferData >>= \x -> return [x])
         <*> return [("test", 1, [0.5])]
@@ -55,15 +58,32 @@ mkObj :: IO Object
 mkObj =
     Entity (0, 0, -3) <$> mkModel
 
+mkObj2 :: IO Object
+mkObj2 =
+    Entity (0, 2, -3) <$> mkModel2
+
 mkModel :: IO Model
 mkModel =
     createModel 
         ("shaders" </> "hello-gl.vert")
         ("shaders" </> "hello-gl.frag")
-        ("res" </> "Crate.bmp")
-        ["position", "normal", "color", "texCoord"]
-        [vertexBufferData, normalBufferData, colorBufferData, textureBufferData]
+        ("res" </> "cube.bmp")
+        ["position", "normal", "color", "texCoord", "textId"]
+        [vertexBufferData, normalBufferData, colorBufferData, textureBufferData, 
+         textureIdBufferData]
         3
+
+mkModel2 :: IO Model
+mkModel2 =
+    createModel 
+        ("shaders" </> "hello-gl.vert")
+        ("shaders" </> "hello-gl.frag")
+        ("res" </> "Crate.bmp")
+        ["position", "normal", "color", "texCoord", "textId"]
+        [vertexBufferData, normalBufferData, colorBufferData, textureBufferData, 
+         textureIdBufferData]
+        3
+
 
 testTexture :: IO GL.TextureObject
 testTexture = loadGLTextures $ "res" </> "Crate.bmp"

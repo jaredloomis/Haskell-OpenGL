@@ -23,26 +23,6 @@ import Types
 data Endian = LittleEndian | BigEndian
               deriving (Eq, Ord, Show)
 
-{-
-getTextureId :: FilePath -> IO GL.GLuint
-getTextureId file = do
-    (Image (Size w h) pd) <- bitmapLoad file
-    tex <- alloca $ \p -> do
-        glGenTextures 1 p
-        peek p
-    let (ptr, off, _) = BSI.toForeignPtr pd
-    withForeignPtr ptr $ \p -> do
-        let p' = p `plusPtr` off
-        glBindTexture gl_TEXTURE_2D tex
-        glTexImage2D gl_TEXTURE_2D 0 3
-            (fromIntegral w) (fromIntegral h) 0 gl_RGB gl_UNSIGNED_BYTE
-            p'
-        let glLinear = fromIntegral gl_LINEAR
-        glTexParameteri gl_TEXTURE_2D gl_TEXTURE_MIN_FILTER glLinear
-        glTexParameteri gl_TEXTURE_2D gl_TEXTURE_MAG_FILTER glLinear
-    return tex
--}
-
 loadGLTextures :: FilePath -> IO GL.TextureObject
 loadGLTextures file = do
     (Image (Size w h) pd) <- bitmapLoad file

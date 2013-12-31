@@ -13,7 +13,6 @@ import qualified Graphics.GLUtil as GU
 import Types
 import Util
 import Shaders
-import TestVals
 
 
 -----------------------------
@@ -50,7 +49,7 @@ renderWorld world
     --bindAll (modelBufferIds model) (modelAttribLocs model)
     bindShaderAttribs $ modelShaderVars model
     bindWorld world $ modelShader model
-    bindTextures (modelShader model) $ modelTexture model
+    bindTextures (modelShader model) $ modelTextures model
 
     -- Do the drawing.
     glDrawArrays gl_TRIANGLES 0 (modelVertCount model)
@@ -104,11 +103,18 @@ renderObjects (objectRef:rest) = do
 
 renderObjects [] = return ()
 
-bindTextures :: GLuint -> GL.TextureObject -> IO ()
-bindTextures shader texture = do
-    GL.textureBinding GL.Texture2D $= Just texture
-    loc <- quickGetUniform shader "tex"
-    glUniform1i loc 0
+bindTextures :: GLuint -> [GL.TextureObject] -> IO ()
+bindTextures shader textures =
+    bindTexturesi shader textures 0
+
+    where
+    bindTexturesi s (t:others) i = do
+
+        GL.textureBinding GL.Texture2D $= Just t
+        loc <- quickGetUniform s $ "tex[" ++ show i ++ "]"
+        glUniform1i loc i
+        bindTexturesi shader others (i+1)
+    bindTexturesi _ [] _ = return ()
 
 {-
 bindTextures :: GLuint -> IO ()

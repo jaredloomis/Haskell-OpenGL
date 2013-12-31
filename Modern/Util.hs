@@ -90,7 +90,7 @@ createModel vert frag image attrNames buffData vertCount = do
     textureObj <- loadGLTextures image
     let lens = lengthAll buffData
         sAttribs = createShaderAttribs attribs ids lens
-    return $ Model program sAttribs textureObj vertCount
+    return $ Model program sAttribs [textureObj] vertCount
 
 --------------------
 --- BUFFER UTILS ---

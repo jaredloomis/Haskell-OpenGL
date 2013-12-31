@@ -23,7 +23,7 @@ data Object = Player {
 data Model = Model {
     modelShader :: GLuint,
     modelShaderVars :: [ShaderAttrib],
-    modelTexture :: GL.TextureObject,
+    modelTextures :: [GL.TextureObject],
     modelVertCount :: GLint
 }
 
