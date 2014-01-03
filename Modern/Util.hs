@@ -44,7 +44,7 @@ sinDeg = sin . toRadians
 cosDeg :: Float -> Float
 cosDeg = cos . toRadians
 
-vec3ToFloats :: Vec3 -> (Float, Float, Float)
+vec3ToFloats :: Vec3 GLfloat -> (Float, Float, Float)
 vec3ToFloats (x, y, z) = (realToFrac x, realToFrac y, realToFrac z)
 
 ----------------------
@@ -81,15 +81,16 @@ createModel ::
     [String] ->     -- ^ Attribute Variable names.
     [[GLfloat]] ->  -- ^ List containing all the lists of values.
                     --   (vertices, normals, etc).
+    [GLuint] ->     -- ^ Size of each value.
     GLint ->        -- ^ Number of vertices.
     IO Model
-createModel vert frag images attrNames buffData vertCount = do
+createModel vert frag images attrNames buffData valLens vertCount = do
     program <- loadProgram vert frag
     attribs <- createAttribs program attrNames
     ids <- idAll buffData
     textureObjs <- loadGLTextures images
-    let lens = lengthAll buffData
-        sAttribs = createShaderAttribs attribs ids lens
+
+    let sAttribs = createShaderAttribs attribs ids valLens
     return $ Model program sAttribs textureObjs vertCount
 
 --------------------

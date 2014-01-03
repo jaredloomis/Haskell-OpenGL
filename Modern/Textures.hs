@@ -1,8 +1,6 @@
 module Textures where
 
 import Control.Monad
-import Data.Word (Word8, Word16)
-import Data.Int (Int32)
 import Foreign hiding (unsafePerformIO)
 import System.IO (IOMode(ReadMode), openBinaryFile, hSeek, 
                    SeekMode(RelativeSeek), Handle, hGetBuf)
@@ -13,7 +11,6 @@ import System.IO.Unsafe (unsafePerformIO)
 
 --import qualified Codec.Picture as Juicy
 import qualified Graphics.Rendering.OpenGL as GL
-import Graphics.Rendering.OpenGL.Raw
 import Graphics.Rendering.OpenGL (PixelData(..), PixelFormat(..), Size(..), 
                                    DataType(..), ($=))
 
@@ -38,6 +35,7 @@ loadGLTexturesIndex (file:others) i = do
     return $ texName:texNames
 loadGLTexturesIndex [] _ = return []
 
+{-
 loadGLTexture :: FilePath -> IO GL.TextureObject
 loadGLTexture file = do
     (Image (Size w h) pd) <- bitmapLoad file
@@ -46,6 +44,7 @@ loadGLTexture file = do
     GL.textureFilter GL.Texture2D $= ((GL.Nearest, Nothing), GL.Nearest)
     GL.texImage2D GL.Texture2D GL.NoProxy 0 GL.RGB' (GL.TextureSize2D w h) 0 pd
     return texName
+-}
 
 bitmapLoad :: String -> IO Image
 bitmapLoad f = do
@@ -57,13 +56,13 @@ bitmapLoad f = do
     putStrLn $ "Height of "++f++": "++show height
     planes <- readShort handle
     bpp <- readShort handle
-    size <- return (width*height*(fromIntegral bpp `div` 8))
+    let size = width*height*(fromIntegral bpp `div` 8)
     hSeek handle RelativeSeek 24
     putStrLn $ "Planes = " ++ show planes
     bgrBytes <- (readBytes handle (fromIntegral size) :: IO (Ptr Word8))
     rgbBytes <- bgr2rgb bgrBytes (fromIntegral size)
-    return (Image (Size (fromIntegral width) (fromIntegral height))
-            (PixelData RGB UnsignedByte rgbBytes))
+    return $ Image (Size (fromIntegral width) $ fromIntegral height) $
+            PixelData RGB UnsignedByte rgbBytes
 
 endian :: Endian
 endian = 

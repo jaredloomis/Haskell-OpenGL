@@ -55,7 +55,7 @@ renderWorld world
     glDrawArrays gl_TRIANGLES 0 (modelVertCount model)
 
     -- Turn off VBO/VAO
-    glDisableVertexAttribArray 0
+    disableShaderAttribs $ modelShaderVars model
 
     -- Disable the object's shader.
     glUseProgram 0
@@ -116,28 +116,24 @@ bindTextures shader textures =
         bindTexturesi shader others (i+1)
     bindTexturesi _ [] _ = return ()
 
-{-
-bindTextures :: GLuint -> IO ()
-bindTextures shader = do
-    tt <- testTexture
-    GL.textureBinding GL.Texture2D $= Just tt
-
-    loc <- quickGetUniform shader "tex"
-    glUniform1i loc 0
-    return ()
--}
-
 bindShaderAttribs :: [ShaderAttrib] -> IO ()
-bindShaderAttribs ((attr, buf, len):rest) = do
+bindShaderAttribs ((attr, buf, _):rest) = do
     -- Enable the attribute buffer.
     glEnableVertexAttribArray attr
     -- Give OpenGL the information.
     --GL.bindBuffer GL.ArrayBuffer $= Just bufferObj
     glBindBuffer gl_ARRAY_BUFFER buf
     -- Tell OpenGL about the info.
-    glVertexAttribPointer attr (fromIntegral len) gl_FLOAT 0 0 GU.offset0
+    glVertexAttribPointer attr 3 gl_FLOAT 0 0 GU.offset0
     bindShaderAttribs rest
 bindShaderAttribs [] = return ()
+
+disableShaderAttribs :: [ShaderAttrib] -> IO ()
+disableShaderAttribs ((attr, _, _):rest) = do
+    -- Disable the attribute buffer.
+    glDisableVertexAttribArray attr
+    disableShaderAttribs rest
+disableShaderAttribs [] = return ()
 
 bindWorld :: World -> GLuint -> IO ()
 bindWorld world shader = do
@@ -153,7 +149,6 @@ bindAllW (curId:otherIds) (attribLoc:otherLocs) = do
     -- Enable the 1st attribute buffer, vertices.
     glEnableVertexAttribArray attribLoc
     -- Give OpenGL the object's vertices.
-    --GL.bindBuffer GL.ArrayBuffer $= Just bufferObj
     glBindBuffer gl_ARRAY_BUFFER curId
     -- Tell OpenGL about the info.
     glVertexAttribPointer attribLoc 1 gl_FLOAT 0 0 GU.offset0

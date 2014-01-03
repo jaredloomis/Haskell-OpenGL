@@ -37,7 +37,7 @@ spaceIn p = moveObject p (0, 0.1, 0)
 -- | Takes a Player and a Vec3 of movement
 --   and moves player locally based on rotation.
 --   Does not use Y direction argument.
-moveFromLook :: Object -> Vec3 -> Object
+moveFromLook :: Object -> Vec3 GLfloat-> Object
 moveFromLook player moveDirs=
     let rot = playerRotation player
         (_, ry, _) = vec3ToFloats rot
@@ -49,7 +49,7 @@ moveFromLook player moveDirs=
         
     in moveObject player (realToFrac mx, my, realToFrac mz)
 
-moveObject :: Object -> Vec3 -> Object
+moveObject :: Object -> Vec3 GLfloat -> Object
 moveObject p@(Player{}) (dx, dy, dz) =
     let (ix, iy, iz) = playerPosition p
         newPos = (ix + dx, iy + dy, iz + dz)

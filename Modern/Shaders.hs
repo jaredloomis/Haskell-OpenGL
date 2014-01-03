@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes #-}
 module Shaders where
 
 import Foreign
@@ -22,6 +23,7 @@ loadProgram vertFP fragFP = do
     mapM_ (glAttachShader progId) shaderIds
     glLinkProgram progId
     mapM_ glDeleteShader shaderIds
+
     return progId
 
 -- | Loads a single shader of given type,
@@ -70,7 +72,7 @@ bindAll (curId:otherIds) (attribLoc:otherLocs) = do
     -- Tell OpenGL about the info.
     glVertexAttribPointer attribLoc 3 gl_FLOAT 0 0 GU.offset0
     bindAll otherIds otherLocs
-bindAll _ [] = return ()
+bindAll _ [] = glEnableVertexAttribArray 0
 
 bindUniforms :: GLuint -> [ShaderUniform] -> IO ()
 bindUniforms shader ((name, len, vals):xs) = do
