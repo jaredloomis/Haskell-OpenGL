@@ -8,5 +8,5 @@
   - [Netwire](http://hackage.haskell.org/package/netwire) - Possibly best for games, but hard to understand, only outdated tutorials. [Game examples](http://jshaskell.blogspot.de/), [Official tutorial for Wires](http://hackage.haskell.org/package/netwire-4.0.5/docs/Control-Wire.html), [Another good tutorial](http://hub.darcs.net/ertes/netwire/browse/README.md)
 
 <h2>Todo</h2>
-- Add support for .mtl files so that models can have textures &| colors.
-- Fix glVertexAttribPointer length argument. Not causing any noticable problems, but it probably will.
+- Add support for .mtl files so that models can have textures &| <strike>colors</strike>.
+- <strike>Fix glVertexAttribPointer length argument. Not causing any noticable problems, but it probably will.</strike>
