@@ -7,7 +7,7 @@ in vec2 textureCoord;
 
 out vec4 outColor;
 
-layout(location = 3) uniform sampler2D[7] tex;
+layout(location = 3) uniform sampler2D[7] textures;
 
 void main()
 {
@@ -44,23 +44,13 @@ void main()
     //The intensity of reflection (specular)
     float specular = max(0.0, dot(reflectionDirection, viewVec));
 
-    vec3 shininess = vec3(0.3, 0.3, 0.3);
+    vec3 shininess = vec3(0.5, 0.5, 0.5);
 
     vec3 specColor = shininess * vec3(specular, specular, specular);
     
     /// END SPEC LIGHTING ///
-   /* 
-    if(texID == -1)
-        {        
-                //Does not have a texture, just use diffuse, specular, and ambient colors
-                fragColor = vec4(ambColor, 1.0) + vec4(diffColor + specColor, 1.0);
-        }
-        else 
-        {
-                //Fragment has texture, use the texture's color, and diffuse, specular, and ambient colors
-                fragColor = vec4(ambColor, 1.0) + vec4(diffColor * vec3(texture(textures[texID], gl_TexCoord[0].st)) + specColor, 1.0);
-        }
-    */
-    vec4 textureColor = texture(tex[0], textureCoord);
-    outColor = vec4(ambColor, 1.0) + vec4(diffColor * vec3(textureColor) + specColor, 1.0);
+
+    vec4 textureColor = texture(textures[0], textureCoord);
+    //outColor = vec4(ambColor, 1.0) + vec4(diffColor + specColor, 1.0);
+    outColor = textureColor;
 }

@@ -7,9 +7,6 @@ import Foreign.C.String
 
 import qualified Graphics.UI.GLFW as GLFW
 import Graphics.Rendering.OpenGL.Raw
-import qualified Graphics.Rendering.OpenGL as GL
-
-import qualified Graphics.GLUtil as GU
 
 import Types
 import Shaders
@@ -93,15 +90,15 @@ createModel vert frag images attrNames buffData valLens vertCount = do
     let sAttribs = createShaderAttribs attribs ids valLens
     return $ Model program sAttribs textureObjs vertCount
 
---------------------
---- BUFFER UTILS ---
---------------------
 
+-- | Simply pack the arguments together into an array of
+--   ShaderAttribs.
 createShaderAttribs :: [GLuint] -> [GLuint] -> [GLuint] -> [ShaderAttrib]
 createShaderAttribs (attr:attrs) (buff:buffs) (size:sizes)=
     (attr, buff, size) : createShaderAttribs attrs buffs sizes
 createShaderAttribs [] [] [] = []
 
+-- | Create an id for each buffer data.
 idAll :: [[GLfloat]] -> IO [GLuint]
 idAll (cur:others) = do
     currentId <- bufferId cur
@@ -109,6 +106,8 @@ idAll (cur:others) = do
     return $ currentId:otherId
 idAll [] = return []
 
+-- | Retrieve location of each shader attrib
+--   in the given program.
 createAttribs :: GLuint -> [String] -> IO [GLuint]
 createAttribs prog (attrName:xs) = do
     curN <- withCString attrName $ glGetAttribLocation prog
@@ -116,13 +115,6 @@ createAttribs prog (attrName:xs) = do
     rest <- createAttribs prog xs
     return $ cur:rest
 createAttribs _ [] = return []
-
-makeBuffers :: [[GLfloat]] -> IO [GL.BufferObject]
-makeBuffers (cur:rest) = do
-    curBuffer <- GU.makeBuffer GL.ArrayBuffer cur
-    restBuffer <- makeBuffers rest
-    return $ curBuffer:restBuffer
-makeBuffers [] = return []
 
 bufferId :: [GLfloat] -> IO GLuint
 bufferId info = do

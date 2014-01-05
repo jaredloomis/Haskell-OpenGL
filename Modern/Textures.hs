@@ -21,8 +21,15 @@ data Endian = LittleEndian | BigEndian
               deriving (Eq, Ord, Show)
 
 loadGLTextures :: [FilePath] -> IO [GL.TextureObject]
-loadGLTextures files = loadGLTexturesIndex files 0
+loadGLTextures (file:others) = do --loadGLTexturesIndex files 0
+    cur <- loadGLTexture file
+    rest <- loadGLTextures others
+    return $ cur : rest
+loadGLTextures [] = return []
 
+-- | TODO: This loads the files with ids starting at 0,
+--   without accounting for previously loaded images.
+{-
 loadGLTexturesIndex :: [FilePath] -> Integer -> IO [GL.TextureObject]
 loadGLTexturesIndex (file:others) i = do
     (Image (Size w h) pd) <- bitmapLoad file
@@ -34,6 +41,18 @@ loadGLTexturesIndex (file:others) i = do
     texNames <- loadGLTexturesIndex others (i+1)
     return $ texName:texNames
 loadGLTexturesIndex [] _ = return []
+-}
+
+-- | TODO: This loads the files with an id of 0,
+--   without accounting for previously loaded images.
+loadGLTexture :: FilePath -> IO GL.TextureObject
+loadGLTexture file = do
+    (Image (Size w h) pd) <- bitmapLoad file
+    texName <- liftM head (GL.genObjectNames 1)
+    GL.textureBinding GL.Texture2D $= Just texName
+    GL.textureFilter GL.Texture2D $= ((GL.Nearest, Nothing), GL.Nearest)
+    GL.texImage2D GL.Texture2D GL.NoProxy 0 GL.RGB' (GL.TextureSize2D w h) 0 pd
+    return texName
 
 {-
 loadGLTexture :: FilePath -> IO GL.TextureObject

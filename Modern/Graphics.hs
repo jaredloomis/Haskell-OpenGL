@@ -5,13 +5,9 @@ import Data.IORef (IORef, readIORef)
 import qualified Graphics.UI.GLFW as GLFW
 
 import qualified Graphics.Rendering.GLU.Raw as GLU
-import Graphics.Rendering.OpenGL as GL
 import Graphics.Rendering.OpenGL.Raw
 
-import qualified Graphics.GLUtil as GU
-
 import Types
-import Util
 import Shaders
 
 
@@ -103,59 +99,6 @@ renderObjects (objectRef:rest) = do
 
 renderObjects [] = return ()
 
-bindTextures :: GLuint -> [GL.TextureObject] -> IO ()
-bindTextures shader textures =
-    bindTexturesi shader textures 0
-
-    where
-    bindTexturesi s (t:others) i = do
-
-        GL.textureBinding GL.Texture2D $= Just t
-        loc <- quickGetUniform s $ "tex[" ++ show i ++ "]"
-        glUniform1i loc i
-        bindTexturesi shader others (i+1)
-    bindTexturesi _ [] _ = return ()
-
-bindShaderAttribs :: [ShaderAttrib] -> IO ()
-bindShaderAttribs ((attr, buf, _):rest) = do
-    -- Enable the attribute buffer.
-    glEnableVertexAttribArray attr
-    -- Give OpenGL the information.
-    --GL.bindBuffer GL.ArrayBuffer $= Just bufferObj
-    glBindBuffer gl_ARRAY_BUFFER buf
-    -- Tell OpenGL about the info.
-    glVertexAttribPointer attr 3 gl_FLOAT 0 0 GU.offset0
-    bindShaderAttribs rest
-bindShaderAttribs [] = return ()
-
-disableShaderAttribs :: [ShaderAttrib] -> IO ()
-disableShaderAttribs ((attr, _, _):rest) = do
-    -- Disable the attribute buffer.
-    glDisableVertexAttribArray attr
-    disableShaderAttribs rest
-disableShaderAttribs [] = return ()
-
-bindWorld :: World -> GLuint -> IO ()
-bindWorld world shader = do
-    let attribNames = worldAttribNames world
-        ids = worldBufferIds world
-    attribs <- createAttribs shader attribNames
-    bindAll ids attribs
-
-    bindUniforms shader $ worldUniforms world
-
-bindAllW :: [GLuint] -> [GLuint] -> IO ()
-bindAllW (curId:otherIds) (attribLoc:otherLocs) = do
-    -- Enable the 1st attribute buffer, vertices.
-    glEnableVertexAttribArray attribLoc
-    -- Give OpenGL the object's vertices.
-    glBindBuffer gl_ARRAY_BUFFER curId
-    -- Tell OpenGL about the info.
-    glVertexAttribPointer attribLoc 1 gl_FLOAT 0 0 GU.offset0
-    bindAllW otherIds otherLocs
-bindAllW _ [] = return ()
-
-
 -------------------------------
 -- UTILITY / SETUP FUNCTIONS --
 -------------------------------
@@ -179,11 +122,12 @@ initGL win = do
     -- The other choices are gl_FASTEST and gl_DONT_CARE.
     glHint gl_PERSPECTIVE_CORRECTION_HINT gl_NICEST
 
-    -- Enable culling of faces
+    -- Enable culling of faces.
     glEnable gl_CULL_FACE
     -- Do not render the backs of faces. Increases performance.
     glCullFace gl_BACK
 
+    -- Enable textures.
     glEnable gl_TEXTURE
 
     -- Call resize function.

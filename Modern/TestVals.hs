@@ -4,7 +4,7 @@ import Control.Applicative ((<$>), (<*>))
 import System.FilePath ((</>))
 import Data.IORef (newIORef)
 
-import Graphics.Rendering.OpenGL.Raw
+import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
 import Types
 import Util
@@ -61,8 +61,6 @@ mkWorld = do
     World
         <$> newIORef mkPlayer
         <*> return [obj1, obj2]
-        <*> return ["color2"]
-        <*> (bufferId colorBufferData >>= \x -> return [x])
         <*> return [("test", 1, [0.5])]
 
 mkObj :: IO Object
@@ -75,14 +73,14 @@ mkObj2 =
 
 mkModel :: IO Model
 mkModel =
-    loadOBJModel ("res" </> "car.obj") ("shaders" </> "min.vert") ("shaders" </> "min.frag")
+    loadOBJModel ("res" </> "cube.obj") ("shaders" </> "min.vert") ("shaders" </> "min.frag")
 
 mkModel2 :: IO Model
 mkModel2 =
     createModel 
         ("shaders" </> "min.vert")
         ("shaders" </> "min.frag")
-        [("res" </> "Crate.bmp")]
+        ["res" </> "Crate.bmp"]
         ["position", "normal", "color", "texCoord", "textId"]
         [vertexBufferData, normalBufferData, colorBufferData, textureBufferData, 
          textureIdBufferData]

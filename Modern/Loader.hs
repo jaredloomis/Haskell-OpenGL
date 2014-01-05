@@ -10,19 +10,7 @@ import Graphics.Rendering.OpenGL.Raw (GLfloat, GLuint)
 
 import Types
 import Util
-
-test :: IO ()
-test = do
-    obj@(x, y, z) <- loadOBJ ("res" </> "cube.obj")
-    
-    let dat = toArrays $ negateNothing3 obj
-    print $ length x
-    print $ length y
-    print $ length z
-    print $ length $ dat !! 0
-    print $ length $ dat !! 1
-    print $ length $ dat !! 2
-    print dat
+import Material
 
 loadOBJModel ::
     FilePath ->
@@ -36,11 +24,11 @@ loadOBJModel objFile vert frag =
         let objClean = negateNothing3 obj
             dat = toArrays objClean
         createModel vert frag 
-            [("res" </> "Crate.bmp")]
+            ["res" </> "Crate.bmp"]
             attrNames 
             dat
             [3, 2, 3]
-            (fromIntegral (length $ dat !! 0) `div` 3)
+            (fromIntegral (length $ head dat) `div` 3)
 
 {-
 removeIndex (x:xs) index counter =
@@ -58,19 +46,20 @@ negateNothing3 (x, y, z) = (negateNothing x 3, negateNothing y 2, negateNothing 
 
 negateNothing :: Num a => [Maybe a] -> Int -> [a]
 negateNothing (Just x : rest) len = x : negateNothing rest len
-negateNothing (Nothing : rest) len = take len (repeat (-1)) ++ negateNothing rest len
+negateNothing (Nothing : rest) len = replicate len (-1) ++ negateNothing rest len
 negateNothing [] _ = []
 
 loadOBJ :: FilePath -> IO (Vec3 [Maybe GLfloat])
 loadOBJ file = do
     h1 <- openFile file ReadMode
-    verts <- loadOBJVerticesVec h1
+    verts <- loadOBJVertices h1
     h2 <- openFile file ReadMode
-    norms <- loadOBJNormalsVec h2
+    norms <- loadOBJNormals h2
     h3 <- openFile file ReadMode
-    faces <- loadOBJFaces h3
+    uvs <- loadOBJTexs h3
     h4 <- openFile file ReadMode
-    uvs <- loadOBJTexsVec h4
+    faces <- loadOBJFaces h4
+    mats <- loadOBJMaterials file
 
     return $ packOBJ faces verts uvs norms
 
@@ -142,10 +131,10 @@ loadOBJFaces handle = do
                     others <- loadOBJFaces handle
                     return $ xs ++ others
             else loadOBJFaces handle
-    else return []
+    else hClose handle >> return []
 
-loadOBJNormalsVec :: Handle -> IO [Vec3 GLfloat]
-loadOBJNormalsVec handle = do
+loadOBJNormals :: Handle -> IO [Vec3 GLfloat]
+loadOBJNormals handle = do
     eof <- hIsEOF handle
     if not eof
         then do 
@@ -153,13 +142,13 @@ loadOBJNormalsVec handle = do
             if "vn " `isPrefixOf` line
                 then do
                     let vert = readOBJVecLine line
-                    others <- loadOBJNormalsVec handle
+                    others <- loadOBJNormals handle
                     return $ vert : others
-            else loadOBJNormalsVec handle
-    else return []
+            else loadOBJNormals handle
+    else hClose handle >> return []
 
-loadOBJTexsVec :: Handle -> IO [Vec2 GLfloat]
-loadOBJTexsVec handle = do
+loadOBJTexs :: Handle -> IO [Vec2 GLfloat]
+loadOBJTexs handle = do
     eof <- hIsEOF handle
     if not eof
         then do 
@@ -167,14 +156,14 @@ loadOBJTexsVec handle = do
             if "vt " `isPrefixOf` line
                 then do
                     let vert = readOBJTexLine line
-                    others <- loadOBJTexsVec handle
+                    others <- loadOBJTexs handle
                     return $ vert : others
-            else loadOBJTexsVec handle
-    else return []
+            else loadOBJTexs handle
+    else hClose handle >> return []
 
 
-loadOBJVerticesVec :: Handle -> IO [Vec3 GLfloat]
-loadOBJVerticesVec handle = do
+loadOBJVertices :: Handle -> IO [Vec3 GLfloat]
+loadOBJVertices handle = do
     eof <- hIsEOF handle
     if not eof
         then do 
@@ -182,10 +171,54 @@ loadOBJVerticesVec handle = do
             if "v " `isPrefixOf` line
                 then do
                     let vert = readOBJVecLine line
-                    others <- loadOBJVerticesVec handle
+                    others <- loadOBJVertices handle
                     return $ vert : others
-            else loadOBJVerticesVec handle
-    else return []
+            else loadOBJVertices handle
+    else hClose handle >> return []
+
+-- | Returns (Material, Face number where it was activated)
+loadOBJMaterials :: FilePath -> IO [(Material, Int)]
+loadOBJMaterials file = do
+    handle <- openFile file ReadMode
+    lib <- loadOBJMaterialLib handle
+    loadOBJMatsRec handle lib 0
+
+loadOBJMaterialLib :: Handle -> IO [Material]
+loadOBJMaterialLib handle = do
+    eof <- hIsEOF handle
+    if not eof
+        then do 
+            line <- hGetLine handle
+            if "mtllib " `isPrefixOf` line
+                then loadMtlFile . head . rawObjLine $ line
+            else loadOBJMaterialLib handle
+    else hClose handle >> return []
+
+{-
+matsInfoToAttribs :: [(Material, Int)] -> [ShaderAttrib]
+matsInfoToAttribs ((mat, face):xs) =
+    ()
+-}
+
+loadOBJMatsRec :: Handle -> [Material] -> Int -> IO [(Material, Int)]
+loadOBJMatsRec handle mats i = do
+    eof <- hIsEOF handle
+    if not eof
+        then do 
+            line <- hGetLine handle
+            if "usemtl " `isPrefixOf` line
+                then do
+                    let name = head $ rawObjLine line
+                        mat = findMaterial name mats
+                    others <- loadOBJMatsRec handle mats i
+                    return $ (mat, i) : others
+            else if "f " `isPrefixOf` line
+                then loadOBJMatsRec handle mats (i+1)
+            else loadOBJMatsRec handle mats i
+    else hClose handle >> return []
+
+findMaterial :: String -> [Material] -> Material
+findMaterial name library = head $ filter (\x -> matName x == name) library
 
 readOBJVecLine :: String -> Vec3 GLfloat
 readOBJVecLine line =
@@ -212,11 +245,6 @@ readFaceGroup x =
     let splittedRaw = splitOn "/" x
     in toTripletUnknown splittedRaw
 
-toTripletsUnknown :: [String] -> [Vec3 (Maybe GLuint)]
-toTripletsUnknown (x:y:z:xs) =
-    toTripletUnknown [x, y, z] : toTripletsUnknown xs
-toTripletsUnknown [] = []
-
 toTripletUnknown :: [String] -> Vec3 (Maybe GLuint)
 toTripletUnknown (x:y:zs) =
     let z = head zs
@@ -229,11 +257,12 @@ toTripletUnknown (x:y:zs) =
 toTriplet :: [a] -> (a, a, a)
 toTriplet (x:y:zs) = (x, y, head zs)
 
+
+rawObjLine :: String -> [String]
+rawObjLine = tail . filter (not . null) . splitOn " "
+
 readOBJLine :: String -> [GLfloat]
 readOBJLine = readAll . tail . filter (not . null) . splitOn " "
 
 readAll :: Read a => [String] -> [a]
 readAll = map read
-
---type Vec3 a = (a, a, a)
---type Vec2 a = (a, a)

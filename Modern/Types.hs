@@ -7,8 +7,6 @@ import qualified Graphics.UI.GLFW as GLFW
 import qualified Graphics.Rendering.OpenGL as GL
 import Graphics.Rendering.OpenGL.Raw (GLfloat, GLuint, GLint)
 
---type Vec2 = (GLfloat, GLfloat)
---type Vec3 = (GLfloat, GLfloat, GLfloat)
 type Vec3 a = (a, a, a)
 type Vec2 a = (a, a)
 
@@ -45,8 +43,6 @@ data Shaders = Shaders {
 data World = World {
     worldPlayer :: IORef Object,
     worldEntities :: [IORef Object],
-    worldAttribNames :: [String],
-    worldBufferIds :: [GLuint],
     worldUniforms :: [ShaderUniform]
 }
 

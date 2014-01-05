@@ -3,9 +3,9 @@ module Shaders where
 
 import Foreign
 import Foreign.C.String
-import Control.Applicative ((<$>), (<*>))
 
 import qualified Graphics.Rendering.OpenGL as GL
+import Graphics.Rendering.OpenGL (($=))
 import Graphics.Rendering.OpenGL.Raw
 
 import qualified Graphics.GLUtil as GU
@@ -40,39 +40,40 @@ loadShader shaderTypeFlag filePath = do
     glCompileShader sid
     return sid
 
--- | Old Shader Func.
---   Creates a Shaders value from given information.
-createShaders :: FilePath -> FilePath -> String -> String -> String -> IO Shaders
-createShaders vert frag vertsVar normsVar colorVar = do
-    prog <- createShaderProgram vert frag
-    Shaders prog
-        <$> GL.get (GL.attribLocation prog vertsVar)
-        <*> GL.get (GL.attribLocation prog normsVar)
-        <*> GL.get (GL.attribLocation prog colorVar)
+bindTextures :: GLuint -> [GL.TextureObject] -> IO ()
+bindTextures shader textures =
+    bindTexturesi shader textures 0
 
--- | Old Shader Func.
---   Creates a Program from given information.
-createShaderProgram :: FilePath -> FilePath -> IO GL.Program
-createShaderProgram vert frag = do
-    vs <- GU.loadShader GL.VertexShader vert
-    fs <- GU.loadShader GL.FragmentShader frag
-    GU.linkShaderProgram [vs, fs]
+    where
+    bindTexturesi s (t:others) i = do
 
--- | Takes two [GLuint] arguments:
---      - IDs of buffers
---      - Location of attribute values in the shader
---   Binds the buffers to the attribute values.
-bindAll :: [GLuint] -> [GLuint] -> IO ()
-bindAll (curId:otherIds) (attribLoc:otherLocs) = do
-    -- Enable the 1st attribute buffer, vertices.
-    glEnableVertexAttribArray attribLoc
-    -- Give OpenGL the object's vertices.
-    --GL.bindBuffer GL.ArrayBuffer $= Just bufferObj
-    glBindBuffer gl_ARRAY_BUFFER curId
+        GL.textureBinding GL.Texture2D $= Just t
+        loc <- quickGetUniform s $ "textures[" ++ show i ++ "]"
+        glUniform1i loc i
+        bindTexturesi shader others (i+1)
+    bindTexturesi _ [] _ = return ()
+
+bindShaderAttribs :: [ShaderAttrib] -> IO ()
+bindShaderAttribs ((attr, buf, len):rest) = do
+    -- Enable the attribute buffer.
+    glEnableVertexAttribArray attr
+    -- Give OpenGL the information.
+    glBindBuffer gl_ARRAY_BUFFER buf
     -- Tell OpenGL about the info.
-    glVertexAttribPointer attribLoc 3 gl_FLOAT 0 0 GU.offset0
-    bindAll otherIds otherLocs
-bindAll _ [] = glEnableVertexAttribArray 0
+    glVertexAttribPointer attr (fromIntegral len) gl_FLOAT 0 0 GU.offset0
+    bindShaderAttribs rest
+bindShaderAttribs [] = return ()
+
+disableShaderAttribs :: [ShaderAttrib] -> IO ()
+disableShaderAttribs ((attr, _, _):rest) = do
+    -- Disable the attribute buffer.
+    glDisableVertexAttribArray attr
+    disableShaderAttribs rest
+disableShaderAttribs [] = return ()
+
+bindWorld :: World -> GLuint -> IO ()
+bindWorld world shader =
+    bindUniforms shader $ worldUniforms world
 
 bindUniforms :: GLuint -> [ShaderUniform] -> IO ()
 bindUniforms shader ((name, len, vals):xs) = do
