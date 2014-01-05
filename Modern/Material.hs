@@ -19,17 +19,15 @@ loadMtlFile :: FilePath -> IO [Material]
 loadMtlFile file =
     openFile file ReadMode >>= loadMtlMaterials
 
-
 loadMtlMaterials :: Handle -> IO [Material]
 loadMtlMaterials handle =
-    liftM tail $ loadMtlMaterialsRec handle
-                    (Material "" Nothing Nothing Nothing Nothing)
+    liftM tail $ loadMtlMaterialsRec 0 handle emptyMaterial
 
 -- | Apply defualt values to attributes set to
 --   Nothing according to spec at
 --   http://people.sc.fsu.edu/~jburkardt/data/mtl/mtl.html
 applyDefualtMtl :: Material -> Material
-applyDefualtMtl mat@(Material _ amb diff spec _) =
+applyDefualtMtl mat@(Material _ amb diff spec _ _) =
     let newAmb = if isNothing amb
                     then Just (0.2, 0.2, 0.2)
                 else amb
@@ -44,8 +42,8 @@ applyDefualtMtl mat@(Material _ amb diff spec _) =
            matSpecularColor = newSpec}
 
 -- | UNSAFE!! Use loadMtlMaterials instead.
-loadMtlMaterialsRec :: Handle -> Material -> IO [Material]
-loadMtlMaterialsRec handle start = do
+loadMtlMaterialsRec :: GLuint -> Handle -> Material -> IO [Material]
+loadMtlMaterialsRec textureCount handle start = do
     eof <- hIsEOF handle
     if not eof
         then do 
@@ -56,20 +54,26 @@ loadMtlMaterialsRec handle start = do
             if "newmtl " `isPrefixOf` line
                 then do
                     let name = head $ rawMtlLine line
-                    rest <- loadMtlMaterialsRec handle
-                                (Material name Nothing Nothing Nothing Nothing)
+                    rest <- loadMtlMaterialsRec textureCount handle
+                                (Material name Nothing Nothing Nothing Nothing Nothing)
                     return $ start : rest
             else if not $ null line
                 -- Call executeCommand on current line and Material
                 -- and then continue adding attributes to that Material.
-                then executeCommand line start >>= loadMtlMaterialsRec handle
-            else loadMtlMaterialsRec handle start
+                then
+                    let origTex = matTexture start
+                    in do
+                        newMat <- executeCommand line start textureCount
+                        if matTexture newMat == origTex
+                            then loadMtlMaterialsRec textureCount handle newMat
+                        else loadMtlMaterialsRec (textureCount+1) handle newMat
+            else loadMtlMaterialsRec textureCount handle start
     -- If it is End Of File, close the file and
     -- return the last Material.
     else hClose handle >> return [start]
 
-executeCommand :: String -> Material -> IO Material
-executeCommand command mat
+executeCommand :: String -> Material -> GLuint -> IO Material
+executeCommand command mat textureCount
     | "Ka " `isPrefixOf` command =
         return mat{matAmbientColor = Just $ readMtlLineTriplet command}
     | "Kd " `isPrefixOf` command =
@@ -77,8 +81,8 @@ executeCommand command mat
     | "Ks " `isPrefixOf` command =
         return mat{matSpecularColor = Just $ readMtlLineTriplet command}
     | "map_Kd " `isPrefixOf` command = do
-        texture <- loadGLTexture $ head $ rawMtlLine command
-        return mat{matTexture = Just texture}
+        texture <- loadGLTextureId textureCount $ head $ rawMtlLine command
+        return mat{matTexture = Just texture, matTexId = Just textureCount}
     | otherwise = return mat
 
 readMtlLineTriplet :: String -> Vec3 GLfloat
@@ -94,12 +98,13 @@ toTripletMtl :: [a] -> Vec3 a
 toTripletMtl (x:y:zs) = (x, y, head zs)
 
 emptyMaterial :: Material
-emptyMaterial = Material "" Nothing Nothing Nothing Nothing
+emptyMaterial = Material "" Nothing Nothing Nothing Nothing Nothing
 
 data Material = Material {
     matName :: String,
     matAmbientColor :: Maybe (Vec3 GLfloat),
     matDiffuseColor :: Maybe (Vec3 GLfloat),
     matSpecularColor :: Maybe (Vec3 GLfloat),
-    matTexture :: Maybe GL.TextureObject
+    matTexture :: Maybe GL.TextureObject,
+    matTexId :: Maybe GLuint
 } deriving (Show)

@@ -40,18 +40,17 @@ loadShader shaderTypeFlag filePath = do
     glCompileShader sid
     return sid
 
-bindTextures :: GLuint -> [GL.TextureObject] -> IO ()
-bindTextures shader textures =
-    bindTexturesi shader textures 0
+bindTextures :: GLuint -> IO ()
+bindTextures shader = --return ()
+    bindTexturesi shader 0
 
     where
-    bindTexturesi s (t:others) i = do
+    bindTexturesi s i = do
 
-        GL.textureBinding GL.Texture2D $= Just t
+        --GL.textureBinding GL.Texture2D $= Just t
         loc <- quickGetUniform s $ "textures[" ++ show i ++ "]"
         glUniform1i loc i
-        bindTexturesi shader others (i+1)
-    bindTexturesi _ [] _ = return ()
+        --bindTexturesi shader others (i+1)
 
 bindShaderAttribs :: [ShaderAttrib] -> IO ()
 bindShaderAttribs ((attr, buf, len):rest) = do

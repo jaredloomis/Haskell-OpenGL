@@ -18,7 +18,7 @@ loadOBJModel ::
     FilePath ->
     IO Model
 loadOBJModel objFile vert frag =
-    let attrNames = ["position", "texCoord", "normal", "color"]
+    let attrNames = ["position", "texCoord", "normal", "color", "textureId"]
     in do
         obj <- loadOBJ objFile
         mats <- loadObjMaterials objFile
@@ -27,18 +27,30 @@ loadOBJModel objFile vert frag =
             dat = toArrays objClean
             
             materialDiffs = unTripletM $ map matDiffuseColor mats
+            materialTexIds = map (fromIntegral . getVal . matTexId) mats
 
-            totalData = dat ++ [materialDiffs]
+            totalData = dat ++ [materialDiffs, materialTexIds]
 
-        print $ length materialDiffs
-        print $ length $ head dat
+        --print $ map (getVal . matTexId) mats
+        --print $ length materialDiffs
+        --print $ length $ head dat
+        --print materialTexIds
 
-        createModel vert frag 
-            ["res" </> "Crate.bmp"]
+        tmp <- createModel vert frag 
+            []
             attrNames 
             totalData
-            [3, 2, 3, 3]
+            [3, 2, 3, 3, 1]
             (fromIntegral (length $ head dat) `div` 3)
+        return tmp{modelTextures = map getValU (map matTexture mats)}
+
+getVal :: Num a => Maybe a -> a
+getVal (Just x) = x
+getVal Nothing = 0
+
+getValU :: Maybe a -> a
+getValU (Just x) = x
+getValU Nothing = undefined
 
 {-
 removeIndex (x:xs) index counter =
@@ -219,23 +231,6 @@ listOfMats handle library currentMat = do
                     return $ replicate 3 currentMat ++ others
             else listOfMats handle library currentMat
     else hClose handle >> return []
-
-{-
-matsInfoToMats :: Int -> [(Material, Int)] -> [Material]
-matsInfoToMats i allInfo@((mat, _):(_, faceNum):xs) =
-    if i <= faceNum
-        then mat : matsInfoToMats (i+1) allInfo
-    else matsInfoToMats (i+1) xs
-matsInfoToMats _ ((mat, _)) =
-matsInfoToMats _ [] = []
--}
-
-{-
-matsInfoToDiffuse :: [(Material, Int)] -> [GLfloat]
-matsInfoToDiffuse ((mat, face):xs) =
-    let (Just diffuse) = matDiffuseColor mat
-    in replicate 12 (unTriplet diffuse)
--}
 
 loadOBJMatsRec :: Handle -> [Material] -> Int -> IO [(Material, Int)]
 loadOBJMatsRec handle mats i = do

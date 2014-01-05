@@ -10,6 +10,7 @@ import System.IO.Unsafe (unsafePerformIO)
 --import Data.Vector.Storable (unsafeWith)
 
 --import qualified Codec.Picture as Juicy
+import Graphics.Rendering.OpenGL.Raw
 import qualified Graphics.Rendering.OpenGL as GL
 import Graphics.Rendering.OpenGL (PixelData(..), PixelFormat(..), Size(..), 
                                    DataType(..), ($=))
@@ -29,6 +30,7 @@ loadGLTextures [] = return []
 
 -- | TODO: This loads the files with ids starting at 0,
 --   without accounting for previously loaded images.
+
 {-
 loadGLTexturesIndex :: [FilePath] -> Integer -> IO [GL.TextureObject]
 loadGLTexturesIndex (file:others) i = do
@@ -42,6 +44,17 @@ loadGLTexturesIndex (file:others) i = do
     return $ texName:texNames
 loadGLTexturesIndex [] _ = return []
 -}
+
+-- | TODO: This loads the files with an id of 0,
+--   without accounting for previously loaded images.
+loadGLTextureId :: GLuint -> FilePath -> IO GL.TextureObject
+loadGLTextureId texId file = do
+    (Image (Size w h) pd) <- bitmapLoad file
+    texName <- liftM head (GL.genObjectNames 1)
+    GL.textureBinding GL.Texture2D $= Just texName
+    GL.textureFilter GL.Texture2D $= ((GL.Nearest, Nothing), GL.Nearest)
+    GL.texImage2D GL.Texture2D GL.NoProxy (fromIntegral texId) GL.RGB' (GL.TextureSize2D w h) 0 pd
+    return texName
 
 -- | TODO: This loads the files with an id of 0,
 --   without accounting for previously loaded images.

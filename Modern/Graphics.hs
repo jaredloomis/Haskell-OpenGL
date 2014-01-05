@@ -45,7 +45,7 @@ renderWorld world
     --bindAll (modelBufferIds model) (modelAttribLocs model)
     bindShaderAttribs $ modelShaderVars model
     bindWorld world $ modelShader model
-    bindTextures (modelShader model) $ modelTextures model
+    bindTextures $ modelShader model
 
     -- Do the drawing.
     glDrawArrays gl_TRIANGLES 0 (modelVertCount model)

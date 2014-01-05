@@ -90,7 +90,6 @@ createModel vert frag images attrNames buffData valLens vertCount = do
     let sAttribs = createShaderAttribs attribs ids valLens
     return $ Model program sAttribs textureObjs vertCount
 
-
 -- | Simply pack the arguments together into an array of
 --   ShaderAttribs.
 createShaderAttribs :: [GLuint] -> [GLuint] -> [GLuint] -> [ShaderAttrib]

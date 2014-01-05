@@ -4,10 +4,11 @@ in vec3 fragColor;
 in vec3 vertex;
 in vec3 norm;
 in vec2 textureCoord;
+in int texId;
 
 out vec4 outColor;
 
-layout(location = 4) uniform sampler2D[7] textures;
+layout(location = 5) uniform sampler2D[7] textures;
 
 void main()
 {
@@ -50,7 +51,8 @@ void main()
     
     /// END SPEC LIGHTING ///
 
-    vec4 textureColor = texture(textures[0], textureCoord);
+    vec4 textureColor = texture(textures[texId], textureCoord);
     //outColor = vec4(ambColor, 1.0) + vec4(diffColor + specColor, 1.0);
-    outColor = vec4(fragColor, 1.0); //textureColor;
+    outColor = textureColor;
+    //outColor = vec4(texId, 1, 0, 1);
 }

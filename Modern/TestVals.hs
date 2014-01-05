@@ -56,11 +56,12 @@ vertexBufferDataWithNormals = [0, 0, 0,   0, 0, 1,
 
 mkWorld :: IO World
 mkWorld = do
-    obj1 <- mkObj >>= newIORef
     obj2 <- mkObj2 >>= newIORef
+    obj1 <- mkObj >>= newIORef
+    --obj2 <- mkObj2 >>= newIORef
     World
         <$> newIORef mkPlayer
-        <*> return [obj1]
+        <*> return [obj1, obj2]
         <*> return [("test", 1, [0.5])]
 
 mkObj :: IO Object
@@ -69,11 +70,11 @@ mkObj =
 
 mkObj2 :: IO Object
 mkObj2 =
-    Entity (0, 2, -3) <$> mkModel2
+    Entity (0, 2, -3) <$> mkModel3
 
 mkModel :: IO Model
 mkModel =
-    loadOBJModel ("res" </> "cube.obj") ("shaders" </> "min.vert") ("shaders" </> "min.frag")
+    loadOBJModel ("res" </> "capsule.obj") ("shaders" </> "min.vert") ("shaders" </> "min.frag")
 
 mkModel2 :: IO Model
 mkModel2 =
@@ -86,3 +87,9 @@ mkModel2 =
          textureIdBufferData]
         [3, 3, 3, 2, 1]
         6
+
+
+mkModel3 :: IO Model
+mkModel3 =
+    loadOBJModel ("res" </> "cube.obj") ("shaders" </> "min.vert") ("shaders" </> "min.frag")
+
