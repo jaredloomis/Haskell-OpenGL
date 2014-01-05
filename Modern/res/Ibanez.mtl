@@ -1,6 +1,15 @@
 # Blender MTL File: 'None'
 # Material Count: 10
 
+newmtl test1
+Kd 1 0 0
+
+newmtl test2
+Kd 0 1 0
+
+newmtl test3
+Kd 0 0 1
+
 newmtl FrontColorNoCulling
 Ns 37.254902
 Ka 0.000000 0.000000 0.000000

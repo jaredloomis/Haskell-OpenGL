@@ -93,6 +93,9 @@ rawMtlLine = tail . filter (not . null) . splitOn " "
 toTripletMtl :: [a] -> Vec3 a
 toTripletMtl (x:y:zs) = (x, y, head zs)
 
+emptyMaterial :: Material
+emptyMaterial = Material "" Nothing Nothing Nothing Nothing
+
 data Material = Material {
     matName :: String,
     matAmbientColor :: Maybe (Vec3 GLfloat),

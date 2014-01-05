@@ -60,7 +60,7 @@ mkWorld = do
     obj2 <- mkObj2 >>= newIORef
     World
         <$> newIORef mkPlayer
-        <*> return [obj1, obj2]
+        <*> return [obj1]
         <*> return [("test", 1, [0.5])]
 
 mkObj :: IO Object

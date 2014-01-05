@@ -18,16 +18,26 @@ loadOBJModel ::
     FilePath ->
     IO Model
 loadOBJModel objFile vert frag =
-    let attrNames = ["position", "texCoord", "normal"]
+    let attrNames = ["position", "texCoord", "normal", "color"]
     in do
         obj <- loadOBJ objFile
+        mats <- loadObjMaterials objFile
+
         let objClean = negateNothing3 obj
             dat = toArrays objClean
+            
+            materialDiffs = unTripletM $ map matDiffuseColor mats
+
+            totalData = dat ++ [materialDiffs]
+
+        print $ length materialDiffs
+        print $ length $ head dat
+
         createModel vert frag 
             ["res" </> "Crate.bmp"]
             attrNames 
-            dat
-            [3, 2, 3]
+            totalData
+            [3, 2, 3, 3]
             (fromIntegral (length $ head dat) `div` 3)
 
 {-
@@ -59,7 +69,7 @@ loadOBJ file = do
     uvs <- loadOBJTexs h3
     h4 <- openFile file ReadMode
     faces <- loadOBJFaces h4
-    mats <- loadOBJMaterials file
+    --mats <- loadObjMaterials file
 
     return $ packOBJ faces verts uvs norms
 
@@ -176,13 +186,6 @@ loadOBJVertices handle = do
             else loadOBJVertices handle
     else hClose handle >> return []
 
--- | Returns (Material, Face number where it was activated)
-loadOBJMaterials :: FilePath -> IO [(Material, Int)]
-loadOBJMaterials file = do
-    handle <- openFile file ReadMode
-    lib <- loadOBJMaterialLib handle
-    loadOBJMatsRec handle lib 0
-
 loadOBJMaterialLib :: Handle -> IO [Material]
 loadOBJMaterialLib handle = do
     eof <- hIsEOF handle
@@ -194,10 +197,44 @@ loadOBJMaterialLib handle = do
             else loadOBJMaterialLib handle
     else hClose handle >> return []
 
+loadObjMaterials :: FilePath -> IO [Material]
+loadObjMaterials file = do
+    handle1 <- openFile file ReadMode
+    library <- loadOBJMaterialLib handle1
+    handle2 <- openFile file ReadMode
+    listOfMats handle2 library emptyMaterial
+
+listOfMats :: Handle -> [Material] -> Material -> IO [Material]
+listOfMats handle library currentMat = do
+    eof <- hIsEOF handle
+    if not eof
+        then do 
+            line <- hGetLine handle
+            if "usemtl " `isPrefixOf` line
+                then    let mat = findMaterial (head . rawObjLine $ line) library
+                        in listOfMats handle library mat
+            else if "f " `isPrefixOf` line
+                then do
+                    others <- listOfMats handle library currentMat
+                    return $ replicate 3 currentMat ++ others
+            else listOfMats handle library currentMat
+    else hClose handle >> return []
+
 {-
-matsInfoToAttribs :: [(Material, Int)] -> [ShaderAttrib]
-matsInfoToAttribs ((mat, face):xs) =
-    ()
+matsInfoToMats :: Int -> [(Material, Int)] -> [Material]
+matsInfoToMats i allInfo@((mat, _):(_, faceNum):xs) =
+    if i <= faceNum
+        then mat : matsInfoToMats (i+1) allInfo
+    else matsInfoToMats (i+1) xs
+matsInfoToMats _ ((mat, _)) =
+matsInfoToMats _ [] = []
+-}
+
+{-
+matsInfoToDiffuse :: [(Material, Int)] -> [GLfloat]
+matsInfoToDiffuse ((mat, face):xs) =
+    let (Just diffuse) = matDiffuseColor mat
+    in replicate 12 (unTriplet diffuse)
 -}
 
 loadOBJMatsRec :: Handle -> [Material] -> Int -> IO [(Material, Int)]
@@ -256,6 +293,14 @@ toTripletUnknown (x:y:zs) =
 
 toTriplet :: [a] -> (a, a, a)
 toTriplet (x:y:zs) = (x, y, head zs)
+
+unTripletM :: [Maybe (Vec3 GLfloat)] -> [GLfloat]
+unTripletM (Just (x, y, z):xs) = [x, y, z] ++ unTripletM xs
+unTripletM (Nothing : xs) = [0, 0, 0] ++ unTripletM xs
+unTripletM [] = []
+
+unTriplet :: (a, a, a) -> [a]
+unTriplet (x, y, z) = [x, y, z]
 
 
 rawObjLine :: String -> [String]

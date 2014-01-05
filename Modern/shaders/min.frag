@@ -7,7 +7,7 @@ in vec2 textureCoord;
 
 out vec4 outColor;
 
-layout(location = 3) uniform sampler2D[7] textures;
+layout(location = 4) uniform sampler2D[7] textures;
 
 void main()
 {
@@ -52,5 +52,5 @@ void main()
 
     vec4 textureColor = texture(textures[0], textureCoord);
     //outColor = vec4(ambColor, 1.0) + vec4(diffColor + specColor, 1.0);
-    outColor = textureColor;
+    outColor = vec4(fragColor, 1.0); //textureColor;
 }
