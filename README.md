@@ -8,6 +8,7 @@
   - [Netwire](http://hackage.haskell.org/package/netwire) - Possibly best for games, but hard to understand, only outdated tutorials. [Game examples](http://jshaskell.blogspot.de/), [Official tutorial for Wires](http://hackage.haskell.org/package/netwire-4.0.5/docs/Control-Wire.html), [Another good tutorial](http://hub.darcs.net/ertes/netwire/browse/README.md)
 
 <h2>Todo</h2>
+- Relative file loading in .mtl and .obj files.
 - Fix .mtl files loading/rendering textures incorrectly.
 - Audio support using a library.
 - <b>Organization clean-up.</b>
