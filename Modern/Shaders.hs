@@ -3,9 +3,8 @@ module Shaders where
 
 import Foreign
 import Foreign.C.String
+import Control.Monad (when)
 
-import qualified Graphics.Rendering.OpenGL as GL
-import Graphics.Rendering.OpenGL (($=))
 import Graphics.Rendering.OpenGL.Raw
 
 import qualified Graphics.GLUtil as GU
@@ -41,16 +40,15 @@ loadShader shaderTypeFlag filePath = do
     return sid
 
 bindTextures :: GLuint -> IO ()
-bindTextures shader = --return ()
+bindTextures shader =
     bindTexturesi shader 0
 
     where
-    bindTexturesi s i = do
-
-        --GL.textureBinding GL.Texture2D $= Just t
-        loc <- quickGetUniform s $ "textures[" ++ show i ++ "]"
-        glUniform1i loc i
-        --bindTexturesi shader others (i+1)
+    bindTexturesi s i =
+        when (i < 10) $ do
+            loc <- quickGetUniform s $ "textures[" ++ show i ++ "]"
+            glUniform1i loc i
+            bindTexturesi s (i+1)
 
 bindShaderAttribs :: [ShaderAttrib] -> IO ()
 bindShaderAttribs ((attr, buf, len):rest) = do

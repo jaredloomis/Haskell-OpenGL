@@ -3,7 +3,6 @@ module Loader where
 
 import Data.List
 import Data.List.Split
-import System.FilePath ((</>))
 import System.IO
 
 import Graphics.Rendering.OpenGL.Raw (GLfloat, GLuint)
@@ -31,18 +30,16 @@ loadOBJModel objFile vert frag =
 
             totalData = dat ++ [materialDiffs, materialTexIds]
 
-        --print $ map (getVal . matTexId) mats
-        --print $ length materialDiffs
-        --print $ length $ head dat
-        --print materialTexIds
+        print . length . head $ dat
+        print $ length $ dat !! 1
 
         tmp <- createModel vert frag 
             []
-            attrNames 
+            attrNames
             totalData
             [3, 2, 3, 3, 1]
             (fromIntegral (length $ head dat) `div` 3)
-        return tmp{modelTextures = map getValU (map matTexture mats)}
+        return tmp{modelTextures = map (getValU . matTexture) mats}
 
 getVal :: Num a => Maybe a -> a
 getVal (Just x) = x
@@ -81,7 +78,6 @@ loadOBJ file = do
     uvs <- loadOBJTexs h3
     h4 <- openFile file ReadMode
     faces <- loadOBJFaces h4
-    --mats <- loadObjMaterials file
 
     return $ packOBJ faces verts uvs norms
 
@@ -183,7 +179,6 @@ loadOBJTexs handle = do
             else loadOBJTexs handle
     else hClose handle >> return []
 
-
 loadOBJVertices :: Handle -> IO [Vec3 GLfloat]
 loadOBJVertices handle = do
     eof <- hIsEOF handle
@@ -244,9 +239,10 @@ loadOBJMatsRec handle mats i = do
                         mat = findMaterial name mats
                     others <- loadOBJMatsRec handle mats i
                     return $ (mat, i) : others
-            else if "f " `isPrefixOf` line
-                then loadOBJMatsRec handle mats (i+1)
-            else loadOBJMatsRec handle mats i
+            else loadOBJMatsRec handle mats $
+                if "f " `isPrefixOf` line
+                    then i + 1
+                else i
     else hClose handle >> return []
 
 findMaterial :: String -> [Material] -> Material
@@ -263,8 +259,9 @@ readOBJTexLine :: String -> Vec2 GLfloat
 readOBJTexLine line =
     let nums = tail . filter (not . null) . splitOn " " $ line
     in if length nums == 2
-        then toTwin $ readAll nums
-    else undefined
+        then let (tx, ty) = toTwin $ readAll nums
+            in (tx, 1 - ty)
+    else (-1, -1)
 
 toTwin :: [a] -> (a, a)
 toTwin (x:ys) = (x, head ys)

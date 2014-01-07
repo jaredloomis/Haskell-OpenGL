@@ -51,8 +51,19 @@ void main()
     
     /// END SPEC LIGHTING ///
 
-    vec4 textureColor = texture(textures[texId], textureCoord);
+    if(texId != -1)
+    {
+        vec4 textureColor = texture(textures[texId], textureCoord);
+        outColor = textureColor;
+    }
+    else
+    {
+        outColor = vec4(ambColor, 1.0) + vec4(diffColor + specColor, 1.0);
+    }
+
+    //outColor = vec4(1, 0, 0, 1);
     //outColor = vec4(ambColor, 1.0) + vec4(diffColor + specColor, 1.0);
-    outColor = textureColor;
+    //outColor = textureColor;
+    //outColor = vec4(1, 0, 0, 1);
     //outColor = vec4(texId, 1, 0, 1);
 }

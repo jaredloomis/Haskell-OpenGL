@@ -56,12 +56,11 @@ vertexBufferDataWithNormals = [0, 0, 0,   0, 0, 1,
 
 mkWorld :: IO World
 mkWorld = do
-    obj2 <- mkObj2 >>= newIORef
     obj1 <- mkObj >>= newIORef
     --obj2 <- mkObj2 >>= newIORef
     World
         <$> newIORef mkPlayer
-        <*> return [obj1, obj2]
+        <*> return [obj1]
         <*> return [("test", 1, [0.5])]
 
 mkObj :: IO Object
@@ -74,7 +73,7 @@ mkObj2 =
 
 mkModel :: IO Model
 mkModel =
-    loadOBJModel ("res" </> "capsule.obj") ("shaders" </> "min.vert") ("shaders" </> "min.frag")
+    loadOBJModel ("res" </> "objects/ibanez/ibanez.obj") ("shaders" </> "min.vert") ("shaders" </> "min.frag")
 
 mkModel2 :: IO Model
 mkModel2 =
@@ -91,5 +90,5 @@ mkModel2 =
 
 mkModel3 :: IO Model
 mkModel3 =
-    loadOBJModel ("res" </> "cube.obj") ("shaders" </> "min.vert") ("shaders" </> "min.frag")
+    loadOBJModel ("res" </> "capsule.obj") ("shaders" </> "min.vert") ("shaders" </> "min.frag")
 

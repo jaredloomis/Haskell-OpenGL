@@ -1,16 +1,17 @@
 module Textures where
 
-import Control.Monad
+import Data.Vector.Storable (unsafeWith)
+import Control.Monad (liftM)
 import Foreign hiding (unsafePerformIO)
 import System.IO (IOMode(ReadMode), openBinaryFile, hSeek, 
                    SeekMode(RelativeSeek), Handle, hGetBuf)
 import System.IO.Unsafe (unsafePerformIO)
+import Data.List
 
+import qualified Codec.Picture as Juicy
+import qualified Codec.Picture.Types as JTypes
 
---import Data.Vector.Storable (unsafeWith)
-
---import qualified Codec.Picture as Juicy
-import Graphics.Rendering.OpenGL.Raw
+import Graphics.Rendering.OpenGL.Raw (GLuint)
 import qualified Graphics.Rendering.OpenGL as GL
 import Graphics.Rendering.OpenGL (PixelData(..), PixelFormat(..), Size(..), 
                                    DataType(..), ($=))
@@ -22,28 +23,14 @@ data Endian = LittleEndian | BigEndian
               deriving (Eq, Ord, Show)
 
 loadGLTextures :: [FilePath] -> IO [GL.TextureObject]
-loadGLTextures (file:others) = do --loadGLTexturesIndex files 0
-    cur <- loadGLTexture file
-    rest <- loadGLTextures others
+loadGLTextures = loadGLTexturesIds 0
+
+loadGLTexturesIds :: GLuint -> [FilePath] -> IO [GL.TextureObject]
+loadGLTexturesIds i (file:others) = do
+    cur <- loadGLTextureId i file
+    rest <- loadGLTexturesIds (i+1) others
     return $ cur : rest
-loadGLTextures [] = return []
-
--- | TODO: This loads the files with ids starting at 0,
---   without accounting for previously loaded images.
-
-{-
-loadGLTexturesIndex :: [FilePath] -> Integer -> IO [GL.TextureObject]
-loadGLTexturesIndex (file:others) i = do
-    (Image (Size w h) pd) <- bitmapLoad file
-    texName <- liftM head (GL.genObjectNames 1)
-    GL.textureBinding GL.Texture2D $= Just texName
-    GL.textureFilter GL.Texture2D $= ((GL.Nearest, Nothing), GL.Nearest)
-    GL.texImage2D GL.Texture2D GL.NoProxy (fromIntegral i) GL.RGB' (GL.TextureSize2D w h) 0 pd
-    
-    texNames <- loadGLTexturesIndex others (i+1)
-    return $ texName:texNames
-loadGLTexturesIndex [] _ = return []
--}
+loadGLTexturesIds _ [] = return []
 
 -- | TODO: This loads the files with an id of 0,
 --   without accounting for previously loaded images.
@@ -56,27 +43,60 @@ loadGLTextureId texId file = do
     GL.texImage2D GL.Texture2D GL.NoProxy (fromIntegral texId) GL.RGB' (GL.TextureSize2D w h) 0 pd
     return texName
 
--- | TODO: This loads the files with an id of 0,
---   without accounting for previously loaded images.
-loadGLTexture :: FilePath -> IO GL.TextureObject
-loadGLTexture file = do
-    (Image (Size w h) pd) <- bitmapLoad file
+loadGLImageId :: GLuint -> FilePath -> IO GL.TextureObject
+loadGLImageId texId file = do
+    (Image (Size w h) pd) <- juicyLoadImage file
     texName <- liftM head (GL.genObjectNames 1)
     GL.textureBinding GL.Texture2D $= Just texName
     GL.textureFilter GL.Texture2D $= ((GL.Nearest, Nothing), GL.Nearest)
-    GL.texImage2D GL.Texture2D GL.NoProxy 0 GL.RGB' (GL.TextureSize2D w h) 0 pd
+    GL.texImage2D GL.Texture2D GL.NoProxy (fromIntegral texId) GL.RGB' (GL.TextureSize2D w h) 0 pd
     return texName
 
-{-
-loadGLTexture :: FilePath -> IO GL.TextureObject
-loadGLTexture file = do
-    (Image (Size w h) pd) <- bitmapLoad file
+loadGLPngId :: GLuint -> FilePath -> IO GL.TextureObject
+loadGLPngId texId file = do
+    (Image (Size w h) pd) <- juicyLoadPng file
     texName <- liftM head (GL.genObjectNames 1)
     GL.textureBinding GL.Texture2D $= Just texName
     GL.textureFilter GL.Texture2D $= ((GL.Nearest, Nothing), GL.Nearest)
-    GL.texImage2D GL.Texture2D GL.NoProxy 0 GL.RGB' (GL.TextureSize2D w h) 0 pd
+    GL.texImage2D GL.Texture2D GL.NoProxy (fromIntegral texId) GL.RGB' (GL.TextureSize2D w h) 0 pd
     return texName
--}
+
+juicyLoadImage :: FilePath -> IO Image
+juicyLoadImage file =
+    if "png" `isSuffixOf` file
+        then juicyLoadPng file
+    else if "jpg" `isSuffixOf` file || "jpeg" `isSuffixOf` file
+        then juicyLoadJpeg file
+    else if "bmp" `isSuffixOf` file
+        then bitmapLoad file
+    else
+        putStrLn ("Unrecognized image format in juicyLoadImage: "
+                    ++ file) 
+        >> undefined
+
+juicyLoadPng :: FilePath -> IO Image
+juicyLoadPng file = do
+    image <- Juicy.readPng file
+    
+    case image of
+        Left err -> error err >> undefined
+        Right (Juicy.ImageRGB8 (Juicy.Image w h dat)) ->
+            unsafeWith dat $ \ptr ->
+            return $ Image (GL.Size (fromIntegral w) (fromIntegral h))
+                            (GL.PixelData GL.RGB UnsignedByte ptr)
+
+juicyLoadJpeg :: FilePath -> IO Image
+juicyLoadJpeg file = do
+    image <- Juicy.readJpeg file
+    
+    case image of
+        Left err -> error err >> undefined
+        Right (Juicy.ImageYCbCr8 img) ->
+            let (Juicy.Image w h dat) = JTypes.convertImage img :: Juicy.Image Juicy.PixelRGB8
+            in unsafeWith dat $ \ptr ->
+                return $ Image (GL.Size (fromIntegral w) (fromIntegral h))
+                            (GL.PixelData GL.RGB UnsignedByte ptr)
+        _ -> undefined
 
 bitmapLoad :: String -> IO Image
 bitmapLoad f = do

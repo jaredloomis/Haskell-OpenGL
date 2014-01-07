@@ -8,4 +8,4 @@ Ks 0.000000 0.000000 0.000000
 Tr 1.000000
 illum 1
 Ns 0.000000
-map_Kd res/capsule0.bmp
+map_Kd res/objects/capsule/capsule0.bmp

@@ -13,7 +13,7 @@ import Types
 import Textures
 
 test :: IO ()
-test = loadMtlFile "res/Ibanez.mtl" >>= print
+test = loadMtlFile "res/ibanez/ibanez.mtl" >>= print
 
 loadMtlFile :: FilePath -> IO [Material]
 loadMtlFile file =
@@ -21,13 +21,13 @@ loadMtlFile file =
 
 loadMtlMaterials :: Handle -> IO [Material]
 loadMtlMaterials handle =
-    liftM tail $ loadMtlMaterialsRec 0 handle emptyMaterial
+    liftM (map applyDefualtMtl . tail) (loadMtlMaterialsRec 0 handle emptyMaterial)
 
 -- | Apply defualt values to attributes set to
 --   Nothing according to spec at
 --   http://people.sc.fsu.edu/~jburkardt/data/mtl/mtl.html
 applyDefualtMtl :: Material -> Material
-applyDefualtMtl mat@(Material _ amb diff spec _ _) =
+applyDefualtMtl mat@(Material _ amb diff spec _ texId) =
     let newAmb = if isNothing amb
                     then Just (0.2, 0.2, 0.2)
                 else amb
@@ -37,9 +37,13 @@ applyDefualtMtl mat@(Material _ amb diff spec _ _) =
         newSpec = if isNothing spec
                     then Just (1.0, 1.0, 1.0)
                 else spec
+        newTexId = if isNothing texId
+                    then Just (-1)
+                else texId
     in mat{matAmbientColor = newAmb,
            matDiffuseColor = newDiff,
-           matSpecularColor = newSpec}
+           matSpecularColor = newSpec,
+           matTexId = newTexId}
 
 -- | UNSAFE!! Use loadMtlMaterials instead.
 loadMtlMaterialsRec :: GLuint -> Handle -> Material -> IO [Material]
@@ -81,8 +85,8 @@ executeCommand command mat textureCount
     | "Ks " `isPrefixOf` command =
         return mat{matSpecularColor = Just $ readMtlLineTriplet command}
     | "map_Kd " `isPrefixOf` command = do
-        texture <- loadGLTextureId textureCount $ head $ rawMtlLine command
-        return mat{matTexture = Just texture, matTexId = Just textureCount}
+        texture <- loadGLImageId textureCount $ head (rawMtlLine command)
+        return mat{matTexture = Just texture, matTexId = Just $ fromIntegral textureCount}
     | otherwise = return mat
 
 readMtlLineTriplet :: String -> Vec3 GLfloat
@@ -106,5 +110,5 @@ data Material = Material {
     matDiffuseColor :: Maybe (Vec3 GLfloat),
     matSpecularColor :: Maybe (Vec3 GLfloat),
     matTexture :: Maybe GL.TextureObject,
-    matTexId :: Maybe GLuint
+    matTexId :: Maybe GLint
 } deriving (Show)

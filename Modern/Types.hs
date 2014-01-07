@@ -46,7 +46,7 @@ data World = World {
     worldUniforms :: [ShaderUniform]
 }
 
-data Image = Image GL.Size (GL.PixelData Word8)
+data Image = Image GL.Size (GL.PixelData Word8) deriving (Show)
 
 -- | Attrib id, Buffer id, size of attrib.
 type ShaderAttrib = Vec3 GLuint

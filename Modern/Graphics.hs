@@ -1,6 +1,6 @@
 module Graphics where
 
-import Data.IORef (IORef, readIORef)
+import Data.IORef (readIORef)
 
 import qualified Graphics.UI.GLFW as GLFW
 
@@ -16,7 +16,7 @@ import Shaders
 -----------------------------
 
 -- | Render all entities in the world.
---   Uses the attributes specified by the world
+--   Uses the attributes/uniforms specified by the world
 --   as well as ones specified by individual
 --   objects.
 renderWorld :: World -> IO ()
@@ -63,41 +63,7 @@ renderWorld world
     -- Continue rendering the rest of the entities in the world.
     renderWorld (world{worldEntities = tail $ worldEntities world})
 
--- | Render all entities in the list.
---   Uses the attributes specified by
---   individual objects.
-renderObjects :: [IORef Object] -> IO ()
-renderObjects (objectRef:rest) = do
-    obj <- readIORef objectRef
-    let model = entityModel obj
-        (objx, objy, objz) = entityPosition obj
 
-    glPushMatrix
-
-    -- Move Object
-    glTranslatef objx objy objz
-
-    -- Use object's shader
-    glUseProgram $ modelShader model
-
-    --bindAll (modelBufferIds model) (modelAttribLocs model)
-    bindShaderAttribs $ modelShaderVars model
-
-    -- Do the drawing.
-    glDrawArrays gl_TRIANGLES 0 (modelVertCount model)
-
-    glDisableVertexAttribArray 0
-
-    -- Disable the object's shader.
-    glUseProgram 0
-
-    -- End transformations so that later commands are not
-    -- affected.
-    glPopMatrix
-
-    renderObjects rest
-
-renderObjects [] = return ()
 
 -------------------------------
 -- UTILITY / SETUP FUNCTIONS --
@@ -138,7 +104,7 @@ resizeScene :: GLFW.WindowSizeCallback
 -- Prevent divide by 0
 resizeScene win w 0 = resizeScene win w 1
 resizeScene _ width height = do
-    -- Make viewport the same size as the screen.
+    -- Make viewport the same size as the window.
     glViewport 0 0 (fromIntegral width) (fromIntegral height)
 
     -- Apply projection matrix, load identity, and

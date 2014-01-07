@@ -26,7 +26,7 @@ main = do
     initGL win
 
     -- Create default world with a Player
-    -- and one Entity.
+    -- and one Entity
     world <- mkWorld
 
     -- Register the function to do all OpenGL drawing.
