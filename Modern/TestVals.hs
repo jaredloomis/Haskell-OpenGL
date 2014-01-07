@@ -2,7 +2,7 @@ module TestVals where
 
 import Control.Applicative ((<$>), (<*>))
 import System.FilePath ((</>))
-import Data.IORef (newIORef)
+import Data.IORef (IORef, newIORef)
 
 import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
@@ -61,7 +61,14 @@ mkWorld = do
     World
         <$> newIORef mkPlayer
         <*> return [obj1]
-        <*> return [("test", 1, [0.5])]
+        <*> return [("lightPos", [2.0, 2.0, 0.0])]
+        <*> mkWorldStateRef
+
+mkWorldState :: WorldState
+mkWorldState = WorldState 0
+
+mkWorldStateRef :: IO (IORef WorldState)
+mkWorldStateRef = newIORef mkWorldState
 
 mkObj :: IO Object
 mkObj =
@@ -72,8 +79,9 @@ mkObj2 =
     Entity (0, 2, -3) <$> mkModel3
 
 mkModel :: IO Model
-mkModel =
-    loadOBJModel ("res" </> "objects/ibanez/ibanez.obj") ("shaders" </> "min.vert") ("shaders" </> "min.frag")
+mkModel = do
+    worldStateRef <- mkWorldStateRef
+    loadOBJModel worldStateRef ("res" </> "objects/ibanez/ibanez.obj") ("shaders" </> "min.vert") ("shaders" </> "min.frag")
 
 mkModel2 :: IO Model
 mkModel2 =
@@ -89,6 +97,7 @@ mkModel2 =
 
 
 mkModel3 :: IO Model
-mkModel3 =
-    loadOBJModel ("res" </> "capsule.obj") ("shaders" </> "min.vert") ("shaders" </> "min.frag")
+mkModel3 = do
+    worldStateRef <- mkWorldStateRef
+    loadOBJModel worldStateRef ("res" </> "capsule.obj") ("shaders" </> "min.vert") ("shaders" </> "min.frag")
 

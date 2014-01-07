@@ -3,7 +3,9 @@ module Shaders where
 
 import Foreign
 import Foreign.C.String
+import Foreign.C.Types
 import Control.Monad (when)
+import Control.Applicative
 
 import Graphics.Rendering.OpenGL.Raw
 
@@ -37,7 +39,33 @@ loadShader shaderTypeFlag filePath = do
         with codePtr $ \codePtrPtr ->
             glShaderSource sid 1 codePtrPtr nullPtr
     glCompileShader sid
+
+    checkStatus gl_COMPILE_STATUS glGetShaderiv glGetShaderInfoLog sid
+
     return sid
+
+checkStatus :: (Storable a1, Num a1, Eq a1, Ord a1, Integral a1) =>
+    GLenum ->
+    (t -> GLenum -> Ptr a1 -> IO a) ->
+    (t -> a1 -> Ptr a3 -> Ptr CChar -> IO a2) ->
+    t ->
+    IO Bool
+checkStatus statusFlag glGetFn glInfoLogFn idT = do
+    let fetch info = withNewPtr (glGetFn idT info)
+    status <- toBool <$> fetch statusFlag
+    logLength <- fetch gl_INFO_LOG_LENGTH
+    when (logLength > 0) $
+        allocaArray0 (fromIntegral logLength) $ \msgPtr -> do
+            glInfoLogFn idT logLength nullPtr msgPtr
+            peekCString msgPtr >>=
+                if status 
+                    then \t -> do
+                        putStr "Good: "
+                        print t
+                else \t -> do
+                    putStr "Bad: "
+                    print t
+    return status
 
 bindTextures :: GLuint -> IO ()
 bindTextures shader =
@@ -73,7 +101,8 @@ bindWorld world shader =
     bindUniforms shader $ worldUniforms world
 
 bindUniforms :: GLuint -> [ShaderUniform] -> IO ()
-bindUniforms shader ((name, len, vals):xs) = do
+bindUniforms shader ((name, vals):xs) = do
+    let len = length vals
     loc <- withCString name $ glGetUniformLocation shader
 
     case len of
@@ -87,5 +116,11 @@ bindUniforms shader ((name, len, vals):xs) = do
     bindUniforms shader xs
 bindUniforms _ [] = return ()
 
+testPtr :: Ptr a -> Ptr String
+testPtr = castPtr
+
 quickGetUniform :: GLuint -> String -> IO GLint
 quickGetUniform shader name = withCString name $ glGetUniformLocation shader
+
+withNewPtr :: forall b a. Storable b => (Ptr b -> IO a) -> IO b
+withNewPtr f = alloca (\p -> f p >> peek p)

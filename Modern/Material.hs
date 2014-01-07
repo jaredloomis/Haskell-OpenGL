@@ -1,27 +1,29 @@
 module Material where
 
-import System.IO
-import Data.List
-import Data.Maybe
-import Data.List.Split
-import Control.Monad
+import System.IO (IOMode (ReadMode), Handle,
+                  openFile, hIsEOF, hGetLine, hClose)
+import Data.List (isPrefixOf)
+import Data.Maybe (isNothing)
+import Data.List.Split (splitOn)
+import Control.Monad (liftM)
+import Data.IORef
 
 import qualified Graphics.Rendering.OpenGL as GL
-import Graphics.Rendering.OpenGL.Raw
+import Graphics.Rendering.OpenGL.Raw (GLfloat, GLuint, GLint)
 
 import Types
 import Textures
 
-test :: IO ()
-test = loadMtlFile "res/ibanez/ibanez.mtl" >>= print
+--test :: IO ()
+--test = loadMtlFile "res/ibanez/ibanez.mtl" >>= print
 
-loadMtlFile :: FilePath -> IO [Material]
-loadMtlFile file =
-    openFile file ReadMode >>= loadMtlMaterials
+loadMtlFile :: IORef WorldState -> FilePath -> IO [Material]
+loadMtlFile wStateRef file =
+    openFile file ReadMode >>= loadMtlMaterials wStateRef
 
-loadMtlMaterials :: Handle -> IO [Material]
-loadMtlMaterials handle =
-    liftM (map applyDefualtMtl . tail) (loadMtlMaterialsRec 0 handle emptyMaterial)
+loadMtlMaterials :: IORef WorldState -> Handle -> IO [Material]
+loadMtlMaterials wStateRef handle =
+    liftM (map applyDefualtMtl . tail) (loadMtlMaterialsRec wStateRef 0 handle emptyMaterial)
 
 -- | Apply defualt values to attributes set to
 --   Nothing according to spec at
@@ -46,8 +48,8 @@ applyDefualtMtl mat@(Material _ amb diff spec _ texId) =
            matTexId = newTexId}
 
 -- | UNSAFE!! Use loadMtlMaterials instead.
-loadMtlMaterialsRec :: GLuint -> Handle -> Material -> IO [Material]
-loadMtlMaterialsRec textureCount handle start = do
+loadMtlMaterialsRec :: IORef WorldState -> GLuint -> Handle -> Material -> IO [Material]
+loadMtlMaterialsRec wStateRef textureCount handle start = do
     eof <- hIsEOF handle
     if not eof
         then do 
@@ -58,7 +60,7 @@ loadMtlMaterialsRec textureCount handle start = do
             if "newmtl " `isPrefixOf` line
                 then do
                     let name = head $ rawMtlLine line
-                    rest <- loadMtlMaterialsRec textureCount handle
+                    rest <- loadMtlMaterialsRec wStateRef textureCount handle
                                 (Material name Nothing Nothing Nothing Nothing Nothing)
                     return $ start : rest
             else if not $ null line
@@ -67,17 +69,17 @@ loadMtlMaterialsRec textureCount handle start = do
                 then
                     let origTex = matTexture start
                     in do
-                        newMat <- executeCommand line start textureCount
+                        newMat <- executeCommand wStateRef line start textureCount
                         if matTexture newMat == origTex
-                            then loadMtlMaterialsRec textureCount handle newMat
-                        else loadMtlMaterialsRec (textureCount+1) handle newMat
-            else loadMtlMaterialsRec textureCount handle start
+                            then loadMtlMaterialsRec wStateRef textureCount handle newMat
+                        else loadMtlMaterialsRec wStateRef (textureCount+1) handle newMat
+            else loadMtlMaterialsRec wStateRef textureCount handle start
     -- If it is End Of File, close the file and
     -- return the last Material.
     else hClose handle >> return [start]
 
-executeCommand :: String -> Material -> GLuint -> IO Material
-executeCommand command mat textureCount
+executeCommand :: IORef WorldState -> String -> Material -> GLuint -> IO Material
+executeCommand wStateRef command mat textureCount
     | "Ka " `isPrefixOf` command =
         return mat{matAmbientColor = Just $ readMtlLineTriplet command}
     | "Kd " `isPrefixOf` command =
@@ -85,7 +87,9 @@ executeCommand command mat textureCount
     | "Ks " `isPrefixOf` command =
         return mat{matSpecularColor = Just $ readMtlLineTriplet command}
     | "map_Kd " `isPrefixOf` command = do
-        texture <- loadGLImageId textureCount $ head (rawMtlLine command)
+        --texture <- loadGLTextureId textureCount $ head (rawMtlLine command)
+        wState <- readIORef wStateRef
+        texture <- loadGLTextureSafe wState $ head (rawMtlLine command)
         return mat{matTexture = Just texture, matTexId = Just $ fromIntegral textureCount}
     | otherwise = return mat
 

@@ -33,17 +33,15 @@ data Input = Input {
     inputLastMousePos :: Vec2 GLfloat
 }
 
-data Shaders = Shaders {
-    shadersProgram :: GL.Program,
-    shadersVertices :: GL.AttribLocation,
-    shadersNormals :: GL.AttribLocation,
-    shadersColors :: GL.AttribLocation
-}
-
 data World = World {
     worldPlayer :: IORef Object,
     worldEntities :: [IORef Object],
-    worldUniforms :: [ShaderUniform]
+    worldUniforms :: [ShaderUniform],
+    worldState :: IORef WorldState
+}
+
+data WorldState = WorldState {
+    stateTextureCount :: GLuint
 }
 
 data Image = Image GL.Size (GL.PixelData Word8) deriving (Show)
@@ -51,5 +49,5 @@ data Image = Image GL.Size (GL.PixelData Word8) deriving (Show)
 -- | Attrib id, Buffer id, size of attrib.
 type ShaderAttrib = Vec3 GLuint
 
--- | Name, Number of Floats, Values
-type ShaderUniform = (String, GLuint, [GLfloat])
+-- | Name, Values
+type ShaderUniform = (String, [GLfloat])

@@ -22,6 +22,7 @@ import Types
 data Endian = LittleEndian | BigEndian
               deriving (Eq, Ord, Show)
 
+{-
 loadGLTextures :: [FilePath] -> IO [GL.TextureObject]
 loadGLTextures = loadGLTexturesIds 0
 
@@ -31,7 +32,9 @@ loadGLTexturesIds i (file:others) = do
     rest <- loadGLTexturesIds (i+1) others
     return $ cur : rest
 loadGLTexturesIds _ [] = return []
+-}
 
+{-
 -- | TODO: This loads the files with an id of 0,
 --   without accounting for previously loaded images.
 loadGLTextureId :: GLuint -> FilePath -> IO GL.TextureObject
@@ -42,9 +45,21 @@ loadGLTextureId texId file = do
     GL.textureFilter GL.Texture2D $= ((GL.Nearest, Nothing), GL.Nearest)
     GL.texImage2D GL.Texture2D GL.NoProxy (fromIntegral texId) GL.RGB' (GL.TextureSize2D w h) 0 pd
     return texName
+-}
 
-loadGLImageId :: GLuint -> FilePath -> IO GL.TextureObject
-loadGLImageId texId file = do
+loadGLTextureSafe :: WorldState -> FilePath -> IO GL.TextureObject
+loadGLTextureSafe wState file = do
+    (Image (Size w h) pd) <- juicyLoadImage file
+    texName <- liftM head (GL.genObjectNames 1)
+    GL.textureBinding GL.Texture2D $= Just texName
+    GL.textureFilter GL.Texture2D $= ((GL.Nearest, Nothing), GL.Nearest)
+    GL.texImage2D GL.Texture2D GL.NoProxy (fromIntegral $ stateTextureCount wState) GL.RGB' (GL.TextureSize2D w h) 0 pd
+    return texName
+
+-- | TODO: This loads the files with an id of 0,
+--   without accounting for previously loaded images.
+loadGLTextureId :: GLuint -> FilePath -> IO GL.TextureObject
+loadGLTextureId texId file = do
     (Image (Size w h) pd) <- juicyLoadImage file
     texName <- liftM head (GL.genObjectNames 1)
     GL.textureBinding GL.Texture2D $= Just texName
@@ -52,6 +67,14 @@ loadGLImageId texId file = do
     GL.texImage2D GL.Texture2D GL.NoProxy (fromIntegral texId) GL.RGB' (GL.TextureSize2D w h) 0 pd
     return texName
 
+loadGLTexturesIds :: GLuint -> [FilePath] -> IO [GL.TextureObject]
+loadGLTexturesIds texId (file:files) = do
+    cur <- loadGLTextureId texId file
+    rest <- loadGLTexturesIds (texId+1) files
+    return $ cur:rest
+loadGLTexturesIds _ [] = return []
+
+{-
 loadGLPngId :: GLuint -> FilePath -> IO GL.TextureObject
 loadGLPngId texId file = do
     (Image (Size w h) pd) <- juicyLoadPng file
@@ -60,6 +83,7 @@ loadGLPngId texId file = do
     GL.textureFilter GL.Texture2D $= ((GL.Nearest, Nothing), GL.Nearest)
     GL.texImage2D GL.Texture2D GL.NoProxy (fromIntegral texId) GL.RGB' (GL.TextureSize2D w h) 0 pd
     return texName
+-}
 
 juicyLoadImage :: FilePath -> IO Image
 juicyLoadImage file =

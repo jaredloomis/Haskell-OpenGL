@@ -16,8 +16,8 @@ import Textures
 -- OPENGL STUFF --
 ------------------
 
-withNewPtr :: forall b a. Storable b => (Ptr b -> IO a) -> IO b
-withNewPtr f = alloca (\p -> f p >> peek p)
+--withNewPtr :: forall b a. Storable b => (Ptr b -> IO a) -> IO b
+--withNewPtr f = alloca (\p -> f p >> peek p)
 
 fillNewBuffer :: [GLfloat] -> IO GLuint
 fillNewBuffer list = do
@@ -85,7 +85,7 @@ createModel vert frag images attrNames buffData valLens vertCount = do
     program <- loadProgram vert frag
     attribs <- createAttribs program attrNames
     ids <- idAll buffData
-    textureObjs <- loadGLTextures images
+    textureObjs <- loadGLTexturesIds 0 images
 
     let sAttribs = createShaderAttribs attribs ids valLens
     return $ Model program sAttribs textureObjs vertCount

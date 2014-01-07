@@ -8,11 +8,12 @@ in int texId;
 
 out vec4 outColor;
 
-layout(location = 5) uniform sampler2D[7] textures;
+layout(location = 5) uniform vec3 lightPos;
+layout(location = 6) uniform sampler2D[7] textures;
 
 void main()
 {
-    vec3 lightPos = vec3(2.0, 2.0, 0.0);
+    //vec3 lightPos = vec3(2.0, 2.0, 0.0);
     //Position of vertex in modelview space
     vec3 vertexPosition = (gl_ModelViewMatrix * vec4(vertex, 1.0)).xyz;
     
@@ -27,6 +28,10 @@ void main()
     
     //"Main color"(diffuse) of vertex
     vec3 diffColor = diffuseLightIntensity * fragColor;
+
+    //Adjust color depending upon distance from light
+    diffColor /= max(distance(lightPos, vertexPosition)/10, 1);
+
     
     //Lowest light level possible
     vec3 ambColor = vec3(0.01, 0.01, 0.01);
@@ -34,27 +39,24 @@ void main()
     //"View vector" 
     vec3 viewVec = normalize(-vertexPosition);
     
-    
-    //// SPEC LIGHTING ///
-    
-    /// WARNING: Do not use this shader with models with a shininess of 0 ////
-    
     //Direction light is reflected off of surface normal
     vec3 reflectionDirection = normalize(reflect(-lightDirection, surfaceNormal));
     
     //The intensity of reflection (specular)
     float specular = max(0.0, dot(reflectionDirection, viewVec));
 
-    vec3 shininess = vec3(0.5, 0.5, 0.5);
+    float shininess = 2.0;
 
-    vec3 specColor = shininess * vec3(specular, specular, specular);
-    
-    /// END SPEC LIGHTING ///
+    float totalSpec = pow(specular, shininess);
+
+    totalSpec /= max(distance(gl_LightSource[0].position.xyz, vertexPosition)/4, 1);
+
+    vec3 specColor = vec3(totalSpec, totalSpec, totalSpec);
 
     if(texId != -1)
     {
         vec4 textureColor = texture(textures[texId], textureCoord);
-        outColor = textureColor;
+        outColor = vec4(ambColor, 1.0) + textureColor + vec4(specColor, 1.0);
     }
     else
     {

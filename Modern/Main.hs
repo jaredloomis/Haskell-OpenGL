@@ -14,8 +14,9 @@ import Player
 import TestVals
 import Object
 
-main :: IO ()
+main ::  IO ()
 main = do
+    print "sdfg"
     -- Does not work for all systems, but asks the OS or WM
     -- to disable resizing of the window. Does not work on
     -- Arch Linux 64 with XFCE/XFWM.

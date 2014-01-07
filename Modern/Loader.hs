@@ -4,6 +4,7 @@ module Loader where
 import Data.List
 import Data.List.Split
 import System.IO
+import Data.IORef
 
 import Graphics.Rendering.OpenGL.Raw (GLfloat, GLuint)
 
@@ -11,16 +12,17 @@ import Types
 import Util
 import Material
 
-loadOBJModel ::
+loadObjModel ::
+    IORef WorldState ->
     FilePath ->
     FilePath ->
     FilePath ->
     IO Model
-loadOBJModel objFile vert frag =
+loadObjModel wStateRef objFile vert frag =
     let attrNames = ["position", "texCoord", "normal", "color", "textureId"]
     in do
-        obj <- loadOBJ objFile
-        mats <- loadObjMaterials objFile
+        obj <- loadObj objFile
+        mats <- loadObjMaterials wStateRef objFile
 
         let objClean = negateNothing3 obj
             dat = toArrays objClean
@@ -30,8 +32,8 @@ loadOBJModel objFile vert frag =
 
             totalData = dat ++ [materialDiffs, materialTexIds]
 
-        print . length . head $ dat
-        print $ length $ dat !! 1
+        --print . length . head $ dat
+        --print $ length $ dat !! 1
 
         tmp <- createModel vert frag 
             []
@@ -68,26 +70,26 @@ negateNothing (Just x : rest) len = x : negateNothing rest len
 negateNothing (Nothing : rest) len = replicate len (-1) ++ negateNothing rest len
 negateNothing [] _ = []
 
-loadOBJ :: FilePath -> IO (Vec3 [Maybe GLfloat])
-loadOBJ file = do
+loadObj :: FilePath -> IO (Vec3 [Maybe GLfloat])
+loadObj file = do
     h1 <- openFile file ReadMode
-    verts <- loadOBJVertices h1
+    verts <- loadObjVertices h1
     h2 <- openFile file ReadMode
-    norms <- loadOBJNormals h2
+    norms <- loadObjNormals h2
     h3 <- openFile file ReadMode
-    uvs <- loadOBJTexs h3
+    uvs <- loadObjTexs h3
     h4 <- openFile file ReadMode
-    faces <- loadOBJFaces h4
+    faces <- loadObjFaces h4
 
-    return $ packOBJ faces verts uvs norms
+    return $ packObj faces verts uvs norms
 
-packOBJ ::
+packObj ::
     [Vec3 (Maybe GLuint)] -> -- ^ Face definitions
     [Vec3 GLfloat] ->  -- ^ Vertices
     [Vec2 GLfloat] ->  -- ^ Texture coordinates
     [Vec3 GLfloat] ->  -- ^ Normals
     Vec3 [Maybe GLfloat]
-packOBJ faces vertices uvs normals =
+packObj faces vertices uvs normals =
     let faceVerts = faceVertIndices faces
         faceTexs = faceTexIndices faces
         faceNorms = faceNormIndices faces
@@ -136,8 +138,8 @@ faceNormIndices ((_, _, z):xs) =
     z : faceNormIndices xs
 faceNormIndices [] = []
 
-loadOBJFaces :: Handle -> IO [Vec3 (Maybe GLuint)]
-loadOBJFaces handle = do
+loadObjFaces :: Handle -> IO [Vec3 (Maybe GLuint)]
+loadObjFaces handle = do
     eof <- hIsEOF handle
     if not eof
         then do
@@ -146,68 +148,68 @@ loadOBJFaces handle = do
                 then do
                     let groups = tail . filter (not . null) . splitOn " " $ line
                         xs = readFaceGroups groups
-                    others <- loadOBJFaces handle
+                    others <- loadObjFaces handle
                     return $ xs ++ others
-            else loadOBJFaces handle
+            else loadObjFaces handle
     else hClose handle >> return []
 
-loadOBJNormals :: Handle -> IO [Vec3 GLfloat]
-loadOBJNormals handle = do
+loadObjNormals :: Handle -> IO [Vec3 GLfloat]
+loadObjNormals handle = do
     eof <- hIsEOF handle
     if not eof
         then do 
             line <- hGetLine handle
             if "vn " `isPrefixOf` line
                 then do
-                    let vert = readOBJVecLine line
-                    others <- loadOBJNormals handle
+                    let vert = readObjVecLine line
+                    others <- loadObjNormals handle
                     return $ vert : others
-            else loadOBJNormals handle
+            else loadObjNormals handle
     else hClose handle >> return []
 
-loadOBJTexs :: Handle -> IO [Vec2 GLfloat]
-loadOBJTexs handle = do
+loadObjTexs :: Handle -> IO [Vec2 GLfloat]
+loadObjTexs handle = do
     eof <- hIsEOF handle
     if not eof
         then do 
             line <- hGetLine handle
             if "vt " `isPrefixOf` line
                 then do
-                    let vert = readOBJTexLine line
-                    others <- loadOBJTexs handle
+                    let vert = readObjTexLine line
+                    others <- loadObjTexs handle
                     return $ vert : others
-            else loadOBJTexs handle
+            else loadObjTexs handle
     else hClose handle >> return []
 
-loadOBJVertices :: Handle -> IO [Vec3 GLfloat]
-loadOBJVertices handle = do
+loadObjVertices :: Handle -> IO [Vec3 GLfloat]
+loadObjVertices handle = do
     eof <- hIsEOF handle
     if not eof
         then do 
             line <- hGetLine handle
             if "v " `isPrefixOf` line
                 then do
-                    let vert = readOBJVecLine line
-                    others <- loadOBJVertices handle
+                    let vert = readObjVecLine line
+                    others <- loadObjVertices handle
                     return $ vert : others
-            else loadOBJVertices handle
+            else loadObjVertices handle
     else hClose handle >> return []
 
-loadOBJMaterialLib :: Handle -> IO [Material]
-loadOBJMaterialLib handle = do
+loadObjMaterialLib :: IORef WorldState -> Handle -> IO [Material]
+loadObjMaterialLib wStateRef handle = do
     eof <- hIsEOF handle
     if not eof
         then do 
             line <- hGetLine handle
             if "mtllib " `isPrefixOf` line
-                then loadMtlFile . head . rawObjLine $ line
-            else loadOBJMaterialLib handle
+                then loadMtlFile wStateRef . head . rawObjLine $ line
+            else loadObjMaterialLib wStateRef handle
     else hClose handle >> return []
 
-loadObjMaterials :: FilePath -> IO [Material]
-loadObjMaterials file = do
+loadObjMaterials :: IORef WorldState -> FilePath -> IO [Material]
+loadObjMaterials wStateRef file = do
     handle1 <- openFile file ReadMode
-    library <- loadOBJMaterialLib handle1
+    library <- loadObjMaterialLib wStateRef handle1
     handle2 <- openFile file ReadMode
     listOfMats handle2 library emptyMaterial
 
@@ -227,8 +229,8 @@ listOfMats handle library currentMat = do
             else listOfMats handle library currentMat
     else hClose handle >> return []
 
-loadOBJMatsRec :: Handle -> [Material] -> Int -> IO [(Material, Int)]
-loadOBJMatsRec handle mats i = do
+loadObjMatsRec :: Handle -> [Material] -> Int -> IO [(Material, Int)]
+loadObjMatsRec handle mats i = do
     eof <- hIsEOF handle
     if not eof
         then do 
@@ -237,9 +239,9 @@ loadOBJMatsRec handle mats i = do
                 then do
                     let name = head $ rawObjLine line
                         mat = findMaterial name mats
-                    others <- loadOBJMatsRec handle mats i
+                    others <- loadObjMatsRec handle mats i
                     return $ (mat, i) : others
-            else loadOBJMatsRec handle mats $
+            else loadObjMatsRec handle mats $
                 if "f " `isPrefixOf` line
                     then i + 1
                 else i
@@ -248,15 +250,15 @@ loadOBJMatsRec handle mats i = do
 findMaterial :: String -> [Material] -> Material
 findMaterial name library = head $ filter (\x -> matName x == name) library
 
-readOBJVecLine :: String -> Vec3 GLfloat
-readOBJVecLine line =
+readObjVecLine :: String -> Vec3 GLfloat
+readObjVecLine line =
     let nums = tail . filter (not . null) . splitOn " " $ line
     in if length nums == 3
         then toTriplet $ readAll nums
     else undefined
 
-readOBJTexLine :: String -> Vec2 GLfloat
-readOBJTexLine line =
+readObjTexLine :: String -> Vec2 GLfloat
+readObjTexLine line =
     let nums = tail . filter (not . null) . splitOn " " $ line
     in if length nums == 2
         then let (tx, ty) = toTwin $ readAll nums
