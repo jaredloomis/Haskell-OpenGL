@@ -81,7 +81,7 @@ mkObj2 =
 mkModel :: IO Model
 mkModel = do
     worldStateRef <- mkWorldStateRef
-    loadOBJModel worldStateRef ("res" </> "objects/ibanez/ibanez.obj") ("shaders" </> "min.vert") ("shaders" </> "min.frag")
+    loadObjModel worldStateRef ("res" </> "objects/wow/wow.obj") ("shaders" </> "min.vert") ("shaders" </> "min.frag")
 
 mkModel2 :: IO Model
 mkModel2 =
@@ -99,5 +99,5 @@ mkModel2 =
 mkModel3 :: IO Model
 mkModel3 = do
     worldStateRef <- mkWorldStateRef
-    loadOBJModel worldStateRef ("res" </> "capsule.obj") ("shaders" </> "min.vert") ("shaders" </> "min.frag")
+    loadObjModel worldStateRef ("res" </> "capsule.obj") ("shaders" </> "min.vert") ("shaders" </> "min.frag")
 

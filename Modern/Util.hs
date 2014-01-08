@@ -88,7 +88,7 @@ createModel vert frag images attrNames buffData valLens vertCount = do
     textureObjs <- loadGLTexturesIds 0 images
 
     let sAttribs = createShaderAttribs attribs ids valLens
-    return $ Model program sAttribs textureObjs vertCount
+    return $ Model program sAttribs (zip textureObjs [0..(fromIntegral $ length images)]) vertCount
 
 -- | Simply pack the arguments together into an array of
 --   ShaderAttribs.

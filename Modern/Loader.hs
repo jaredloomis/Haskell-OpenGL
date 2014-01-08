@@ -41,7 +41,7 @@ loadObjModel wStateRef objFile vert frag =
             totalData
             [3, 2, 3, 3, 1]
             (fromIntegral (length $ head dat) `div` 3)
-        return tmp{modelTextures = map (getValU . matTexture) mats}
+        return tmp{modelTextures = zip (map (getValU . matTexture) mats) $ map (getValU . matTexId) mats}
 
 getVal :: Num a => Maybe a -> a
 getVal (Just x) = x

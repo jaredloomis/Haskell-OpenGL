@@ -7,6 +7,7 @@ import Foreign.C.Types
 import Control.Monad (when)
 import Control.Applicative
 
+import Graphics.Rendering.OpenGL as GL
 import Graphics.Rendering.OpenGL.Raw
 
 import qualified Graphics.GLUtil as GU
@@ -67,16 +68,21 @@ checkStatus statusFlag glGetFn glInfoLogFn idT = do
                     print t
     return status
 
-bindTextures :: GLuint -> IO ()
-bindTextures shader =
-    bindTexturesi shader 0
+bindTextures :: [(GL.TextureObject, GLint)] -> GLuint -> IO ()
+bindTextures textures shader =
+    bindTexturesi shader textures 0
 
     where
-    bindTexturesi s i =
-        when (i < 10) $ do
-            loc <- quickGetUniform s $ "textures[" ++ show i ++ "]"
-            glUniform1i loc i
-            bindTexturesi s (i+1)
+    bindTexturesi :: GLuint -> [(GL.TextureObject, GLint)] -> GLuint -> IO ()
+    bindTexturesi s ((GL.TextureObject tid, activeId):ts) i = do
+        when (activeId >= 0) $ do
+            glActiveTexture $ gl_TEXTURE0 + fromIntegral activeId
+            glBindTexture gl_TEXTURE_2D tid
+
+        loc <- quickGetUniform s $ "textures[" ++ show i ++ "]"
+        glUniform1i loc (fromIntegral i)
+        bindTexturesi s ts (i+1)
+    bindTexturesi _ [] _ = return ()
 
 bindShaderAttribs :: [ShaderAttrib] -> IO ()
 bindShaderAttribs ((attr, buf, len):rest) = do
