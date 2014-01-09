@@ -8,8 +8,9 @@
   - [Netwire](http://hackage.haskell.org/package/netwire) - Possibly best for games, but hard to understand, only outdated tutorials. [Game examples](http://jshaskell.blogspot.de/), [Official tutorial for Wires](http://hackage.haskell.org/package/netwire-4.0.5/docs/Control-Wire.html), [Another good tutorial](http://hub.darcs.net/ertes/netwire/browse/README.md)
 
 <h2>Todo</h2>
+- Better generalization of loading .obj files (ie. not requiring slashes if only specifying vertices.)
 - <del>Fix serious performance issue.</del>
-- FRP. Maybe?
+- <b>FRP. <i>Use [Helm](https://github.com/switchface/helm/blob/master/src/FRP/Helm/Utilities.hs) for inspiration</i></b>
 - Speed up .obj loading. Currently reads the same file multiple times, making it <b>really</b> slow.
 - Procedural generation (eventually).
 - Relative file loading in .mtl and .obj files.
