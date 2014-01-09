@@ -10,10 +10,10 @@ import Graphics.Rendering.OpenGL.Raw (GLfloat, GLuint, GLint)
 type Vec3 a = (a, a, a)
 type Vec2 a = (a, a)
 
-data Object = Player {
+data GameObject = Player {
     playerPosition :: Vec3 GLfloat,
     playerRotation :: Vec3 GLfloat,
-    playerUpdate :: Object -> Object,
+    playerUpdate :: GameObject -> GameObject,
     playerInput :: Input
 } | Entity {
     entityPosition :: Vec3 GLfloat,
@@ -28,14 +28,14 @@ data Model = Model {
 }
 
 data Input = Input {
-    inputKeys :: [(GLFW.Key, Bool, Object -> Object)],
+    inputKeys :: [(GLFW.Key, Bool,GameObject -> GameObject)],
     inputMouseDelta :: Vec2 GLfloat,
     inputLastMousePos :: Vec2 GLfloat
 }
 
 data World = World {
-    worldPlayer :: IORef Object,
-    worldEntities :: [IORef Object],
+    worldPlayer :: IORef GameObject,
+    worldEntities :: [IORef GameObject],
     worldUniforms :: [ShaderUniform],
     worldState :: IORef WorldState
 }

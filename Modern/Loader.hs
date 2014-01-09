@@ -22,7 +22,7 @@ loadObjModel wStateRef objFile vert frag =
     let attrNames = ["position", "texCoord", "normal", "color", "textureId"]
     in do
         obj <- loadObj objFile
-        mats <- loadObjMaterials wStateRef objFile
+        (mats, lib) <- loadObjMaterials wStateRef objFile
 
         let objClean = negateNothing3 obj
             dat = toArrays objClean
@@ -41,7 +41,7 @@ loadObjModel wStateRef objFile vert frag =
             totalData
             [3, 2, 3, 3, 1]
             (fromIntegral (length $ head dat) `div` 3)
-        return tmp{modelTextures = zip (map (getValU . matTexture) mats) $ map (getValU . matTexId) mats}
+        return tmp{modelTextures = zip (map (getValU . matTexture) lib) $ map (getValU . matTexId) lib}
 
 getVal :: Num a => Maybe a -> a
 getVal (Just x) = x
@@ -206,12 +206,14 @@ loadObjMaterialLib wStateRef handle = do
             else loadObjMaterialLib wStateRef handle
     else hClose handle >> return []
 
-loadObjMaterials :: IORef WorldState -> FilePath -> IO [Material]
+loadObjMaterials :: IORef WorldState -> FilePath -> IO ([Material], [Material])
 loadObjMaterials wStateRef file = do
     handle1 <- openFile file ReadMode
     library <- loadObjMaterialLib wStateRef handle1
     handle2 <- openFile file ReadMode
-    listOfMats handle2 library emptyMaterial
+    listRet <- listOfMats handle2 library emptyMaterial
+    return (listRet, library)
+    
 
 listOfMats :: Handle -> [Material] -> Material -> IO [Material]
 listOfMats handle library currentMat = do

@@ -57,10 +57,10 @@ vertexBufferDataWithNormals = [0, 0, 0,   0, 0, 1,
 mkWorld :: IO World
 mkWorld = do
     obj1 <- mkObj >>= newIORef
-    --obj2 <- mkObj2 >>= newIORef
+    obj2 <- mkObj2 >>= newIORef
     World
         <$> newIORef mkPlayer
-        <*> return [obj1]
+        <*> return [obj1, obj2]
         <*> return [("lightPos", [2.0, 2.0, 0.0])]
         <*> mkWorldStateRef
 
@@ -70,11 +70,11 @@ mkWorldState = WorldState 0
 mkWorldStateRef :: IO (IORef WorldState)
 mkWorldStateRef = newIORef mkWorldState
 
-mkObj :: IO Object
+mkObj :: IO GameObject
 mkObj =
     Entity (0, 0, -3) <$> mkModel
 
-mkObj2 :: IO Object
+mkObj2 :: IO GameObject
 mkObj2 =
     Entity (0, 2, -3) <$> mkModel3
 
@@ -99,5 +99,5 @@ mkModel2 =
 mkModel3 :: IO Model
 mkModel3 = do
     worldStateRef <- mkWorldStateRef
-    loadObjModel worldStateRef ("res" </> "capsule.obj") ("shaders" </> "min.vert") ("shaders" </> "min.frag")
+    loadObjModel worldStateRef ("res" </> "objects/capsule/capsule.obj") ("shaders" </> "min.vert") ("shaders" </> "min.frag")
 

@@ -50,6 +50,8 @@ renderWorld world
     -- Do the drawing.
     glDrawArrays gl_TRIANGLES 0 (modelVertCount model)
 
+    unBindTextures (fromIntegral . length . modelTextures $ model)
+
     -- Turn off VBO/VAO
     disableShaderAttribs $ modelShaderVars model
 

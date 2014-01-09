@@ -12,7 +12,7 @@ import Util
 import Graphics
 import Player
 import TestVals
-import Object
+import GameObject
 
 main ::  IO ()
 main = do
@@ -93,7 +93,7 @@ updateStep world = do
 -- CALLBACKS --
 ---------------
 
-cursorMove :: IORef Object -> GLFW.CursorPosCallback
+cursorMove :: IORef GameObject -> GLFW.CursorPosCallback
 cursorMove playerRef _ x y = do
     player <- readIORef playerRef
     let input = playerInput player
@@ -105,7 +105,7 @@ cursorMove playerRef _ x y = do
 -- | Special case for Escape Key, not necessary to give info
 --   to the Player.
 --   TODO: Give it to Player for pausing. Or something.
-keyPressed :: IORef Object -> GLFW.KeyCallback
+keyPressed :: IORef GameObject -> GLFW.KeyCallback
 keyPressed _ win GLFW.Key'Escape _ GLFW.KeyState'Pressed _ = do
     currentCursorMode <- GLFW.getCursorInputMode win
     GLFW.setCursorInputMode win $

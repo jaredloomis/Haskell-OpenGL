@@ -1,6 +1,6 @@
-module Object where
+module GameObject where
 
 import Types
 
-updateObject :: Object -> Object
+updateObject :: GameObject -> GameObject
 updateObject player@(Player{}) = playerUpdate player player

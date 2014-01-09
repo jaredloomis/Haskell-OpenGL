@@ -6,7 +6,7 @@ import Graphics.Rendering.OpenGL.Raw
 import Util
 import Types
 
-mkPlayer :: Object
+mkPlayer :: GameObject
 mkPlayer = Player   (0, 0, 0) (0, 0, 0) 
                     (playerMouseUpdate . playerKeyUpdate) 
                     baseInput
@@ -19,25 +19,25 @@ baseInput =  Input [(GLFW.Key'A, False, aIn), (GLFW.Key'D, False, dIn),
                     (GLFW.Key'LeftShift, False, shiftIn), 
                     (GLFW.Key'Space, False, spaceIn)] (0, 0) (0, 0)
 
-aIn :: Object -> Object
+aIn :: GameObject -> GameObject
 aIn p = moveFromLook p (0.1, 0, 0)
-dIn :: Object -> Object 
+dIn :: GameObject -> GameObject 
 dIn p = moveFromLook p (-0.1, 0, 0)
-wIn :: Object -> Object 
+wIn :: GameObject -> GameObject 
 wIn p = moveFromLook p (0, 0, -0.1)
-sIn :: Object -> Object 
+sIn :: GameObject -> GameObject 
 sIn p = moveFromLook p (0, 0, 0.1)
 
-shiftIn :: Object -> Object
+shiftIn :: GameObject -> GameObject
 shiftIn p = moveObject p (0, -0.1, 0)
 
-spaceIn :: Object -> Object 
+spaceIn :: GameObject -> GameObject 
 spaceIn p = moveObject p (0, 0.1, 0)
 
 -- | Takes a Player and a Vec3 of movement
 --   and moves player locally based on rotation.
 --   Does not use Y direction argument.
-moveFromLook :: Object -> Vec3 GLfloat-> Object
+moveFromLook :: GameObject -> Vec3 GLfloat-> GameObject
 moveFromLook player moveDirs=
     let rot = playerRotation player
         (_, ry, _) = vec3ToFloats rot
@@ -49,13 +49,13 @@ moveFromLook player moveDirs=
         
     in moveObject player (realToFrac mx, my, realToFrac mz)
 
-moveObject :: Object -> Vec3 GLfloat -> Object
+moveObject :: GameObject -> Vec3 GLfloat -> GameObject
 moveObject p@(Player{}) (dx, dy, dz) =
     let (ix, iy, iz) = playerPosition p
         newPos = (ix + dx, iy + dy, iz + dz)
     in p{playerPosition = newPos}
 
-playerMouseUpdate :: Object -> Object
+playerMouseUpdate :: GameObject -> GameObject
 playerMouseUpdate player =
     let (rawdx, rawdy) = inputMouseDelta $ playerInput player
         (lastX, lastY) = inputLastMousePos $ playerInput player
@@ -103,14 +103,14 @@ playerMouseUpdate player =
         newRot = (newRx, newRy, rz)
     in player{playerRotation = newRot, playerInput = newInput}
 
-playerKeyUpdate :: Object -> Object
+playerKeyUpdate :: GameObject -> GameObject
 playerKeyUpdate player=
     (playerKeyUpdateTail player){playerInput = playerInput player}
 
 -- | Returns Player after applying all input functions.
 --   UNSAFE! Returns given player with an empty inputKeys!
 --   Use playerKeyUpdate instead.
-playerKeyUpdateTail :: Object -> Object
+playerKeyUpdateTail :: GameObject -> GameObject
 playerKeyUpdateTail p@(Player _ _ _ (Input ((_, isDown, func):xs) mouse lm)) =
     -- If the key is down, apply corresponding function to player
     let newPlayer = if isDown then func p else p
@@ -125,7 +125,7 @@ playerKeyUpdateTail p@(Player _ _ _ (Input [] _ _)) = p
 -- | Takes a Player and "moves the camera" by
 --   moving the whole world in the opposite direction.
 --   Then applies rotation.
-applyTransformations :: Object -> IO ()
+applyTransformations :: GameObject -> IO ()
 applyTransformations player = do
     -- Not sure what it does... Basically save some
     -- current state attributes and reset those when

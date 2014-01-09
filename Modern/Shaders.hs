@@ -75,6 +75,7 @@ bindTextures textures shader =
     where
     bindTexturesi :: GLuint -> [(GL.TextureObject, GLint)] -> GLuint -> IO ()
     bindTexturesi s ((GL.TextureObject tid, activeId):ts) i = do
+        print i
         when (activeId >= 0) $ do
             glActiveTexture $ gl_TEXTURE0 + fromIntegral activeId
             glBindTexture gl_TEXTURE_2D tid
@@ -83,6 +84,17 @@ bindTextures textures shader =
         glUniform1i loc (fromIntegral i)
         bindTexturesi s ts (i+1)
     bindTexturesi _ [] _ = return ()
+
+unBindTextures :: GLuint -> IO ()
+unBindTextures =
+    unBindTexturesi 0
+
+    where
+    unBindTexturesi :: GLuint -> GLuint -> IO ()
+    unBindTexturesi i amt =
+        when (i < amt) $ do
+            glActiveTexture $ gl_TEXTURE0 + fromIntegral i
+            glBindTexture gl_TEXTURE_2D 0
 
 bindShaderAttribs :: [ShaderAttrib] -> IO ()
 bindShaderAttribs ((attr, buf, len):rest) = do
