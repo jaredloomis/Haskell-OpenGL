@@ -8,15 +8,14 @@ import qualified Graphics.Rendering.OpenGL as GL
 import Graphics.Rendering.OpenGL.Raw
 
 import Types
-import Util
 import Graphics
 import Player
 import TestVals
 import GameObject
+import Window
 
 main ::  IO ()
 main = do
-    print "sdfg"
     -- Does not work for all systems, but asks the OS or WM
     -- to disable resizing of the window. Does not work on
     -- Arch Linux 64 with XFCE/XFWM.
@@ -35,7 +34,7 @@ main = do
     GLFW.setWindowRefreshCallback win (Just (renderStep world))
     -- Register the function called when the keyboard is pressed.
     GLFW.setKeyCallback win (Just $ keyPressed (worldPlayer world))
-    -- Register the function called when our window is resized.
+    -- Register the function called whe our window is resized.
     GLFW.setFramebufferSizeCallback win (Just resizeScene)
     -- Register the function called when cursor moves.
     GLFW.setCursorPosCallback win (Just $ cursorMove $ worldPlayer world)
@@ -45,7 +44,7 @@ main = do
 
     loop win world
     shutdown win
-    
+
     where
         loop win world = do
             -- Clear screen.
@@ -60,9 +59,6 @@ main = do
 
             -- Swap back and front buffer.
             GLFW.swapBuffers win
-
-            -- Do I need this?
-            --threadDelay 10000
 
             loop win world
 

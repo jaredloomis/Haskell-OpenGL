@@ -4,55 +4,10 @@ import Control.Applicative ((<$>), (<*>))
 import System.FilePath ((</>))
 import Data.IORef (IORef, newIORef)
 
-import Graphics.Rendering.OpenGL.Raw (GLfloat)
-
 import Types
-import Util
 import Player
-import Loader
-
-vertexBufferData :: [GLfloat]
-vertexBufferData = [0, 0, 0,
-                    1, 0, 0, 
-                    0, 1, 0,
-                    0, 1, 0,
-                    1, 0, 0,
-                    1, 1, 0]
-
-normalBufferData :: [GLfloat]
-normalBufferData = [0, 0, 1,
-                    0, 0, 1, 
-                    0, 0, 1,
-                    0, 0, 1,
-                    0, 0, 1,
-                    0, 0, 1]
-
-colorBufferData :: [GLfloat]
-colorBufferData = [1, 0, 0,
-                   0, 1, 0,
-                   0, 0, 1,
-                   0, 1, 0,
-                   1, 0, 0,
-                   1, 1, 0]
-
-textureBufferData :: [GLfloat]
-textureBufferData = [0, 0,
-                     1, 0,
-                     0, 1,
-                     1, 0,
-                     0, 0,
-                     1, 1]
-
-textureIdBufferData :: [GLfloat]
-textureIdBufferData = [0, 0, 0, 0, 0, 0]
-
-lightPos :: [GLfloat]
-lightPos = [1, 0, 0]
-
-vertexBufferDataWithNormals :: [GLfloat]
-vertexBufferDataWithNormals = [0, 0, 0,   0, 0, 1,
-                               1, 0, 0,   0, 0, 1,
-                               0, 1, 0,   0, 0, 1]
+import ModelLoader
+import Generator
 
 mkWorld :: IO World
 mkWorld = do
@@ -72,32 +27,29 @@ mkWorldStateRef = newIORef mkWorldState
 
 mkObj :: IO GameObject
 mkObj =
-    Entity (0, 0, -3) <$> mkModel
+    Entity (3, 1, 0) <$> mkModel
 
 mkObj2 :: IO GameObject
 mkObj2 =
-    Entity (0, 2, -3) <$> mkModel3
+    Entity (0, 0, 0) <$> mkTerrain
 
 mkModel :: IO Model
 mkModel = do
     worldStateRef <- mkWorldStateRef
-    loadObjModel worldStateRef ("res" </> "objects/wow/wow.obj") ("shaders" </> "min.vert") ("shaders" </> "min.frag")
+    loadObjModel worldStateRef ("res" </> "objects/wow/wow.obj")
+                               ("shaders" </> "min.vert")
+                               ("shaders" </> "min.frag")
 
-mkModel2 :: IO Model
-mkModel2 =
-    createModel 
-        ("shaders" </> "min.vert")
-        ("shaders" </> "min.frag")
-        ["res" </> "Crate.bmp"]
-        ["position", "normal", "color", "texCoord", "textId"]
-        [vertexBufferData, normalBufferData, colorBufferData, textureBufferData, 
-         textureIdBufferData]
-        [3, 3, 3, 2, 1]
-        6
-
+mkTerrain :: IO Model
+mkTerrain = genModel
+            "shaders/max.vert"
+            "shaders/max.frag"
+            50
 
 mkModel3 :: IO Model
 mkModel3 = do
     worldStateRef <- mkWorldStateRef
-    loadObjModel worldStateRef ("res" </> "objects/capsule/capsule.obj") ("shaders" </> "min.vert") ("shaders" </> "min.frag")
+    loadObjModel worldStateRef ("res" </> "objects/ibanez/ibanez.obj")
+                               ("shaders" </> "min.vert")
+                               ("shaders" </> "min.frag")
 

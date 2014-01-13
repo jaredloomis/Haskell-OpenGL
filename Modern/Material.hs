@@ -14,8 +14,14 @@ import Graphics.Rendering.OpenGL.Raw (GLfloat, GLuint, GLint)
 import Types
 import Textures
 
---test :: IO ()
---test = loadMtlFile "res/ibanez/ibanez.mtl" >>= print
+data Material = Material {
+    matName :: String,
+    matAmbientColor :: Maybe (Vec3 GLfloat),
+    matDiffuseColor :: Maybe (Vec3 GLfloat),
+    matSpecularColor :: Maybe (Vec3 GLfloat),
+    matTexture :: Maybe GL.TextureObject,
+    matTexId :: Maybe GLint
+} deriving (Show)
 
 loadMtlFile :: IORef WorldState -> FilePath -> IO [Material]
 loadMtlFile wStateRef file =
@@ -107,12 +113,3 @@ toTripletMtl (x:y:zs) = (x, y, head zs)
 
 emptyMaterial :: Material
 emptyMaterial = Material "" Nothing Nothing Nothing Nothing Nothing
-
-data Material = Material {
-    matName :: String,
-    matAmbientColor :: Maybe (Vec3 GLfloat),
-    matDiffuseColor :: Maybe (Vec3 GLfloat),
-    matSpecularColor :: Maybe (Vec3 GLfloat),
-    matTexture :: Maybe GL.TextureObject,
-    matTexId :: Maybe GLint
-} deriving (Show)

@@ -45,6 +45,9 @@ loadShader shaderTypeFlag filePath = do
 
     return sid
 
+-- | Gets status from OpenGL. Supply flag to check,
+--   function to get status with, infoLog function,
+--   and shader id.
 checkStatus :: (Storable a1, Num a1, Eq a1, Ord a1, Integral a1) =>
     GLenum ->
     (t -> GLenum -> Ptr a1 -> IO a) ->
@@ -61,21 +64,23 @@ checkStatus statusFlag glGetFn glInfoLogFn idT = do
             peekCString msgPtr >>=
                 if status 
                     then \t -> do
-                        putStr "Good: "
+                        putStr "Successfully loaded shader: "
                         print t
                 else \t -> do
-                    putStr "Bad: "
+                    putStr "Error loading shader: "
                     print t
     return status
 
-bindTextures :: [(GL.TextureObject, GLint)] -> GLuint -> IO ()
+-- | Binds textures to prepare for being sent to the
+--   shader. Calls glBindTexture and sets the "textures[]"
+--   uniform in shader.
+bindTextures :: [Texture] -> GLuint -> IO ()
 bindTextures textures shader =
     bindTexturesi shader textures 0
 
     where
     bindTexturesi :: GLuint -> [(GL.TextureObject, GLint)] -> GLuint -> IO ()
     bindTexturesi s ((GL.TextureObject tid, activeId):ts) i = do
-        print i
         when (activeId >= 0) $ do
             glActiveTexture $ gl_TEXTURE0 + fromIntegral activeId
             glBindTexture gl_TEXTURE_2D tid
@@ -85,6 +90,7 @@ bindTextures textures shader =
         bindTexturesi s ts (i+1)
     bindTexturesi _ [] _ = return ()
 
+-- | Clear out active textures. Call after drawing?
 unBindTextures :: GLuint -> IO ()
 unBindTextures =
     unBindTexturesi 0
@@ -96,6 +102,7 @@ unBindTextures =
             glActiveTexture $ gl_TEXTURE0 + fromIntegral i
             glBindTexture gl_TEXTURE_2D 0
 
+-- | Binds a list of ShaderAttribs.
 bindShaderAttribs :: [ShaderAttrib] -> IO ()
 bindShaderAttribs ((attr, buf, len):rest) = do
     -- Enable the attribute buffer.
@@ -107,6 +114,7 @@ bindShaderAttribs ((attr, buf, len):rest) = do
     bindShaderAttribs rest
 bindShaderAttribs [] = return ()
 
+-- | Disables a list of ShaderAttribs. Call after drawing?
 disableShaderAttribs :: [ShaderAttrib] -> IO ()
 disableShaderAttribs ((attr, _, _):rest) = do
     -- Disable the attribute buffer.
@@ -114,10 +122,13 @@ disableShaderAttribs ((attr, _, _):rest) = do
     disableShaderAttribs rest
 disableShaderAttribs [] = return ()
 
+-- | Bind a world's uniforms to given shader.
 bindWorld :: World -> GLuint -> IO ()
 bindWorld world shader =
     bindUniforms shader $ worldUniforms world
 
+-- | Calls glUniformxf on all Uniforms, given the
+--   shader.
 bindUniforms :: GLuint -> [ShaderUniform] -> IO ()
 bindUniforms shader ((name, vals):xs) = do
     let len = length vals
@@ -134,11 +145,10 @@ bindUniforms shader ((name, vals):xs) = do
     bindUniforms shader xs
 bindUniforms _ [] = return ()
 
-testPtr :: Ptr a -> Ptr String
-testPtr = castPtr
-
+-- | Utility function to get a uniform value from a shader.
 quickGetUniform :: GLuint -> String -> IO GLint
 quickGetUniform shader name = withCString name $ glGetUniformLocation shader
 
+-- | Perform IO action with a new pointer.
 withNewPtr :: forall b a. Storable b => (Ptr b -> IO a) -> IO b
 withNewPtr f = alloca (\p -> f p >> peek p)

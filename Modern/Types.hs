@@ -23,7 +23,7 @@ data GameObject = Player {
 data Model = Model {
     modelShader :: GLuint,
     modelShaderVars :: [ShaderAttrib],
-    modelTextures :: [(GL.TextureObject, GLint)],
+    modelTextures :: [Texture],
     modelVertCount :: GLint
 }
 
@@ -45,6 +45,8 @@ data WorldState = WorldState {
 }
 
 data Image = Image GL.Size (GL.PixelData Word8) deriving (Show)
+
+type Texture = (GL.TextureObject, GLint)
 
 -- | Attrib id, Buffer id, size of attrib.
 type ShaderAttrib = Vec3 GLuint

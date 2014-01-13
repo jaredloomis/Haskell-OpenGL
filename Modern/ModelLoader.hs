@@ -1,5 +1,5 @@
 {-# LANGUAGE RankNTypes #-}
-module Loader where
+module ModelLoader where
 
 import Data.List
 import Data.List.Split
@@ -9,9 +9,12 @@ import Data.IORef
 import Graphics.Rendering.OpenGL.Raw (GLfloat, GLuint)
 
 import Types
-import Util
 import Material
+import Model
 
+-- | Completely loads a .obj file, given the current WorldState,
+--   the FilePath to the .obj, and the FilePaths to the vertex
+--   and fragment shaders.
 loadObjModel ::
     IORef WorldState ->
     FilePath ->
@@ -36,7 +39,6 @@ loadObjModel wStateRef objFile vert frag =
         --print $ length $ dat !! 1
 
         tmp <- createModel vert frag 
-            []
             attrNames
             totalData
             [3, 2, 3, 3, 1]
@@ -51,14 +53,6 @@ getValU :: Maybe a -> a
 getValU (Just x) = x
 getValU Nothing = undefined
 
-{-
-removeIndex (x:xs) index counter =
-    if counter == index
-        then removeIndex xs index (counter + 1)
-    else x : removeIndex xs index (counter + 1)
-removeIndex [] _ _ = []
--}
-
 toArrays :: forall a. ([a], [a], [a]) -> [[a]]
 toArrays (x, y, z) = [x] ++ [y] ++ [z]
 
@@ -72,14 +66,10 @@ negateNothing [] _ = []
 
 loadObj :: FilePath -> IO (Vec3 [Maybe GLfloat])
 loadObj file = do
-    h1 <- openFile file ReadMode
-    verts <- loadObjVertices h1
-    h2 <- openFile file ReadMode
-    norms <- loadObjNormals h2
-    h3 <- openFile file ReadMode
-    uvs <- loadObjTexs h3
-    h4 <- openFile file ReadMode
-    faces <- loadObjFaces h4
+    verts <- openFile file ReadMode >>= loadObjVertices
+    norms <- openFile file ReadMode >>= loadObjNormals
+    uvs <- openFile file ReadMode >>= loadObjTexs
+    faces <- openFile file ReadMode >>= loadObjFaces
 
     return $ packObj faces verts uvs norms
 

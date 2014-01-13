@@ -47,6 +47,11 @@ renderWorld world
     bindWorld world $ modelShader model
     bindTextures (modelTextures model) $ modelShader model
 
+
+    p <- readIORef (worldPlayer world)
+    let (px, py, pz) = playerPosition p
+    bindUniforms (modelShader model) [("playerPosition", [px, py, pz])]
+
     -- Do the drawing.
     glDrawArrays gl_TRIANGLES 0 (modelVertCount model)
 

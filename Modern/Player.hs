@@ -11,7 +11,6 @@ mkPlayer = Player   (0, 0, 0) (0, 0, 0)
                     (playerMouseUpdate . playerKeyUpdate) 
                     baseInput
 
-
 -- | Input for first person camera.
 baseInput :: Input
 baseInput =  Input [(GLFW.Key'A, False, aIn), (GLFW.Key'D, False, dIn),
@@ -21,11 +20,11 @@ baseInput =  Input [(GLFW.Key'A, False, aIn), (GLFW.Key'D, False, dIn),
 
 aIn :: GameObject -> GameObject
 aIn p = moveFromLook p (0.1, 0, 0)
-dIn :: GameObject -> GameObject 
+dIn :: GameObject -> GameObject
 dIn p = moveFromLook p (-0.1, 0, 0)
-wIn :: GameObject -> GameObject 
+wIn :: GameObject -> GameObject
 wIn p = moveFromLook p (0, 0, -0.1)
-sIn :: GameObject -> GameObject 
+sIn :: GameObject -> GameObject
 sIn p = moveFromLook p (0, 0, 0.1)
 
 shiftIn :: GameObject -> GameObject
@@ -38,13 +37,15 @@ spaceIn p = moveObject p (0, 0.1, 0)
 --   and moves player locally based on rotation.
 --   Does not use Y direction argument.
 moveFromLook :: GameObject -> Vec3 GLfloat-> GameObject
-moveFromLook player moveDirs=
-    let rot = playerRotation player
-        (_, ry, _) = vec3ToFloats rot
-        (dx, _, dz) = vec3ToFloats moveDirs
+moveFromLook player (idx, idy, idz) =
+    let (_, rry, _) = playerRotation player
+        dx = realToFrac idx
+        dz = realToFrac idz
+        
+        ry = realToFrac rry :: Float
 
         mx = dx * sinDeg (ry - 90) + dz * sinDeg ry
-        my = 0
+        my = idy
         mz = dx * cosDeg (ry - 90) + dz * cosDeg ry
         
     in moveObject player (realToFrac mx, my, realToFrac mz)
