@@ -1,11 +1,11 @@
 {-# LANGUAGE RankNTypes #-}
-module Util where
+module Engine.Core.Util where
 
 import Foreign
 
 import Graphics.Rendering.OpenGL.Raw
 
-import Shaders
+import Engine.Graphics.Shaders
 
 ------------------
 -- OPENGL STUFF --

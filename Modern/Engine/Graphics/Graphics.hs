@@ -1,4 +1,4 @@
-module Graphics where
+module Engine.Graphics.Graphics where
 
 import Data.IORef (readIORef)
 
@@ -7,9 +7,12 @@ import qualified Graphics.UI.GLFW as GLFW
 import qualified Graphics.Rendering.GLU.Raw as GLU
 import Graphics.Rendering.OpenGL.Raw
 
-import Types
-import Shaders
+import Engine.Core.World
+import Engine.Graphics.Shaders
+import Engine.Core.Vec
 
+import Engine.Object.GameObject
+import Engine.Model.Model
 
 -----------------------------
 -- GENERAL RENDERING FUNCS --
@@ -29,7 +32,8 @@ renderWorld world
     let objectRef = head $ worldEntities world
     object <- readIORef objectRef
     let model = entityModel object
-        (objx, objy, objz) = entityPosition object
+        Vec3 objx objy objz = entityPosition object
+        mShader = modelShader model
 
     -- Begin a state where transformations remain in affect
     -- only until glPopMatrix is called.
@@ -39,18 +43,18 @@ renderWorld world
     glTranslatef objx objy objz
 
     -- Use object's shader
-    glUseProgram $ modelShader model
+    glUseProgram mShader
 
     -- Bind buffers to variable names in shader.
     --bindAll (modelBufferIds model) (modelAttribLocs model)
     bindShaderAttribs $ modelShaderVars model
-    bindWorld world $ modelShader model
-    bindTextures (modelTextures model) $ modelShader model
+    bindWorldUniforms world mShader
+    bindTextures (modelTextures model) mShader
 
 
     p <- readIORef (worldPlayer world)
-    let (px, py, pz) = playerPosition p
-    bindUniforms (modelShader model) [("playerPosition", [px, py, pz])]
+    let Vec3 px py pz = playerPosition p
+    bindUniforms mShader [("playerPosition", [px, py, pz])]
 
     -- Do the drawing.
     glDrawArrays gl_TRIANGLES 0 (modelVertCount model)

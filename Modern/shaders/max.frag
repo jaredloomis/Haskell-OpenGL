@@ -8,7 +8,7 @@ out vec4 fragmentColor;
 void main()
 {
     vec3 lightPos = vec3(0, 40, 0);
-    vec3 fragColor = vec3(1, 0, 0);
+    vec3 fragColor = vec3(0, 1, 1);
 
     vec3 lightPosTrans = vec3(gl_ModelViewMatrix * vec4(lightPos, 1.0));
 

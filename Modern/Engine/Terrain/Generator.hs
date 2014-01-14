@@ -1,16 +1,13 @@
-module Generator where
-
-import Control.Monad
+module Engine.Terrain.Generator where
 
 import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
-import Types
-import Model
-import Noise
+import Engine.Model.Model
+import Engine.Terrain.Noise
 
 genModel :: FilePath -> FilePath -> GLfloat -> IO Model
 genModel vert frag w = do
-    heights <- simplexNoise (floor w) 1 10 6
+    heights <- simplexNoise (floor w) 1 20 15
     let hCoords = heightsToCoords heights 0 1
 
         flat = createFlat 1 w
@@ -20,18 +17,6 @@ genModel vert frag w = do
 
     createModel vert frag ["position", "normal"] [vertices, normals] [3, 3]
                     (fromIntegral $ length vertices)
-
-printCoords :: [GLfloat] -> Int -> IO ()
-printCoords (x:xs) i
-    | i < 200 = do
-        putStr $ show x ++ "  "
-        when (((i+1) `mod` 3) == 0) $
-            putStrLn ""
-        when (((i+1) `mod` 9) == 0) $
-            putStrLn ""
-        printCoords xs (i+1)
-    | otherwise = return ()
-printCoords _ _ = return ()
 
 createFlat :: GLfloat -> GLfloat -> [GLfloat]
 createFlat spacing width =

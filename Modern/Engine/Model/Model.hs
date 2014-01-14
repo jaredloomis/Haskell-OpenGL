@@ -1,12 +1,21 @@
-module Model where
+module Engine.Model.Model where
 
 import Foreign.C.String
 
 import Graphics.Rendering.OpenGL.Raw
 
-import Types
-import Shaders
-import Util (fillNewBuffer)
+--import Engine.Core.Types
+import Engine.Graphics.Shaders
+import Engine.Graphics.Textures
+import Engine.Core.Util (fillNewBuffer)
+import Engine.Core.Vec
+
+data Model = Model {
+    modelShader :: !GLuint,
+    modelShaderVars :: ![ShaderAttrib],
+    modelTextures :: ![Texture],
+    modelVertCount :: !GLint
+}
 
 createModel ::
     FilePath ->     -- ^ Vertex Shader.
@@ -29,7 +38,7 @@ createModel vert frag attrNames buffData valLens vertCount = do
 --   ShaderAttribs.
 createShaderAttribs :: [GLuint] -> [GLuint] -> [GLuint] -> [ShaderAttrib]
 createShaderAttribs (attr:attrs) (buff:buffs) (size:sizes)=
-    (attr, buff, size) : createShaderAttribs attrs buffs sizes
+    Vec3 attr buff size : createShaderAttribs attrs buffs sizes
 createShaderAttribs [] [] [] = []
 
 -- | Create an id for each buffer data.

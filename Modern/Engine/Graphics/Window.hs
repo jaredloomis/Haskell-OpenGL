@@ -1,4 +1,4 @@
-module Window where
+module Engine.Graphics.Window where
 
 import System.Exit (exitSuccess)
 

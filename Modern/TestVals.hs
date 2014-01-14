@@ -4,10 +4,13 @@ import Control.Applicative ((<$>), (<*>))
 import System.FilePath ((</>))
 import Data.IORef (IORef, newIORef)
 
-import Types
-import Player
-import ModelLoader
-import Generator
+import Engine.Object.Player
+import Engine.Model.ModelLoader
+import Engine.Terrain.Generator
+import Engine.Core.Vec
+import Engine.Core.World
+import Engine.Object.GameObject
+import Engine.Model.Model
 
 mkWorld :: IO World
 mkWorld = do
@@ -27,11 +30,11 @@ mkWorldStateRef = newIORef mkWorldState
 
 mkObj :: IO GameObject
 mkObj =
-    Entity (3, 1, 0) <$> mkModel
+    Entity (Vec3 3 1 0) <$> mkModel
 
 mkObj2 :: IO GameObject
 mkObj2 =
-    Entity (0, 0, 0) <$> mkTerrain
+    Entity (Vec3 0 0 0) <$> mkTerrain
 
 mkModel :: IO Model
 mkModel = do

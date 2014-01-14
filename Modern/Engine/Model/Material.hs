@@ -1,4 +1,4 @@
-module Material where
+module Engine.Model.Material where
 
 import System.IO (IOMode (ReadMode), Handle,
                   openFile, hIsEOF, hGetLine, hClose)
@@ -11,8 +11,10 @@ import Data.IORef
 import qualified Graphics.Rendering.OpenGL as GL
 import Graphics.Rendering.OpenGL.Raw (GLfloat, GLuint, GLint)
 
-import Types
-import Textures
+--import Engine.Core.Types
+--import Engine.Graphics.Textures
+import Engine.Core.Vec
+import Engine.Core.World
 
 data Material = Material {
     matName :: String,
@@ -37,13 +39,13 @@ loadMtlMaterials wStateRef handle =
 applyDefualtMtl :: Material -> Material
 applyDefualtMtl mat@(Material _ amb diff spec _ texId) =
     let newAmb = if isNothing amb
-                    then Just (0.2, 0.2, 0.2)
+                    then Just $ Vec3 0.2 0.2 0.2
                 else amb
         newDiff = if isNothing diff
-                    then Just (0.8, 0.8, 0.8)
+                    then Just $ Vec3 0.8 0.8 0.8
                 else diff
         newSpec = if isNothing spec
-                    then Just (1.0, 1.0, 1.0)
+                    then Just $ Vec3 1.0 1.0 1.0
                 else spec
         newTexId = if isNothing texId
                     then Just (-1)
@@ -109,7 +111,9 @@ rawMtlLine :: String -> [String]
 rawMtlLine = tail . filter (not . null) . splitOn " "
 
 toTripletMtl :: [a] -> Vec3 a
-toTripletMtl (x:y:zs) = (x, y, head zs)
+toTripletMtl xs
+    | length xs == 3 = Vec3 (head xs) (xs !! 1) (xs !! 2)
+    | otherwise = error "toTripletMtl"
 
 emptyMaterial :: Material
 emptyMaterial = Material "" Nothing Nothing Nothing Nothing Nothing

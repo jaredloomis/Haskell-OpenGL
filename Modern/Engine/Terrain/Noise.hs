@@ -1,4 +1,4 @@
-module Noise where
+module Engine.Terrain.Noise where
 
 import Data.Bits
 import qualified Data.Vector.Unboxed as V

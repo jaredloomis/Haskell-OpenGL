@@ -1,5 +1,5 @@
 {-# LANGUAGE RankNTypes #-}
-module Shaders where
+module Engine.Graphics.Shaders where
 
 import Foreign
 import Foreign.C.String
@@ -12,7 +12,14 @@ import Graphics.Rendering.OpenGL.Raw
 
 import qualified Graphics.GLUtil as GU
 
-import Types
+import Engine.Core.Vec
+import Engine.Graphics.Textures
+
+-- | Attrib id, Buffer id, size of attrib.
+type ShaderAttrib = Vec3 GLuint
+
+-- | Name, Values
+type ShaderUniform = (String, [GLfloat])
 
 -- | Loads a pair of vertex and fragment shaders
 --   given the two FilePaths.
@@ -104,7 +111,7 @@ unBindTextures =
 
 -- | Binds a list of ShaderAttribs.
 bindShaderAttribs :: [ShaderAttrib] -> IO ()
-bindShaderAttribs ((attr, buf, len):rest) = do
+bindShaderAttribs (Vec3 attr buf len : rest) = do
     -- Enable the attribute buffer.
     glEnableVertexAttribArray attr
     -- Give OpenGL the information.
@@ -116,16 +123,11 @@ bindShaderAttribs [] = return ()
 
 -- | Disables a list of ShaderAttribs. Call after drawing?
 disableShaderAttribs :: [ShaderAttrib] -> IO ()
-disableShaderAttribs ((attr, _, _):rest) = do
+disableShaderAttribs (Vec3 attr _ _ : rest) = do
     -- Disable the attribute buffer.
     glDisableVertexAttribArray attr
     disableShaderAttribs rest
 disableShaderAttribs [] = return ()
-
--- | Bind a world's uniforms to given shader.
-bindWorld :: World -> GLuint -> IO ()
-bindWorld world shader =
-    bindUniforms shader $ worldUniforms world
 
 -- | Calls glUniformxf on all Uniforms, given the
 --   shader.

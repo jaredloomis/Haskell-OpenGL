@@ -1,25 +1,30 @@
 module Main where
 
 import Data.IORef (IORef, readIORef, writeIORef)
+import Data.Bits ((.|.))
 
 import qualified Graphics.UI.GLFW as GLFW
 
-import qualified Graphics.Rendering.OpenGL as GL
 import Graphics.Rendering.OpenGL.Raw
 
-import Types
-import Graphics
-import Player
+import Engine.Graphics.Graphics
+import Engine.Object.Player
 import TestVals
-import GameObject
-import Window
+import Engine.Object.GameObject
+import Engine.Graphics.Window
+import Engine.Core.Vec
+
+
+import Engine.Core.World
+
 
 main ::  IO ()
 main = do
     -- Does not work for all systems, but asks the OS or WM
     -- to disable resizing of the window. Does not work on
     -- Arch Linux 64 with XFCE/XFWM.
-    GLFW.windowHint $ GLFW.WindowHint'Resizable False
+    --GLFW.windowHint $ GLFW.WindowHint'Resizable False
+
     -- Initialize GLFW, create a window, open it.
     win <- createGLFWWindow 800 600
     -- Perform some intitial OpenGL configurations.
@@ -37,7 +42,7 @@ main = do
     -- Register the function called whe our window is resized.
     GLFW.setFramebufferSizeCallback win (Just resizeScene)
     -- Register the function called when cursor moves.
-    GLFW.setCursorPosCallback win (Just $ cursorMove $ worldPlayer world)
+    GLFW.setCursorPosCallback win (Just $ cursorMove (worldPlayer world))
 
     -- Make cursor Hidden
     GLFW.setCursorInputMode win GLFW.CursorInputMode'Disabled
@@ -48,7 +53,7 @@ main = do
     where
         loop win world = do
             -- Clear screen.
-            GL.clear [GL.ColorBuffer, GL.DepthBuffer]
+            glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
             -- Check if any events have occured.
             GLFW.pollEvents
 
@@ -80,7 +85,7 @@ updateStep world = do
 
     -- Update Player and Set mouse delta movement to 0
     let tmpPlayer = updateObject player
-        pin = (playerInput tmpPlayer){inputMouseDelta = (0, 0)}
+        pin = (playerInput tmpPlayer){inputMouseDelta = Vec2 0 0}
         newPlayer = tmpPlayer{playerInput = pin}
 
     writeIORef playerRef newPlayer
@@ -94,8 +99,8 @@ cursorMove playerRef _ x y = do
     player <- readIORef playerRef
     let input = playerInput player
 
-    let (xi, yi) = inputLastMousePos input
-    let newInput = input{inputMouseDelta = (realToFrac x - xi, realToFrac y - yi)}
+        Vec2 xi yi = inputLastMousePos input
+        newInput = input{inputMouseDelta = Vec2 (realToFrac x - xi) (realToFrac y - yi)}
     writeIORef playerRef player{playerInput = newInput}
 
 -- | Special case for Escape Key, not necessary to give info

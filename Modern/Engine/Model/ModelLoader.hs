@@ -1,6 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
-module ModelLoader where
+module Engine.Model.ModelLoader where
 
+import Data.Maybe (fromJust)
 import Data.List
 import Data.List.Split
 import System.IO
@@ -8,9 +9,11 @@ import Data.IORef
 
 import Graphics.Rendering.OpenGL.Raw (GLfloat, GLuint)
 
-import Types
-import Material
-import Model
+--import Engine.Core.Types
+import Engine.Model.Material
+import Engine.Model.Model
+import Engine.Core.Vec
+import Engine.Core.World
 
 -- | Completely loads a .obj file, given the current WorldState,
 --   the FilePath to the .obj, and the FilePaths to the vertex
@@ -30,34 +33,28 @@ loadObjModel wStateRef objFile vert frag =
         let objClean = negateNothing3 obj
             dat = toArrays objClean
             
-            materialDiffs = unTripletM $ map matDiffuseColor mats
-            materialTexIds = map (fromIntegral . getVal . matTexId) mats
+            materialDiffs = fromVec3M $ map matDiffuseColor mats
+            materialTexIds = map (fromIntegral . fromJustSafe . matTexId) mats
 
             totalData = dat ++ [materialDiffs, materialTexIds]
-
-        --print . length . head $ dat
-        --print $ length $ dat !! 1
 
         tmp <- createModel vert frag 
             attrNames
             totalData
             [3, 2, 3, 3, 1]
             (fromIntegral (length $ head dat) `div` 3)
-        return tmp{modelTextures = zip (map (getValU . matTexture) lib) $ map (getValU . matTexId) lib}
+        return tmp{modelTextures = zip (map (fromJust . matTexture) lib) $ map (fromJust . matTexId) lib}
 
-getVal :: Num a => Maybe a -> a
-getVal (Just x) = x
-getVal Nothing = 0
+{-# INLINE fromJustSafe #-}
+fromJustSafe :: Num a => Maybe a -> a
+fromJustSafe (Just x) = x
+fromJustSafe Nothing = 0
 
-getValU :: Maybe a -> a
-getValU (Just x) = x
-getValU Nothing = undefined
-
-toArrays :: forall a. ([a], [a], [a]) -> [[a]]
-toArrays (x, y, z) = [x] ++ [y] ++ [z]
+toArrays :: forall a. Vec3 [a] -> [[a]]
+toArrays (Vec3 x y z) = [x] ++ [y] ++ [z]
 
 negateNothing3 :: Num a => Vec3 [Maybe a] -> Vec3 [a]
-negateNothing3 (x, y, z) = (negateNothing x 3, negateNothing y 2, negateNothing z 3)
+negateNothing3 (Vec3 x y z) = Vec3 (negateNothing x 3) (negateNothing y 2) (negateNothing z 3)
 
 negateNothing :: Num a => [Maybe a] -> Int -> [a]
 negateNothing (Just x : rest) len = x : negateNothing rest len
@@ -88,45 +85,41 @@ packObj faces vertices uvs normals =
         retTexs = getThem2 faceTexs uvs
         retNorms = getThem3 faceNorms normals
 
-    in (retVerts, retTexs, retNorms)
+    in Vec3 retVerts retTexs retNorms
 
 getThem3 :: [Maybe GLuint] -> [Vec3 GLfloat] -> [Maybe GLfloat]
 getThem3 (Just index : indices) values =
-    (toJusts . toArray3 $ values !! fromIntegral (index-1))
+    (map Just . toArray3 $ values !! fromIntegral (index-1))
         ++ getThem3 indices values
 getThem3 (Nothing : indices) values = Nothing : getThem3 indices values
 getThem3 [] _ = []
 
 getThem2 :: [Maybe GLuint] -> [Vec2 GLfloat] -> [Maybe GLfloat]
 getThem2 (Just index : indices) values =
-    (toJusts . toArray2 $ values !! fromIntegral (index-1))
+    (map Just . toArray2 $ values !! fromIntegral (index-1))
         ++ getThem2 indices values
 getThem2 (Nothing : indices) values = Nothing : getThem2 indices values
 getThem2 [] _ = []
 
-toJusts :: [a] -> [Maybe a]
-toJusts = map Just
-
+{-# INLINE toArray3 #-}
 toArray3 :: Vec3 a -> [a]
-toArray3 (x, y, z) = [x, y, z]
+toArray3 (Vec3 x y z) = [x, y, z]
 
+{-# INLINE toArray2 #-}
 toArray2 :: Vec2 a -> [a]
-toArray2 (x, y) = [x, y]
+toArray2 (Vec2 x y) = [x, y]
 
+{-# INLINE faceVertIndices #-}
 faceVertIndices :: [Vec3 (Maybe GLuint)] -> [Maybe GLuint]
-faceVertIndices ((x, _, _):xs) =
-    x : faceVertIndices xs
-faceVertIndices [] = []
+faceVertIndices xs = map (\(Vec3 x _ _) -> x) xs
 
+{-# INLINE faceTexIndices #-}
 faceTexIndices :: [Vec3 (Maybe GLuint)] -> [Maybe GLuint]
-faceTexIndices ((_, y, _):xs) =
-    y : faceTexIndices xs
-faceTexIndices [] = []
+faceTexIndices xs = map (\(Vec3 _ y _) -> y) xs
 
+{-# INLINE faceNormIndices #-}
 faceNormIndices :: [Vec3 (Maybe GLuint)] -> [Maybe GLuint]
-faceNormIndices ((_, _, z):xs) =
-    z : faceNormIndices xs
-faceNormIndices [] = []
+faceNormIndices xs = map (\(Vec3 _ _ z) -> z) xs
 
 loadObjFaces :: Handle -> IO [Vec3 (Maybe GLuint)]
 loadObjFaces handle = do
@@ -246,19 +239,19 @@ readObjVecLine :: String -> Vec3 GLfloat
 readObjVecLine line =
     let nums = tail . filter (not . null) . splitOn " " $ line
     in if length nums == 3
-        then toTriplet $ readAll nums
+        then toVec3 $ readAll nums
     else undefined
 
 readObjTexLine :: String -> Vec2 GLfloat
 readObjTexLine line =
     let nums = tail . filter (not . null) . splitOn " " $ line
     in if length nums == 2
-        then let (tx, ty) = toTwin $ readAll nums
-            in (tx, 1 - ty)
-    else (-1, -1)
+        then let Vec2 tx ty = toVec2 $ readAll nums
+            in Vec2 tx (1-ty)
+    else Vec2 (-1) (-1)
 
-toTwin :: [a] -> (a, a)
-toTwin (x:ys) = (x, head ys)
+toVec2 :: [a] -> Vec2 a
+toVec2 (x:ys) = Vec2 x (head ys)
 
 readFaceGroups :: [String] -> [Vec3 (Maybe GLuint)]
 readFaceGroups = foldr ((:) . readFaceGroup) []
@@ -266,28 +259,27 @@ readFaceGroups = foldr ((:) . readFaceGroup) []
 readFaceGroup :: String -> Vec3 (Maybe GLuint)
 readFaceGroup x = 
     let splittedRaw = splitOn "/" x
-    in toTripletUnknown splittedRaw
+    in toVec3Unknown splittedRaw
 
-toTripletUnknown :: [String] -> Vec3 (Maybe GLuint)
-toTripletUnknown (x:y:zs) =
+toVec3Unknown :: [String] -> Vec3 (Maybe GLuint)
+toVec3Unknown (x:y:zs) =
     let z = head zs
         getMaybe t = 
             if null t
                 then Nothing
             else Just $ read t
-    in (getMaybe x, getMaybe y, getMaybe z)
+    in Vec3 (getMaybe x) (getMaybe y) (getMaybe z)
 
-toTriplet :: [a] -> (a, a, a)
-toTriplet (x:y:zs) = (x, y, head zs)
+toVec3 :: [a] -> Vec3 a
+toVec3 xs
+    | length xs == 3 = Vec3 (head xs) (xs !! 1) (xs !! 2)
+    | otherwise = undefined
 
-unTripletM :: [Maybe (Vec3 GLfloat)] -> [GLfloat]
-unTripletM (Just (x, y, z):xs) = [x, y, z] ++ unTripletM xs
-unTripletM (Nothing : xs) = [0, 0, 0] ++ unTripletM xs
-unTripletM [] = []
-
-unTriplet :: (a, a, a) -> [a]
-unTriplet (x, y, z) = [x, y, z]
-
+fromVec3M :: [Maybe (Vec3 a)] -> [a]
+fromVec3M (Just (Vec3 x y z) : xs) =
+    [x, y, z] ++ fromVec3M xs
+fromVec3M [] = []
+fromVec3M (Nothing : _) = error "fromVec3M: argument contained Nothing."
 
 rawObjLine :: String -> [String]
 rawObjLine = tail . filter (not . null) . splitOn " "
