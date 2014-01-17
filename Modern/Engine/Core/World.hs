@@ -2,7 +2,7 @@ module Engine.Core.World where
 
 import Data.IORef (IORef)
 import Control.Monad (liftM)
-import Data.Time
+import Data.Time (getCurrentTime, UTCTime)
 
 import qualified Graphics.UI.GLFW as GLFW
 import qualified Graphics.Rendering.OpenGL as GL
@@ -30,8 +30,8 @@ data WorldState = WorldState {
 data GameObject t = Player {
     playerPosition :: !(Vec3 GLfloat),
     playerRotation :: !(Vec3 GLfloat),
-    playerSpeed :: GLfloat,
-    playerUpdate :: !(World t -> IO (GameObject t)),
+    playerSpeed :: !GLfloat,
+    playerUpdate :: World t -> IO (GameObject t),
     playerInput :: !(Input t)
 } | PureEntity {
     pentityPosition :: !(Vec3 GLfloat),
@@ -40,7 +40,7 @@ data GameObject t = Player {
     pentityAttribute :: !t
 } | EffectfulEntity {
     eentityPosition :: !(Vec3 GLfloat),
-    eentityUpdate :: !(World t -> GameObject t -> IO (GameObject t)),
+    eentityUpdate :: World t -> GameObject t -> IO (GameObject t),
     eentityModel :: !Model,
     eentityAttribute :: !t
 }
@@ -67,12 +67,12 @@ loadGLTextureSafe wState file = do
         GL.RGB' (GL.TextureSize2D w h) 0 pd
     return texName
 
+-- | Synonym for getCurrentTime.
 getWorldTime :: IO UTCTime
 getWorldTime = getCurrentTime
 
 -- IOGameObject Monad stuff. Probably won't be
 -- implemented, but I will keep it here
-
 {-
 newtype IOGameObject t a =
     IOGameObject (GameObject t -> IO (GameObject t, a))

@@ -37,6 +37,10 @@ mkObj2 :: IO (GameObject ())
 mkObj2 =
     PureEntity (Vec3 0 0 0) id <$> mkTerrain <*> return ()
 
+pureMove :: GameObject t -> GameObject t
+pureMove pe@(PureEntity{}) =
+    pe{pentityPosition = pentityPosition pe + Vec3 0.005 0 0}
+
 mkModel :: IO Model
 mkModel = do
     worldStateRef <- mkWorldStateRef

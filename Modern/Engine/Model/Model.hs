@@ -8,12 +8,14 @@ import Engine.Graphics.Shaders
 import Engine.Graphics.Textures
 import Engine.Core.Util
 import Engine.Core.Vec
+import Engine.Model.AABB
 
 data Model = Model {
     modelShader :: !GLuint,
     modelShaderVars :: ![ShaderAttrib],
     modelTextures :: ![Texture],
-    modelVertCount :: !GLint
+    modelVertCount :: !GLint,
+    modelAABB :: !(Maybe AABB)
 }
 
 createModel ::
@@ -31,7 +33,7 @@ createModel vert frag attrNames buffData valLens vertCount = do
     ids <- idAll buffData
 
     let sAttribs = createShaderAttribs attribs ids valLens
-    return $ Model program sAttribs [] vertCount
+    return $ Model program sAttribs [] vertCount (Just $ AABB (Vec3 0 0 0) (Vec3 0 0 0))
 
 -- | Simply pack the arguments together into an array of
 --   ShaderAttribs.

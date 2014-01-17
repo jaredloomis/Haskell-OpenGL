@@ -1,6 +1,7 @@
 module Engine.Graphics.Graphics where
 
 import Data.IORef (readIORef)
+import Data.Time
 
 import qualified Graphics.UI.GLFW as GLFW
 
@@ -50,10 +51,10 @@ renderWorld world
     bindWorldUniforms world mShader
     bindTextures (modelTextures model) mShader
 
-
-    p <- readIORef (worldPlayer world)
-    let Vec3 px py pz = getPos p
-    bindUniforms mShader [("playerPosition", [px, py, pz])]
+    wState <- readIORef $ worldState world
+    let utcTime = stateTime wState
+    let dayTime = realToFrac $ utctDayTime utcTime
+    bindUniforms mShader [("time", [dayTime])]
 
     -- Do the drawing.
     glDrawArrays gl_TRIANGLES 0 (modelVertCount model)
@@ -103,6 +104,10 @@ initGL win = do
 
     -- Enable textures.
     glEnable gl_TEXTURE
+    glTexParameteri gl_TEXTURE_2D gl_TEXTURE_MAG_FILTER (fromIntegral gl_LINEAR)
+    glTexParameteri gl_TEXTURE_2D gl_TEXTURE_MIN_FILTER (fromIntegral gl_LINEAR)
+    glTexParameteri gl_TEXTURE_2D gl_TEXTURE_WRAP_S (fromIntegral gl_CLAMP_TO_EDGE)
+    glTexParameteri gl_TEXTURE_2D gl_TEXTURE_WRAP_T (fromIntegral gl_CLAMP_TO_EDGE)
 
     -- Call resize function.
     (w,h) <- GLFW.getFramebufferSize win
