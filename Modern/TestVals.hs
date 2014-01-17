@@ -9,10 +9,9 @@ import Engine.Model.ModelLoader
 import Engine.Terrain.Generator
 import Engine.Core.Vec
 import Engine.Core.World
-import Engine.Object.GameObject
 import Engine.Model.Model
 
-mkWorld :: IO World
+mkWorld :: IO (World ())
 mkWorld = do
     obj1 <- mkObj >>= newIORef
     obj2 <- mkObj2 >>= newIORef
@@ -22,19 +21,21 @@ mkWorld = do
         <*> return [("lightPos", [2.0, 2.0, 0.0])]
         <*> mkWorldStateRef
 
-mkWorldState :: WorldState
-mkWorldState = WorldState 0
+mkWorldState :: IO WorldState
+mkWorldState = do
+    t <- getWorldTime
+    return $ WorldState 0 t 0
 
 mkWorldStateRef :: IO (IORef WorldState)
-mkWorldStateRef = newIORef mkWorldState
+mkWorldStateRef = mkWorldState >>= newIORef
 
-mkObj :: IO GameObject
+mkObj :: IO (GameObject ())
 mkObj =
-    Entity (Vec3 3 1 0) <$> mkModel
+    PureEntity (Vec3 3 1 0) id <$> mkModel <*> return ()
 
-mkObj2 :: IO GameObject
+mkObj2 :: IO (GameObject ())
 mkObj2 =
-    Entity (Vec3 0 0 0) <$> mkTerrain
+    PureEntity (Vec3 0 0 0) id <$> mkTerrain <*> return ()
 
 mkModel :: IO Model
 mkModel = do
@@ -42,6 +43,15 @@ mkModel = do
     loadObjModel worldStateRef ("res" </> "objects/wow/wow.obj")
                                ("shaders" </> "min.vert")
                                ("shaders" </> "min.frag")
+
+{-
+mkEffectfulObj :: IO (GameObject ())
+mkEffectfulObj =
+    EffectfulEntity (0, 0, 0)
+
+effectfulUpdate :: World t -> GameObject t -> IO (GameObject t)
+effectfulUpdate world obj = do
+    -}
 
 mkTerrain :: IO Model
 mkTerrain = genModel

@@ -1,9 +1,11 @@
 {-# LANGUAGE RankNTypes #-}
 module Engine.Core.Util where
 
-import Foreign
+import Foreign (withArrayLen, sizeOf, Ptr)
 
 import Graphics.Rendering.OpenGL.Raw
+    (GLfloat, GLuint, glBindBuffer, gl_ARRAY_BUFFER, glGenBuffers,
+     glBufferData, gl_STATIC_DRAW)
 
 import Engine.Graphics.Shaders
 

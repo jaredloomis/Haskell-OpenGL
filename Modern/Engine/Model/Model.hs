@@ -1,13 +1,12 @@
 module Engine.Model.Model where
 
-import Foreign.C.String
+import Foreign.C.String (withCString)
 
 import Graphics.Rendering.OpenGL.Raw
 
---import Engine.Core.Types
 import Engine.Graphics.Shaders
 import Engine.Graphics.Textures
-import Engine.Core.Util (fillNewBuffer)
+import Engine.Core.Util
 import Engine.Core.Vec
 
 data Model = Model {

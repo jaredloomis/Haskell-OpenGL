@@ -1,11 +1,13 @@
 {-# LANGUAGE RankNTypes #-}
 module Engine.Graphics.Shaders where
 
-import Foreign
-import Foreign.C.String
-import Foreign.C.Types
 import Control.Monad (when)
-import Control.Applicative
+import Control.Applicative ((<$>))
+import Foreign
+    (with, nullPtr, Ptr, Storable, toBool, allocaArray0,
+     alloca, peek)
+import Foreign.C.String (withCString, peekCString)
+import Foreign.C.Types (CChar)
 
 import Graphics.Rendering.OpenGL as GL
 import Graphics.Rendering.OpenGL.Raw

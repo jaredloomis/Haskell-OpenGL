@@ -1,9 +1,9 @@
 module Engine.Terrain.Noise where
 
-import Data.Bits
-import qualified Data.Vector.Unboxed as V
-import System.Random.Shuffle
+import Data.Bits ((.&.))
+import System.Random.Shuffle (shuffle')
 import System.Random hiding (next)
+import qualified Data.Vector.Unboxed as V
 
 import Graphics.Rendering.OpenGL.Raw (GLfloat)
 

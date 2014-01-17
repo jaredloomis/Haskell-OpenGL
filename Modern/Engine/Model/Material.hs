@@ -6,13 +6,11 @@ import Data.List (isPrefixOf)
 import Data.Maybe (isNothing)
 import Data.List.Split (splitOn)
 import Control.Monad (liftM)
-import Data.IORef
+import Data.IORef (IORef, readIORef)
 
 import qualified Graphics.Rendering.OpenGL as GL
 import Graphics.Rendering.OpenGL.Raw (GLfloat, GLuint, GLint)
 
---import Engine.Core.Types
---import Engine.Graphics.Textures
 import Engine.Core.Vec
 import Engine.Core.World
 
@@ -31,7 +29,8 @@ loadMtlFile wStateRef file =
 
 loadMtlMaterials :: IORef WorldState -> Handle -> IO [Material]
 loadMtlMaterials wStateRef handle =
-    liftM (map applyDefualtMtl . tail) (loadMtlMaterialsRec wStateRef 0 handle emptyMaterial)
+    liftM (map applyDefualtMtl . tail)
+          (loadMtlMaterialsRec wStateRef 0 handle emptyMaterial)
 
 -- | Apply defualt values to attributes set to
 --   Nothing according to spec at
@@ -98,7 +97,8 @@ executeCommand wStateRef command mat textureCount
         --texture <- loadGLTextureId textureCount $ head (rawMtlLine command)
         wState <- readIORef wStateRef
         texture <- loadGLTextureSafe wState $ head (rawMtlLine command)
-        return mat{matTexture = Just texture, matTexId = Just $ fromIntegral textureCount}
+        return mat{matTexture = Just texture,
+                   matTexId = Just $ fromIntegral textureCount}
     | otherwise = return mat
 
 readMtlLineTriplet :: String -> Vec3 GLfloat

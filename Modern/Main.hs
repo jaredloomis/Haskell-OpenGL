@@ -2,10 +2,13 @@ module Main where
 
 import Data.IORef (IORef, readIORef, writeIORef)
 import Data.Bits ((.|.))
+import Data.Time (diffUTCTime)
 
 import qualified Graphics.UI.GLFW as GLFW
 
+import Graphics.Rendering.OpenGL (($=))
 import Graphics.Rendering.OpenGL.Raw
+    (glClear, gl_COLOR_BUFFER_BIT, glLoadIdentity, gl_DEPTH_BUFFER_BIT)
 
 import Engine.Graphics.Graphics
 import Engine.Object.Player
@@ -13,10 +16,7 @@ import TestVals
 import Engine.Object.GameObject
 import Engine.Graphics.Window
 import Engine.Core.Vec
-
-
 import Engine.Core.World
-
 
 main ::  IO ()
 main = do
@@ -36,7 +36,7 @@ main = do
 
     -- Register the function to do all OpenGL drawing.
     -- TODO: Should I remove this?
-    GLFW.setWindowRefreshCallback win (Just (renderStep world))
+    --GLFW.setWindowRefreshCallback win (Just (renderStep world))
     -- Register the function called when the keyboard is pressed.
     GLFW.setKeyCallback win (Just $ keyPressed (worldPlayer world))
     -- Register the function called whe our window is resized.
@@ -67,7 +67,7 @@ main = do
 
             loop win world
 
-renderStep :: World -> GLFW.Window -> IO ()
+renderStep :: World t -> GLFW.Window -> IO ()
 renderStep world _ = do
     -- Reset the matrix to a default state.
     glLoadIdentity
@@ -78,35 +78,45 @@ renderStep world _ = do
     -- Render all entities.
     renderWorld world
 
-updateStep :: World -> IO ()
+updateStep :: World t -> IO ()
 updateStep world = do
+    -- Update delta time and current time.
+    wState <- readIORef (worldState world)
+    worldTime <- getWorldTime
+    let delta = realToFrac $ diffUTCTime worldTime (stateTime wState)
+    worldState world $= wState{
+        stateTime = worldTime, stateDelta = delta}
+
     let playerRef = worldPlayer world
     player <- readIORef playerRef
 
     -- Update Player and Set mouse delta movement to 0
-    let tmpPlayer = updateObject player
-        pin = (playerInput tmpPlayer){inputMouseDelta = Vec2 0 0}
+    tmpPlayer <- effectfulUpdate player world
+    let pin = (playerInput tmpPlayer){inputMouseDelta = Vec2 0 0}
         newPlayer = tmpPlayer{playerInput = pin}
 
     writeIORef playerRef newPlayer
 
+    effectfulUpdateWorld world
+    
 ---------------
 -- CALLBACKS --
 ---------------
 
-cursorMove :: IORef GameObject -> GLFW.CursorPosCallback
+cursorMove :: IORef (GameObject t) -> GLFW.CursorPosCallback
 cursorMove playerRef _ x y = do
     player <- readIORef playerRef
     let input = playerInput player
 
         Vec2 xi yi = inputLastMousePos input
-        newInput = input{inputMouseDelta = Vec2 (realToFrac x - xi) (realToFrac y - yi)}
+        newInput = input{
+            inputMouseDelta = Vec2 (realToFrac x - xi) (realToFrac y - yi)}
     writeIORef playerRef player{playerInput = newInput}
 
 -- | Special case for Escape Key, not necessary to give info
 --   to the Player.
 --   TODO: Give it to Player for pausing. Or something.
-keyPressed :: IORef GameObject -> GLFW.KeyCallback
+keyPressed :: IORef (GameObject t) -> GLFW.KeyCallback
 keyPressed _ win GLFW.Key'Escape _ GLFW.KeyState'Pressed _ = do
     currentCursorMode <- GLFW.getCursorInputMode win
     GLFW.setCursorInputMode win $

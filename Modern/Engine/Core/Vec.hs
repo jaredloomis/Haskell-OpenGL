@@ -26,3 +26,11 @@ instance (Num a) => Num (Vec2 a) where
     abs (Vec2 x1 y1) = Vec2 (abs x1) (abs y1)
     signum = fmap signum
     fromInteger i = Vec2 (fromInteger i) (fromInteger i)
+
+{-# INLINE toArray3 #-}
+toArray3 :: Vec3 a -> [a]
+toArray3 (Vec3 x y z) = [x, y, z]
+
+{-# INLINE toArray2 #-}
+toArray2 :: Vec2 a -> [a]
+toArray2 (Vec2 x y) = [x, y]

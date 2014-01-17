@@ -10,7 +10,6 @@ import Graphics.Rendering.OpenGL.Raw
 import Engine.Core.World
 import Engine.Graphics.Shaders
 import Engine.Core.Vec
-
 import Engine.Object.GameObject
 import Engine.Model.Model
 
@@ -22,7 +21,7 @@ import Engine.Model.Model
 --   Uses the attributes/uniforms specified by the world
 --   as well as ones specified by individual
 --   objects.
-renderWorld :: World -> IO ()
+renderWorld :: World t -> IO ()
 renderWorld world 
     -- If the array of entities is empty, the
     -- function is done.
@@ -31,8 +30,8 @@ renderWorld world
     | otherwise = do
     let objectRef = head $ worldEntities world
     object <- readIORef objectRef
-    let model = entityModel object
-        Vec3 objx objy objz = entityPosition object
+    let model = pentityModel object
+        Vec3 objx objy objz = getPos object
         mShader = modelShader model
 
     -- Begin a state where transformations remain in affect
@@ -53,7 +52,7 @@ renderWorld world
 
 
     p <- readIORef (worldPlayer world)
-    let Vec3 px py pz = playerPosition p
+    let Vec3 px py pz = getPos p
     bindUniforms mShader [("playerPosition", [px, py, pz])]
 
     -- Do the drawing.
@@ -73,8 +72,6 @@ renderWorld world
 
     -- Continue rendering the rest of the entities in the world.
     renderWorld (world{worldEntities = tail $ worldEntities world})
-
-
 
 -------------------------------
 -- UTILITY / SETUP FUNCTIONS --

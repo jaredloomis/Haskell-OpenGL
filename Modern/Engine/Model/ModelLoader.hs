@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes, OverloadedStrings #-}
 module Engine.Model.ModelLoader where
 
 import Data.Maybe (fromJust)
@@ -7,9 +7,10 @@ import Data.List.Split
 import System.IO
 import Data.IORef
 
+import qualified Data.ByteString.Char8 as B
+
 import Graphics.Rendering.OpenGL.Raw (GLfloat, GLuint)
 
---import Engine.Core.Types
 import Engine.Model.Material
 import Engine.Model.Model
 import Engine.Core.Vec
@@ -28,6 +29,8 @@ loadObjModel wStateRef objFile vert frag =
     let attrNames = ["position", "texCoord", "normal", "color", "textureId"]
     in do
         obj <- loadObj objFile
+        --obj <- loadObjF objFile
+
         (mats, lib) <- loadObjMaterials wStateRef objFile
 
         let objClean = negateNothing3 obj
@@ -43,32 +46,9 @@ loadObjModel wStateRef objFile vert frag =
             totalData
             [3, 2, 3, 3, 1]
             (fromIntegral (length $ head dat) `div` 3)
-        return tmp{modelTextures = zip (map (fromJust . matTexture) lib) $ map (fromJust . matTexId) lib}
-
-{-# INLINE fromJustSafe #-}
-fromJustSafe :: Num a => Maybe a -> a
-fromJustSafe (Just x) = x
-fromJustSafe Nothing = 0
-
-toArrays :: forall a. Vec3 [a] -> [[a]]
-toArrays (Vec3 x y z) = [x] ++ [y] ++ [z]
-
-negateNothing3 :: Num a => Vec3 [Maybe a] -> Vec3 [a]
-negateNothing3 (Vec3 x y z) = Vec3 (negateNothing x 3) (negateNothing y 2) (negateNothing z 3)
-
-negateNothing :: Num a => [Maybe a] -> Int -> [a]
-negateNothing (Just x : rest) len = x : negateNothing rest len
-negateNothing (Nothing : rest) len = replicate len (-1) ++ negateNothing rest len
-negateNothing [] _ = []
-
-loadObj :: FilePath -> IO (Vec3 [Maybe GLfloat])
-loadObj file = do
-    verts <- openFile file ReadMode >>= loadObjVertices
-    norms <- openFile file ReadMode >>= loadObjNormals
-    uvs <- openFile file ReadMode >>= loadObjTexs
-    faces <- openFile file ReadMode >>= loadObjFaces
-
-    return $ packObj faces verts uvs norms
+        return tmp{modelTextures =
+            zip (map (fromJust . matTexture) lib)
+                (map (fromJust . matTexId) lib)}
 
 packObj ::
     [Vec3 (Maybe GLuint)] -> -- ^ Face definitions
@@ -87,39 +67,79 @@ packObj faces vertices uvs normals =
 
     in Vec3 retVerts retTexs retNorms
 
-getThem3 :: [Maybe GLuint] -> [Vec3 GLfloat] -> [Maybe GLfloat]
-getThem3 (Just index : indices) values =
-    (map Just . toArray3 $ values !! fromIntegral (index-1))
-        ++ getThem3 indices values
-getThem3 (Nothing : indices) values = Nothing : getThem3 indices values
-getThem3 [] _ = []
+--------------------------------------------
+----- ByteString loading begin -------------
+--------------------------------------------
 
-getThem2 :: [Maybe GLuint] -> [Vec2 GLfloat] -> [Maybe GLfloat]
-getThem2 (Just index : indices) values =
-    (map Just . toArray2 $ values !! fromIntegral (index-1))
-        ++ getThem2 indices values
-getThem2 (Nothing : indices) values = Nothing : getThem2 indices values
-getThem2 [] _ = []
+loadObjF :: FilePath -> IO (Vec3 [Maybe GLfloat])
+loadObjF file = do
+    handle <- openFile file ReadMode
+    (verts, norms, texs, faces) <- loadObjFast handle ([], [], [], [])
+    return $ packObj faces verts texs norms
 
-{-# INLINE toArray3 #-}
-toArray3 :: Vec3 a -> [a]
-toArray3 (Vec3 x y z) = [x, y, z]
+-- | Actually slower, probably due to the (++)'s
+loadObjFast :: Handle ->
+    ([Vec3 GLfloat], [Vec3 GLfloat], [Vec2 GLfloat], [Vec3 (Maybe GLuint)]) ->
+    IO ([Vec3 GLfloat], [Vec3 GLfloat], [Vec2 GLfloat], [Vec3 (Maybe GLuint)])
+loadObjFast handle (verts, norms, texs, faces) = do
+    eof <- hIsEOF handle
+    if not eof
+        then do
+            line <- B.hGetLine handle
+            let splitted = splitSpacesB line
+         
+            loadObjFast handle $
+                if "v " `B.isPrefixOf` line
+                    then (verts ++ [readObjVecLineB line], norms, texs, faces)
+                else if "vn " `B.isPrefixOf` line
+                    then (verts, norms ++ [readObjVecLineB line], texs, faces)
+                else if "vt " `B.isPrefixOf` line
+                    then (verts, norms, texs ++ [readObjTexLine $ B.unpack line], faces)
+                else if "f " `B.isPrefixOf` line
+                    then (verts, norms, texs, faces ++ readFaceGroupsB (tail splitted))
+                else (verts, norms, texs, faces)
+    else hClose handle >> return (verts, norms, texs, faces)
 
-{-# INLINE toArray2 #-}
-toArray2 :: Vec2 a -> [a]
-toArray2 (Vec2 x y) = [x, y]
+readFaceGroupsB :: [B.ByteString] -> [Vec3 (Maybe GLuint)]
+readFaceGroupsB = foldr ((:) . readFaceGroupB) []
 
-{-# INLINE faceVertIndices #-}
-faceVertIndices :: [Vec3 (Maybe GLuint)] -> [Maybe GLuint]
-faceVertIndices xs = map (\(Vec3 x _ _) -> x) xs
+readFaceGroupB :: B.ByteString -> Vec3 (Maybe GLuint)
+readFaceGroupB x = 
+    let splittedRaw = B.splitWith (=='/') x
+    in toVec3UnknownB splittedRaw
 
-{-# INLINE faceTexIndices #-}
-faceTexIndices :: [Vec3 (Maybe GLuint)] -> [Maybe GLuint]
-faceTexIndices xs = map (\(Vec3 _ y _) -> y) xs
 
-{-# INLINE faceNormIndices #-}
-faceNormIndices :: [Vec3 (Maybe GLuint)] -> [Maybe GLuint]
-faceNormIndices xs = map (\(Vec3 _ _ z) -> z) xs
+toVec3UnknownB :: [B.ByteString] -> Vec3 (Maybe GLuint)
+toVec3UnknownB (x:y:zs) =
+    let z = head zs
+        getMaybe t = 
+            if B.null t
+                then Nothing
+            else Just $ read (B.unpack t)
+    in Vec3 (getMaybe x) (getMaybe y) (getMaybe z)
+
+splitSpacesB :: B.ByteString -> [B.ByteString]
+splitSpacesB = B.split ' '
+
+readObjVecLineB :: B.ByteString -> Vec3 GLfloat
+readObjVecLineB line = 
+    let nums = tail . filter (not . B.null) . splitSpacesB $ line
+    in if length nums == 3
+        then toVec3 $ readAll $ map B.unpack nums
+    else undefined
+
+--------------------------------------------
+----- ByteString loading end   -------------
+--------------------------------------------
+
+loadObj :: FilePath -> IO (Vec3 [Maybe GLfloat])
+loadObj file = do
+    verts <- openFile file ReadMode >>= loadObjVertices
+    norms <- openFile file ReadMode >>= loadObjNormals
+    uvs <- openFile file ReadMode >>= loadObjTexs
+    faces <- openFile file ReadMode >>= loadObjFaces
+
+    return $ packObj faces verts uvs norms
 
 loadObjFaces :: Handle -> IO [Vec3 (Maybe GLuint)]
 loadObjFaces handle = do
@@ -289,3 +309,48 @@ readOBJLine = readAll . tail . filter (not . null) . splitOn " "
 
 readAll :: Read a => [String] -> [a]
 readAll = map read
+
+getThem3 :: [Maybe GLuint] -> [Vec3 GLfloat] -> [Maybe GLfloat]
+getThem3 (Just index : indices) values =
+    (map Just . toArray3 $ values !! fromIntegral (index-1))
+        ++ getThem3 indices values
+getThem3 (Nothing : indices) values = Nothing : getThem3 indices values
+getThem3 [] _ = []
+
+getThem2 :: [Maybe GLuint] -> [Vec2 GLfloat] -> [Maybe GLfloat]
+getThem2 (Just index : indices) values =
+    (map Just . toArray2 $ values !! fromIntegral (index-1))
+        ++ getThem2 indices values
+getThem2 (Nothing : indices) values = Nothing : getThem2 indices values
+getThem2 [] _ = []
+
+{-# INLINE faceVertIndices #-}
+faceVertIndices :: [Vec3 (Maybe GLuint)] -> [Maybe GLuint]
+faceVertIndices xs = map (\(Vec3 x _ _) -> x) xs
+
+{-# INLINE faceTexIndices #-}
+faceTexIndices :: [Vec3 (Maybe GLuint)] -> [Maybe GLuint]
+faceTexIndices xs = map (\(Vec3 _ y _) -> y) xs
+
+{-# INLINE faceNormIndices #-}
+faceNormIndices :: [Vec3 (Maybe GLuint)] -> [Maybe GLuint]
+faceNormIndices xs = map (\(Vec3 _ _ z) -> z) xs
+
+{-# INLINE fromJustSafe #-}
+fromJustSafe :: Num a => Maybe a -> a
+fromJustSafe (Just x) = x
+fromJustSafe Nothing = 0
+
+toArrays :: forall a. Vec3 [a] -> [[a]]
+toArrays (Vec3 x y z) = [x] ++ [y] ++ [z]
+
+negateNothing3 :: Num a => Vec3 [Maybe a] -> Vec3 [a]
+negateNothing3 (Vec3 x y z) = Vec3 (negateNothing x 3) (negateNothing y 2) (negateNothing z 3)
+
+negateNothing :: Num a => [Maybe a] -> Int -> [a]
+negateNothing (Just x : rest) len = x : negateNothing rest len
+negateNothing (Nothing : rest) len = replicate len (-1) ++ negateNothing rest len
+negateNothing [] _ = []
+
+splitSpaces :: String -> [String]
+splitSpaces = filter (not . null) . splitOn " "
