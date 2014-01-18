@@ -8,7 +8,8 @@ import qualified Graphics.UI.GLFW as GLFW
 
 import Graphics.Rendering.OpenGL (($=))
 import Graphics.Rendering.OpenGL.Raw
-    (glClear, gl_COLOR_BUFFER_BIT, glLoadIdentity, gl_DEPTH_BUFFER_BIT)
+    (glClear, gl_COLOR_BUFFER_BIT, glLoadIdentity, gl_DEPTH_BUFFER_BIT,
+     gl_STENCIL_BUFFER_BIT)
 
 import Engine.Graphics.Graphics
 import Engine.Object.Player
@@ -53,7 +54,8 @@ main = do
     where
         loop win world = do
             -- Clear screen.
-            glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
+            glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT .|.
+                      gl_STENCIL_BUFFER_BIT
             -- Check if any events have occured.
             GLFW.pollEvents
 

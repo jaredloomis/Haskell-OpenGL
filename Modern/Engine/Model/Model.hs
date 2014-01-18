@@ -33,7 +33,7 @@ createModel vert frag attrNames buffData valLens vertCount = do
     ids <- idAll buffData
 
     let sAttribs = createShaderAttribs attribs ids valLens
-    return $ Model program sAttribs [] vertCount (Just $ AABB (Vec3 0 0 0) (Vec3 0 0 0))
+    return $ Model program sAttribs [] vertCount (Just $ aabbFromPoints (head buffData))
 
 -- | Simply pack the arguments together into an array of
 --   ShaderAttribs.

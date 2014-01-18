@@ -8,22 +8,24 @@ import Graphics.Rendering.OpenGL.Raw
 import Engine.Core.Util
 import Engine.Core.Vec
 import Engine.Core.World
+import Engine.Object.GameObject
 
 mkPlayer :: GameObject t
-mkPlayer = Player   (Vec3 0 0 0) (Vec3 0 0 0) 5
+mkPlayer = Player   (Vec3 0 20 0) (Vec3 0 0 0) 5
                     pUpdate
                     baseInput
 
 pUpdate :: World t -> IO (GameObject t)
 pUpdate w = do
     p <- readIORef (worldPlayer w)
+    let entities = worldEntities w
     state <- readIORef (worldState w)
     let origSpeed = playerSpeed p
         speed = origSpeed * stateDelta state
         newP = p{playerSpeed = speed}
-        -- Do actual update
-        modifiedP = playerMouseUpdate $ playerKeyUpdate newP
-        retP = modifiedP{playerSpeed = origSpeed}
+    -- Do actual update
+    modifiedP <- (playerKeyUpdateSafe $ playerMouseUpdate newP) entities
+    let retP = modifiedP{playerSpeed = origSpeed}
         
     return retP
 
@@ -51,7 +53,6 @@ spaceIn p = moveObject p (Vec3 0 (playerSpeed p) 0)
 
 -- | Takes a Player and a Vec3 of movement
 --   and moves player locally based on rotation.
---   Does not use Y direction argument.
 moveFromLook :: GameObject t -> Vec3 GLfloat-> GameObject t
 moveFromLook player (Vec3 idx idy idz) =
     let Vec3 _ rry _ = playerRotation player
@@ -76,7 +77,6 @@ playerMouseUpdate :: GameObject t -> GameObject t
 playerMouseUpdate player =
     let Vec2 rawdx rawdy = inputMouseDelta $ playerInput player
         Vec2 lastX lastY = inputLastMousePos $ playerInput player
-        --(rawdx, rawdy) = (lastX - curX, lastY - curY)
         -- TODO: adjust multipliers
         (dxx, dy) = (rawdx*0.1, rawdy*0.1)
 
@@ -120,8 +120,33 @@ playerMouseUpdate player =
         newRot = Vec3 newRx newRy rz
     in player{playerRotation = newRot, playerInput = newInput}
 
+playerKeyUpdateSafe :: GameObject t -> [IORef (GameObject t)] -> IO (GameObject t)
+playerKeyUpdateSafe player objects = do
+    ret <- playerKeyUpdateTailSafe player objects
+    return ret{playerInput = playerInput player}
+
+-- | Returns Player after safely applying all input functions.
+--   UNSAFE! Returns given player with an empty inputKeys!
+--   Use playerKeyUpdateSafe instead.
+playerKeyUpdateTailSafe :: GameObject t -> [IORef (GameObject t)]-> IO (GameObject t)
+playerKeyUpdateTailSafe p@(Player _ _ _ _ (Input ((_, isDown, func):xs) mouse lm)) objects =
+    -- If the key is down, apply corresponding function to player
+    let newPlayer = if isDown then func p else p
+        --retp = newPlayer{playerInput = Input xs mouse lm}
+
+    -- Give modified player to the function again, to recursively
+    -- apply each key update.
+    in do
+        intersecting <- isIntersectingAny newPlayer objects
+        let retp = if intersecting
+                        then p{playerInput = Input xs mouse lm}
+                    else newPlayer{playerInput = Input xs mouse lm}
+        --retp = newPlayer{playerInput = Input xs mouse lm}
+        playerKeyUpdateTailSafe retp objects
+playerKeyUpdateTailSafe p@(Player _ _ _ _ (Input [] _ _)) _ = return p
+
 playerKeyUpdate :: GameObject t -> GameObject t
-playerKeyUpdate player=
+playerKeyUpdate player =
     (playerKeyUpdateTail player){playerInput = playerInput player}
 
 -- | Returns Player after applying all input functions.

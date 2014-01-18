@@ -13,6 +13,7 @@ import Engine.Graphics.Shaders
 import Engine.Graphics.Textures
 import Engine.Core.Vec
 import Engine.Model.Model
+import Engine.Model.AABB
 
 data World t = World {
     worldPlayer :: !(IORef (GameObject t)),
@@ -26,6 +27,10 @@ data WorldState = WorldState {
     stateTime :: !UTCTime,
     stateDelta :: !GLfloat
 }
+
+-- TODO: Make this more flexible
+playerAABB :: AABB
+playerAABB = createAABB $ Vec3 0.5 1 0.5
 
 data GameObject t = Player {
     playerPosition :: !(Vec3 GLfloat),

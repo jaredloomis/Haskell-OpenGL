@@ -31,7 +31,7 @@ mkWorldStateRef = mkWorldState >>= newIORef
 
 mkObj :: IO (GameObject ())
 mkObj =
-    PureEntity (Vec3 3 1 0) id <$> mkModel <*> return ()
+    PureEntity (Vec3 10 10 10) id <$> mkModel <*> return ()
 
 mkObj2 :: IO (GameObject ())
 mkObj2 =
@@ -47,15 +47,7 @@ mkModel = do
     loadObjModel worldStateRef ("res" </> "objects/wow/wow.obj")
                                ("shaders" </> "min.vert")
                                ("shaders" </> "min.frag")
-
-{-
-mkEffectfulObj :: IO (GameObject ())
-mkEffectfulObj =
-    EffectfulEntity (0, 0, 0)
-
-effectfulUpdate :: World t -> GameObject t -> IO (GameObject t)
-effectfulUpdate world obj = do
-    -}
+    --return loaded--{modelAABB = Just (createAABB (Vec3 100 100 100))}
 
 mkTerrain :: IO Model
 mkTerrain = genModel
@@ -69,4 +61,3 @@ mkModel3 = do
     loadObjModel worldStateRef ("res" </> "objects/ibanez/ibanez.obj")
                                ("shaders" </> "min.vert")
                                ("shaders" </> "min.frag")
-

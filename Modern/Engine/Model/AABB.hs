@@ -5,12 +5,23 @@ import Graphics.Rendering.OpenGL.Raw
 import Engine.Core.Vec
 
 -- | AABB (min corner) (max corner)
-data AABB = AABB (Vec3 GLfloat) (Vec3 GLfloat)
+data AABB = AABB (Vec3 GLfloat) (Vec3 GLfloat) deriving (Show)
 
 -- | Takes a Vec3 containing the length, height, and width
 --   and returns a Vec3 with those dimensions.
 createAABB :: Vec3 GLfloat -> AABB
 createAABB = AABB (Vec3 0 0 0)
+
+aabbFromPoints :: [GLfloat] -> AABB
+aabbFromPoints points@(x:y:z:_) =
+    aabbFromPointsAccum points (Vec3 x y z) (Vec3 x y z)
+
+aabbFromPointsAccum :: [GLfloat] -> Vec3 GLfloat -> Vec3 GLfloat -> AABB
+aabbFromPointsAccum (x:y:z:rest) (Vec3 miX miY miZ) (Vec3 maX maY maZ) =
+    aabbFromPointsAccum rest
+        (Vec3 (min miX x) (min miY y) (min miZ z))
+        (Vec3 (max maX x) (max maY y) (max maZ z))
+aabbFromPointsAccum _ abMin abMax = AABB abMin abMax
 
 moveAABB :: AABB -> Vec3 GLfloat -> AABB
 moveAABB (AABB origMin origMax) deltaMovement =
@@ -18,6 +29,12 @@ moveAABB (AABB origMin origMax) deltaMovement =
 
 aabbDimensions :: AABB -> Vec3 GLfloat
 aabbDimensions (AABB left right) = right - left
+
+mIntersecting :: Maybe AABB -> Maybe AABB -> Bool
+mIntersecting (Just left) (Just right) = intersecting left right
+mIntersecting Nothing Nothing = False
+mIntersecting Nothing _ = False
+mIntersecting _ Nothing = False
 
 intersecting :: AABB -> AABB -> Bool
 intersecting (AABB (Vec3 min1x min1y min1z) (Vec3 max1x max1y max1z))
