@@ -15,7 +15,8 @@ data Model = Model {
     modelShaderVars :: ![ShaderAttrib],
     modelTextures :: ![Texture],
     modelVertCount :: !GLint,
-    modelAABB :: !(Maybe AABB)
+    modelAABBs :: !(Maybe [AABB]),
+    modelWholeAABB :: !(Maybe AABB)
 }
 
 createModel ::
@@ -33,7 +34,9 @@ createModel vert frag attrNames buffData valLens vertCount = do
     ids <- idAll buffData
 
     let sAttribs = createShaderAttribs attribs ids valLens
-    return $ Model program sAttribs [] vertCount (Just $ aabbFromPoints (head buffData))
+    return $ Model program sAttribs [] vertCount
+            (Just $ aabbByFace (head buffData))
+            (Just $ aabbFromPoints (head buffData))
 
 -- | Simply pack the arguments together into an array of
 --   ShaderAttribs.
@@ -69,4 +72,4 @@ bufferId info = do
 
 -- | Length of info. Assumes triangle faces.
 lengthAll :: [[GLfloat]] -> [GLuint]
-lengthAll = map (\x -> fromIntegral $ length x `div` 3)
+lengthAll = map $ \x -> fromIntegral $ length x `div` 3

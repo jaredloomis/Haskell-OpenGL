@@ -5,9 +5,15 @@ import Graphics.Rendering.OpenGL.Raw (GLfloat)
 import Engine.Model.Model
 import Engine.Terrain.Noise
 
-genModel :: FilePath -> FilePath -> GLfloat -> IO Model
-genModel vert frag w = do
-    heights <- simplexNoise (floor w) 1 20 15
+genSimplexModel :: FilePath -> FilePath ->
+    GLfloat ->  -- ^ Width
+    Int ->  -- ^ Octaves
+    GLfloat ->  -- ^ Wavelength
+    GLfloat ->  -- ^ Waveheight / intensity
+    IO Model
+genSimplexModel vert frag w octaves wavelength intensity = do
+    -- TODO: make the last 3 args configurable.
+    heights <- simplexNoise (floor w) octaves wavelength intensity
     let hCoords = heightsToCoords heights 0 1
 
         flat = createFlat 1 w

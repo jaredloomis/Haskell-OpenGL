@@ -8,6 +8,9 @@
   - [Netwire](http://hackage.haskell.org/package/netwire) - Possibly best for games, but hard to understand, only outdated tutorials. [Game examples](http://jshaskell.blogspot.de/), [Official tutorial for Wires](http://hackage.haskell.org/package/netwire-4.0.5/docs/Control-Wire.html), [Another good tutorial](http://hub.darcs.net/ertes/netwire/browse/README.md)
 
 <h2>Todo</h2>
+- Octree or some kind of grouping of vertices to speed up collision detection.
+- Text / GUI
+- Fix normals in procedurally generated terrain.
 - Check out [Vinyl](http://www.jonmsterling.com/posts/2013-04-06-vinyl-modern-records-for-haskell.html)
 - [Lots of stuff to add shader/graphics-wise](http://developer.download.nvidia.com/SDK/9.5/Samples/samples.html)
 - OpenGL 3.3+ [Sampler Objects](http://www.sinanc.org/blog/?p=215)

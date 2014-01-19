@@ -8,8 +8,7 @@ import qualified Graphics.UI.GLFW as GLFW
 
 import Graphics.Rendering.OpenGL (($=))
 import Graphics.Rendering.OpenGL.Raw
-    (glClear, gl_COLOR_BUFFER_BIT, glLoadIdentity, gl_DEPTH_BUFFER_BIT,
-     gl_STENCIL_BUFFER_BIT)
+    (glClear, gl_COLOR_BUFFER_BIT, glLoadIdentity, gl_DEPTH_BUFFER_BIT)
 
 import Engine.Graphics.Graphics
 import Engine.Object.Player
@@ -21,11 +20,6 @@ import Engine.Core.World
 
 main ::  IO ()
 main = do
-    -- Does not work for all systems, but asks the OS or WM
-    -- to disable resizing of the window. Does not work on
-    -- Arch Linux 64 with XFCE/XFWM.
-    --GLFW.windowHint $ GLFW.WindowHint'Resizable False
-
     -- Initialize GLFW, create a window, open it.
     win <- createGLFWWindow 800 600
     -- Perform some intitial OpenGL configurations.
@@ -39,7 +33,7 @@ main = do
     -- TODO: Should I remove this?
     --GLFW.setWindowRefreshCallback win (Just (renderStep world))
     -- Register the function called when the keyboard is pressed.
-    GLFW.setKeyCallback win (Just $ keyPressed (worldPlayer world))
+    GLFW.setKeyCallback win (Just $ keyPressed world)
     -- Register the function called whe our window is resized.
     GLFW.setFramebufferSizeCallback win (Just resizeScene)
     -- Register the function called when cursor moves.
@@ -54,8 +48,8 @@ main = do
     where
         loop win world = do
             -- Clear screen.
-            glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT .|.
-                      gl_STENCIL_BUFFER_BIT
+            glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
+
             -- Check if any events have occured.
             GLFW.pollEvents
 
@@ -118,7 +112,7 @@ cursorMove playerRef _ x y = do
 -- | Special case for Escape Key, not necessary to give info
 --   to the Player.
 --   TODO: Give it to Player for pausing. Or something.
-keyPressed :: IORef (GameObject t) -> GLFW.KeyCallback
+keyPressed :: World t -> GLFW.KeyCallback
 keyPressed _ win GLFW.Key'Escape _ GLFW.KeyState'Pressed _ = do
     currentCursorMode <- GLFW.getCursorInputMode win
     GLFW.setCursorInputMode win $
@@ -126,7 +120,8 @@ keyPressed _ win GLFW.Key'Escape _ GLFW.KeyState'Pressed _ = do
             then GLFW.CursorInputMode'Normal
         else GLFW.CursorInputMode'Disabled
 
-keyPressed playerRef _ k _ state _ = do
+keyPressed world _ k _ state _ = do
+    let playerRef = worldPlayer world
     player <- readIORef playerRef
     let input = playerInput player
         newIn = checkType input k state

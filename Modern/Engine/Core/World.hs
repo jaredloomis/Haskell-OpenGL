@@ -19,7 +19,8 @@ data World t = World {
     worldPlayer :: !(IORef (GameObject t)),
     worldEntities :: ![IORef (GameObject t)],
     worldUniforms :: ![ShaderUniform],
-    worldState :: !(IORef WorldState)
+    worldState :: !(IORef WorldState),
+    worldPaused :: !(IORef Bool)
 }
 
 data WorldState = WorldState {
@@ -30,7 +31,7 @@ data WorldState = WorldState {
 
 -- TODO: Make this more flexible
 playerAABB :: AABB
-playerAABB = createAABB $ Vec3 0.5 1 0.5
+playerAABB = createAABB $ Vec3 1 3 1
 
 data GameObject t = Player {
     playerPosition :: !(Vec3 GLfloat),

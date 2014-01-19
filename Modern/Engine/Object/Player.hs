@@ -25,9 +25,8 @@ pUpdate w = do
         newP = p{playerSpeed = speed}
     -- Do actual update
     modifiedP <- (playerKeyUpdateSafe $ playerMouseUpdate newP) entities
-    let retP = modifiedP{playerSpeed = origSpeed}
-        
-    return retP
+
+    return modifiedP{playerSpeed = origSpeed}
 
 -- | Input for first person camera.
 baseInput :: Input t
@@ -129,7 +128,8 @@ playerKeyUpdateSafe player objects = do
 --   UNSAFE! Returns given player with an empty inputKeys!
 --   Use playerKeyUpdateSafe instead.
 playerKeyUpdateTailSafe :: GameObject t -> [IORef (GameObject t)]-> IO (GameObject t)
-playerKeyUpdateTailSafe p@(Player _ _ _ _ (Input ((_, isDown, func):xs) mouse lm)) objects =
+playerKeyUpdateTailSafe
+    p@(Player _ _ _ _ (Input ((_, isDown, func):xs) mouse lm)) objects =
     -- If the key is down, apply corresponding function to player
     let newPlayer = if isDown then func p else p
         --retp = newPlayer{playerInput = Input xs mouse lm}
@@ -162,7 +162,6 @@ playerKeyUpdateTail p@(Player _ _ _ _ (Input ((_, isDown, func):xs) mouse lm)) =
     -- apply each key update.
     in playerKeyUpdateTail retp
 playerKeyUpdateTail p@(Player _ _ _ _ (Input [] _ _)) = p
-
 
 -- | Takes a Player and "moves the camera" by
 --   moving the whole world in the opposite direction.

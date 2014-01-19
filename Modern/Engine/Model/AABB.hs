@@ -23,6 +23,21 @@ aabbFromPointsAccum (x:y:z:rest) (Vec3 miX miY miZ) (Vec3 maX maY maZ) =
         (Vec3 (max maX x) (max maY y) (max maZ z))
 aabbFromPointsAccum _ abMin abMax = AABB abMin abMax
 
+aabbByFace :: [GLfloat] -> [AABB]
+aabbByFace (x1:y1:z1:x2:y2:z2:x3:y3:z3:rest) =
+    let minVec = Vec3 (min3 x1 x2 x3) (min3 y1 y2 y3) (min3 z1 z2 z3)
+        maxVec = Vec3 (max3 x1 x2 x3) (max3 y1 y2 y3) (max3 z1 z2 z3)
+    in AABB minVec maxVec : aabbByFace rest
+aabbByFace [] = []
+
+{-# INLINE min3 #-}
+min3 :: Ord a => a -> a -> a -> a
+min3 a b c = min c $ min a b
+
+{-# INLINE max3 #-}
+max3 :: Ord a => a -> a -> a -> a
+max3 a b c = max c $ max a b
+
 moveAABB :: AABB -> Vec3 GLfloat -> AABB
 moveAABB (AABB origMin origMax) deltaMovement =
     AABB (origMin + deltaMovement) (origMax + deltaMovement)
@@ -36,6 +51,12 @@ mIntersecting Nothing Nothing = False
 mIntersecting Nothing _ = False
 mIntersecting _ Nothing = False
 
+anyIntersect :: AABB -> [AABB] -> Bool
+anyIntersect l (r:rs) =
+    intersecting l r || anyIntersect l rs
+anyIntersect _ _ = False
+
+{-# INLINE intersecting #-}
 intersecting :: AABB -> AABB -> Bool
 intersecting (AABB (Vec3 min1x min1y min1z) (Vec3 max1x max1y max1z))
              (AABB (Vec3 min2x min2y min2z) (Vec3 max2x max2y max2z)) =
@@ -45,20 +66,3 @@ intersecting (AABB (Vec3 min1x min1y min1z) (Vec3 max1x max1y max1z))
     min1y < max2y &&
     max1z > min2z &&
     min1z < max2z
-
-    --- Should I do this?
-    -- Haskell's ifs don't curcuit, so each test
-    -- is done individually for efficiency.
-    {-if max1x < min2x
-        then False
-    else if min1x > max2x
-        then False
-    else if max1y < min2y
-        then False
-    else if min1y > max2y
-        then False
-    else if max1z < min2z
-        then False
-    else if min1z > max2z
-        then False
-    else True-}

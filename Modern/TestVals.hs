@@ -20,6 +20,7 @@ mkWorld = do
         <*> return [obj1, obj2]
         <*> return [("lightPos", [2.0, 2.0, 0.0])]
         <*> mkWorldStateRef
+        <*> newIORef True
 
 mkWorldState :: IO WorldState
 mkWorldState = do
@@ -47,13 +48,15 @@ mkModel = do
     loadObjModel worldStateRef ("res" </> "objects/wow/wow.obj")
                                ("shaders" </> "min.vert")
                                ("shaders" </> "min.frag")
-    --return loaded--{modelAABB = Just (createAABB (Vec3 100 100 100))}
 
 mkTerrain :: IO Model
-mkTerrain = genModel
+mkTerrain = genSimplexModel
             "shaders/max.vert"
             "shaders/max.frag"
             50
+            1
+            20
+            10
 
 mkModel3 :: IO Model
 mkModel3 = do

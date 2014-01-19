@@ -12,23 +12,36 @@ import Engine.Model.Model
 import Engine.Model.AABB
 
 objectsIntersect :: GameObject t -> GameObject t -> Bool
-objectsIntersect l r --mIntersecting (getAABB l) (getAABB r)
-    | isJust (getAABB l) &&
-      isJust (getAABB r) =
-        let --(Just (AABB lmin lmax)) = getAABB l
-            --(Just (AABB rmin rmax)) = getAABB r
-            --newl = AABB (lmin + getPos l) (lmax + getPos l)
-            --newr = AABB (rmin + getPos r) (rmax + getPos r)
-            Just newl = calculateNewAABB l
-            Just newr = calculateNewAABB r
-        in intersecting newl newr
+objectsIntersect l r
+    | isJust (getAABBs l) &&
+      isJust (getAABBs r) &&
+      isJust (getWholeAABB l) &&
+      isJust (getWholeAABB r) =
+        let Just wholeabl = calculateNewWholeAABB l
+            Just wholeabr = calculateNewWholeAABB r
+        in intersecting wholeabl wholeabr &&
+               (let Just newl = calculateNewAABBs l
+                    Just newr = calculateNewAABBs r
+                in anyIntersect (head newl) newr)
     | otherwise = False
 
-calculateNewAABB :: GameObject t -> Maybe AABB
-calculateNewAABB obj
-    | isJust (getAABB obj) =
-        let (Just (AABB abMin abMax)) = getAABB obj
-        in Just $ AABB (abMin + getPos obj) (abMax + getPos obj)
+calculateNewWholeAABB :: GameObject t -> Maybe AABB
+calculateNewWholeAABB obj
+    | isJust (getWholeAABB obj) =
+        let (Just (AABB l r)) = getWholeAABB obj
+            pos = getPos obj
+        in Just $ AABB (l + pos) (r + pos)
+    | otherwise = Nothing
+
+
+calculateNewAABBs :: GameObject t -> Maybe [AABB]
+calculateNewAABBs obj
+    | isJust (getAABBs obj) =
+        let (Just aabbs) = getAABBs obj
+            transformAll (AABB l r:xs) pos =
+                AABB (l + pos) (r + pos) : transformAll xs pos
+            transformAll [] _ = []
+        in Just $ transformAll aabbs (getPos obj)
     | otherwise = Nothing
 
 isIntersectingAny :: GameObject t -> [IORef (GameObject t)] -> IO Bool
@@ -71,10 +84,17 @@ effectfulUpdateAll (object:rest) world = do
     effectfulUpdateAll rest world
 effectfulUpdateAll [] _ = return ()
 
-getAABB :: GameObject t -> Maybe AABB
-getAABB pe@(PureEntity{}) = modelAABB $ pentityModel pe
-getAABB (Player{}) = Just playerAABB
-getAABB ee@(EffectfulEntity{}) = modelAABB $ eentityModel ee
+getWholeAABB :: GameObject t -> Maybe AABB
+getWholeAABB (Player{}) = Just playerAABB
+getWholeAABB pe@(PureEntity{}) = modelWholeAABB $ pentityModel pe
+getWholeAABB ee@(EffectfulEntity{}) = modelWholeAABB $ eentityModel ee
+getWholeAABB _ = Nothing
+
+getAABBs :: GameObject t -> Maybe [AABB]
+getAABBs pe@(PureEntity{}) = modelAABBs $ pentityModel pe
+getAABBs (Player{}) = Just [playerAABB]
+getAABBs ee@(EffectfulEntity{}) = modelAABBs $ eentityModel ee
+getAABBs _ = Nothing
 
 getPos :: GameObject t -> Vec3 GLfloat
 getPos p@(Player{}) = playerPosition p
