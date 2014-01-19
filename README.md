@@ -9,6 +9,9 @@
 
 <h2>Todo</h2>
 - Octree or some kind of grouping of vertices to speed up collision detection.
+    - Bounding Volume Hierarchy seems to be the fastest choice.
+        - Requires Raytracing
+        - [Java code](https://github.com/diwi/Space_Partitioning_Octree_BVH/tree/master/SpacePartitioning/src/DwBVH) [C# code](http://www.3dmuve.com/3dmblog/?p=182)
 - Text / GUI
 - Fix normals in procedurally generated terrain.
 - Check out [Vinyl](http://www.jonmsterling.com/posts/2013-04-06-vinyl-modern-records-for-haskell.html)
