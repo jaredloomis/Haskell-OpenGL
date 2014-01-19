@@ -9,9 +9,9 @@
 
 <h2>Todo</h2>
 - Octree or some kind of grouping of vertices to speed up collision detection.
-    - Bounding Volume Hierarchy seems to be the fastest choice.
+    - Bounding Volume Hierarchy seems to be the best choice.
         - Requires Raytracing
-        - [Java code](https://github.com/diwi/Space_Partitioning_Octree_BVH/tree/master/SpacePartitioning/src/DwBVH) [C# code](http://www.3dmuve.com/3dmblog/?p=182)
+        - [Java code](https://github.com/diwi/Space_Partitioning_Octree_BVH/tree/master/SpacePartitioning/src/DwBVH), [C# code](http://www.3dmuve.com/3dmblog/?p=182), [Scholarly paper](http://www.cg.cs.tu-bs.de/media/publications/minimal-bounding-volume-hierarchy.pdf), [C++ Walkthrough/tutorial](http://www.scratchapixel.com/lessons/3d-basic-lessons/lesson-12-introduction-to-acceleration-structures/bounding-volume-hierarchy-bvh-part-1/), [C++ code](https://github.com/brandonpelfrey/Fast-BVH), [Large academic paper](http://www.sci.utah.edu/~wald/Publications/2007/FastBuild/download/fastbuild.pdf), [Stackoverflow question](http://stackoverflow.com/questions/5077243/how-to-roll-a-fast-bvh-representation-in-haskell), [Another Stackoverflow question](http://stackoverflow.com/questions/15013523/how-to-sort-and-compare-in-a-bounding-volume-hierarchy), [Academic publication](http://cg.ibds.kit.edu/publications/p2012/RBVH/RBVH.pdf)
 - Text / GUI
 - Fix normals in procedurally generated terrain.
 - Check out [Vinyl](http://www.jonmsterling.com/posts/2013-04-06-vinyl-modern-records-for-haskell.html)
