@@ -8,31 +8,31 @@
   - [Netwire](http://hackage.haskell.org/package/netwire) - Possibly best for games, but hard to understand, only outdated tutorials. [Game examples](http://jshaskell.blogspot.de/), [Official tutorial for Wires](http://hackage.haskell.org/package/netwire-4.0.5/docs/Control-Wire.html), [Another good tutorial](http://hub.darcs.net/ertes/netwire/browse/README.md)
 
 <h2>Performance</h2>
-Benchmark was done with a procedurally generated terrain, 50x50 vertices, with collision detection per face and a surrounding AABB to check general collision. Benchmarked on 1/22/14 with ghc 7.6.3.
+Benchmark was done with a procedurally generated terrain, 50x50 vertices, with collision detection per face and a surrounding AABB to check general collision. Benchmarked on 1/22/14 with `ghc 7.6.3`.
 
-Tested on Arch Linux 64 bit with
-- 16GB RAM
-- i5-3470 Quad-Core CPU @ 3.20GHz
+Tested on `Arch Linux 64 bit` with
+- `16GB RAM`
+- `i5-3470 Quad-Core CPU @ 3.20GHz`
 
 Performance by GHC/GHCI command:
-- ghci
-    - CPU: 1-23%
-    - RAM: 316 MB
-- ghc (No flags)
-    - CPU: 1-6%
-    - RAM: 44 MiB
-- ghc -O
-    - CPU: 1-4%
-    - RAM: 43 MiB
-- ghc -O2
-    - CPU: 1-4%
-    - RAM: 43 MiB
-- ghc -fllvm -O2
-    - CPU: 1-3%
-    - RAM: 43 MiB
-- ghc -fvia-C -O2
-    - CPU: 1-4%
-    - RAM: 43 MiB
+- `ghci`
+    - CPU: `1-23%`
+    - RAM: `316 MB`
+- `ghc` (No flags)
+    - CPU: `1-6%`
+    - RAM: `44 MiB`
+- `ghc -O`
+    - CPU: `1-4%`
+    - RAM: `43 MiB`
+- `ghc -O2`
+    - CPU: `1-4%`
+    - RAM: `43 MiB`
+- `ghc -fllvm -O2`
+    - CPU: `1-3%`
+    - RAM: `43 MiB`
+- `ghc -fvia-C -O2`
+    - CPU: `1-4%`
+    - RAM: `43 MiB`
 
 All commands using the `-O` or `-O2` flags performed basically the same, with a very slight decrease in CPU usage from `-fllvm`, but the version of llvm used was 3.4, which is "untested".
 
