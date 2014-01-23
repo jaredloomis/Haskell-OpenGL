@@ -1,9 +1,12 @@
 <h1>Haskell-OpenGL</h1>
 <h2>Screenshots</h2>
+<h3>Simplex procedurally generated terrain.</h3>
+
 ![](http://i.imgur.com/SBSaObn.png)
-Simplex procedurally generated terrain.
+
+<h3>Loading of models, including textures.</h3>
+
 ![](http://i.imgur.com/URxxELT.png)
-Loading of models, including textures.
 <h2>Plan</h2>
 - Simple but well-written 3D (which also allows for 2D) game/game library written in Haskell using [OpenGL](http://hackage.haskell.org/package/OpenGL) and [GLFW-b](http://hackage.haskell.org/package/GLFW-b-1.4.3). Also using [GLUtil](https://github.com/acowley/GLUtil) and [JuicyPixels](http://hackage.haskell.org/package/JuicyPixels).
 - Use procedurally generated terrain/content.
