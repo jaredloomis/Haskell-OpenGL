@@ -37,6 +37,7 @@ Performance by GHC/GHCI command:
 All commands using the `-O` or `-O2` flags performed basically the same, with a very slight decrease in CPU usage from `-fllvm`, but the version of llvm used was 3.4, which is "untested".
 
 <h2>Todo</h2>
+- Use [Vect](http://hackage.haskell.org/package/vect) to handle matrices instead of telling OpenGL to do it. Vect has an [OpenGL package](http://hackage.haskell.org/package/vect-opengl)
 - Instead of splitting a loaded terrain, just create a function to load multiple terrains and place them next to each other.
 - Octree or some kind of grouping of vertices to speed up collision detection. <i>Actually, collision detection is not that slow when using ghc (not ghci), but this should still be implemented at some point.</i>
     - Bounding Volume Hierarchy seems to be the best choice.
