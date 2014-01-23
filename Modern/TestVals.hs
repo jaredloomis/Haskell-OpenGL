@@ -13,14 +13,17 @@ import Engine.Model.Model
 
 mkWorld :: IO (World ())
 mkWorld = do
-    obj1 <- mkObj >>= newIORef
+    --obj1 <- mkObj >>= newIORef
     obj2 <- mkObj2 >>= newIORef
+    --rawObjs <- mkSplitModel >>= mkSplitObjs
+    --objs <- mapM newIORef rawObjs
     World
         <$> newIORef mkPlayer
-        <*> return [obj1, obj2]
-        <*> return [("lightPos", [2.0, 2.0, 0.0])]
+        -- <*> return objs
+        -- <*> return [obj1, obj2]
+        <*> return [obj2]
+        <*> return [("lightPos", return [2.0, 2.0, 0.0])]
         <*> mkWorldStateRef
-        <*> newIORef True
 
 mkWorldState :: IO WorldState
 mkWorldState = do
@@ -41,6 +44,7 @@ mkObj2 =
 pureMove :: GameObject t -> GameObject t
 pureMove pe@(PureEntity{}) =
     pe{pentityPosition = pentityPosition pe + Vec3 0.005 0 0}
+pureMove a = a
 
 mkModel :: IO Model
 mkModel = do

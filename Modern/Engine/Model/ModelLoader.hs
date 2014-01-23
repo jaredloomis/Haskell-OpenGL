@@ -77,7 +77,7 @@ loadObjF file = do
     (verts, norms, texs, faces) <- loadObjFast handle ([], [], [], [])
     return $ packObj faces verts texs norms
 
--- | Actually slower, probably due to the (++)'s
+-- | Actually slower, probably due to the (++)'s and unpacking.
 loadObjFast :: Handle ->
     ([Vec3 GLfloat], [Vec3 GLfloat], [Vec2 GLfloat], [Vec3 (Maybe GLuint)]) ->
     IO ([Vec3 GLfloat], [Vec3 GLfloat], [Vec2 GLfloat], [Vec3 (Maybe GLuint)])
@@ -117,6 +117,9 @@ toVec3UnknownB (x:y:zs) =
                 then Nothing
             else Just $ read (B.unpack t)
     in Vec3 (getMaybe x) (getMaybe y) (getMaybe z)
+toVec3UnknownB _ =
+    error $ "ModelLoader.toVec3UnknownB: given "
+            ++ "list contains less than 3 ByteStrings."
 
 splitSpacesB :: B.ByteString -> [B.ByteString]
 splitSpacesB = B.split ' '
@@ -272,6 +275,9 @@ readObjTexLine line =
 
 toVec2 :: [a] -> Vec2 a
 toVec2 (x:ys) = Vec2 x (head ys)
+toVec2 _ =
+    error $ "ModelLoader.toVec2: given list contains"
+        ++ "less than 2 elements."
 
 readFaceGroups :: [String] -> [Vec3 (Maybe GLuint)]
 readFaceGroups = foldr ((:) . readFaceGroup) []
@@ -289,6 +295,8 @@ toVec3Unknown (x:y:zs) =
                 then Nothing
             else Just $ read t
     in Vec3 (getMaybe x) (getMaybe y) (getMaybe z)
+toVec3Unknown _ = error $ "ModelLoader.toVec3Unknown: given "
+            ++ "list contains less than 3 Strings."
 
 toVec3 :: [a] -> Vec3 a
 toVec3 xs

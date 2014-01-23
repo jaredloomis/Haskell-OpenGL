@@ -29,9 +29,6 @@ main = do
     -- and one Entity
     world <- mkWorld
 
-    -- Register the function to do all OpenGL drawing.
-    -- TODO: Should I remove this?
-    --GLFW.setWindowRefreshCallback win (Just (renderStep world))
     -- Register the function called when the keyboard is pressed.
     GLFW.setKeyCallback win (Just $ keyPressed world)
     -- Register the function called whe our window is resized.
@@ -46,6 +43,7 @@ main = do
     shutdown win
 
     where
+        loop :: GLFW.Window -> World t -> IO ()
         loop win world = do
             -- Clear screen.
             glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
@@ -76,21 +74,24 @@ renderStep world _ = do
 
 updateStep :: World t -> IO ()
 updateStep world = do
-    -- Update delta time and current time.
     wState <- readIORef (worldState world)
+
+    -- Update the world time and delta.
     worldTime <- getWorldTime
     let delta = realToFrac $ diffUTCTime worldTime (stateTime wState)
     worldState world $= wState{
         stateTime = worldTime, stateDelta = delta}
 
+    --print delta
+
     let playerRef = worldPlayer world
     player <- readIORef playerRef
-
-    -- Update Player and Set mouse delta movement to 0
+    -- Update player
     tmpPlayer <- effectfulUpdate player world
+    -- Set mouse delta movement to 0.
     let pin = (playerInput tmpPlayer){inputMouseDelta = Vec2 0 0}
         newPlayer = tmpPlayer{playerInput = pin}
-
+    -- Write the World's player value.
     writeIORef playerRef newPlayer
 
     effectfulUpdateWorld world

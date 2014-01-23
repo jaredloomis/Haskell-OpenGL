@@ -19,6 +19,40 @@ data Model = Model {
     modelWholeAABB :: !(Maybe AABB)
 }
 
+createModelSplit ::
+    FilePath ->     -- ^ Vertex Shader.
+    FilePath ->     -- ^ Fragment Shader.
+    [String] ->     -- ^ Attribute Variable names.
+    [[GLfloat]] ->  -- ^ List containing all the lists of values.
+                    --   (vertices, normals, etc).
+    [GLuint] ->     -- ^ Size of each value.
+    Int ->          -- ^ Number of splits.
+    IO [Model]
+createModelSplit vert frag attrNames buffData valLens splits =
+    let splitUp = splitAllData (splits * 3) buffData
+
+    in do
+        print $ length buffData
+        print $ length $ head buffData
+        print $ length splitUp
+        print $ length $ head splitUp
+
+        let models = map (\dat -> createModel vert frag attrNames dat
+                valLens (fromIntegral $ length dat `div` 3)) splitUp
+
+        sequence models
+
+
+splitAllData :: Int -> [[GLfloat]] -> [[[GLfloat]]]
+splitAllData = map . splitData
+
+splitData :: Int -> [GLfloat] -> [[GLfloat]]
+splitData i xs
+    | length xs >= i =
+        let (cur, rest) = splitAt i xs
+        in cur : splitData i rest
+    | otherwise = []
+
 createModel ::
     FilePath ->     -- ^ Vertex Shader.
     FilePath ->     -- ^ Fragment Shader.
@@ -33,17 +67,27 @@ createModel vert frag attrNames buffData valLens vertCount = do
     attribs <- createAttribs program attrNames
     ids <- idAll buffData
 
+    print $ length buffData  ----
+    print $ length attribs
+    print $ length valLens
+    print $ length ids  ----
+
     let sAttribs = createShaderAttribs attribs ids valLens
     return $ Model program sAttribs [] vertCount
+            --Nothing
+            --(Just $ aabbsFromPointsGrouped (head buffData) 5)
             (Just $ aabbByFace (head buffData))
             (Just $ aabbFromPoints (head buffData))
 
 -- | Simply pack the arguments together into an array of
 --   ShaderAttribs.
 createShaderAttribs :: [GLuint] -> [GLuint] -> [GLuint] -> [ShaderAttrib]
-createShaderAttribs (attr:attrs) (buff:buffs) (size:sizes)=
+createShaderAttribs (attr:attrs) (buff:buffs) (size:sizes) =
     Vec3 attr buff size : createShaderAttribs attrs buffs sizes
 createShaderAttribs [] [] [] = []
+createShaderAttribs _ _ _ =
+    error $ "Model.createShaderAttribs: "
+        ++ "given lists are not the same length."
 
 -- | Create an id for each buffer data.
 idAll :: [[GLfloat]] -> IO [GLuint]

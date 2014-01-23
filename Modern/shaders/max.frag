@@ -11,6 +11,8 @@ out vec4 fragmentColor;
 
 void main()
 {
+    //fragmentColor = vec4(1, 0, 0, 1);
+
     //vec3 fragColor = vec3(0.396078, 0.26274509, 0.12941176);
     float newTime = time * 2;
     float rColor = sin(newTime) + 0.5;

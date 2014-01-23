@@ -1,7 +1,7 @@
 module Engine.Graphics.Graphics where
 
 import Data.IORef (readIORef)
-import Data.Time
+import Data.Time (utctDayTime)
 
 import qualified Graphics.UI.GLFW as GLFW
 
@@ -51,14 +51,17 @@ renderWorld world
     bindWorldUniforms world mShader
     bindTextures (modelTextures model) mShader
 
+    -- Set time uniform.
     wState <- readIORef $ worldState world
     let utcTime = stateTime wState
     let dayTime = realToFrac $ utctDayTime utcTime
-    bindUniforms mShader [("time", [dayTime])]
+    bindUniforms mShader [("time", return [dayTime])]
 
     -- Do the drawing.
     glDrawArrays gl_TRIANGLES 0 (modelVertCount model)
 
+    -- TODO: Remove if not necessary.
+    -- Disable textures.
     unBindTextures (fromIntegral . length . modelTextures $ model)
 
     -- Turn off VBO/VAO

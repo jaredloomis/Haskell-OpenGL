@@ -5,9 +5,27 @@ import Graphics.Rendering.OpenGL.Raw (GLfloat)
 import Engine.Model.Model
 import Engine.Terrain.Noise
 
-genSimplexModel :: FilePath -> FilePath ->
+genSimplexModelSplit :: FilePath -> FilePath ->
     GLfloat ->  -- ^ Width
     Int ->  -- ^ Octaves
+    GLfloat ->  -- ^ Wavelength
+    GLfloat ->  -- ^ Waveheight / intensity
+    IO [Model]
+genSimplexModelSplit vert frag w octaves wavelength intensity = do
+    -- TODO: make the last 3 args configurable.
+    heights <- simplexNoise (floor w) octaves wavelength intensity
+    let hCoords = heightsToCoords heights 0 1
+
+        flat = createFlat 1 w
+
+        vertices = applyHeights flat hCoords
+        normals = calculateNormals vertices
+
+    createModelSplit vert frag ["position", "normal"] [vertices, normals] [3, 3] 5
+
+genSimplexModel :: FilePath -> FilePath ->
+    GLfloat ->  -- ^ Width
+    Int ->      -- ^ Octaves
     GLfloat ->  -- ^ Wavelength
     GLfloat ->  -- ^ Waveheight / intensity
     IO Model
@@ -22,7 +40,7 @@ genSimplexModel vert frag w octaves wavelength intensity = do
         normals = calculateNormals vertices
 
     createModel vert frag ["position", "normal"] [vertices, normals] [3, 3]
-                    (fromIntegral $ length vertices)
+                    (fromIntegral $ length vertices `div` 3)
 
 createFlat :: GLfloat -> GLfloat -> [GLfloat]
 createFlat spacing width =

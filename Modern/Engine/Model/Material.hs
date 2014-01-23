@@ -96,7 +96,7 @@ executeCommand wStateRef command mat textureCount
     | "map_Kd " `isPrefixOf` command = do
         --texture <- loadGLTextureId textureCount $ head (rawMtlLine command)
         wState <- readIORef wStateRef
-        texture <- loadGLTextureSafe wState $ head (rawMtlLine command)
+        texture <- loadWorldTexture wState $ head (rawMtlLine command)
         return mat{matTexture = Just texture,
                    matTexId = Just $ fromIntegral textureCount}
     | otherwise = return mat

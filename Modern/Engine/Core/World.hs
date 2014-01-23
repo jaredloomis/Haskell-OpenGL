@@ -19,8 +19,7 @@ data World t = World {
     worldPlayer :: !(IORef (GameObject t)),
     worldEntities :: ![IORef (GameObject t)],
     worldUniforms :: ![ShaderUniform],
-    worldState :: !(IORef WorldState),
-    worldPaused :: !(IORef Bool)
+    worldState :: !(IORef WorldState)
 }
 
 data WorldState = WorldState {
@@ -31,7 +30,7 @@ data WorldState = WorldState {
 
 -- TODO: Make this more flexible
 playerAABB :: AABB
-playerAABB = createAABB $ Vec3 1 3 1
+playerAABB = AABB (Vec3 (-1) (-2) (-1)) (Vec3 1 1 1)
 
 data GameObject t = Player {
     playerPosition :: !(Vec3 GLfloat),
@@ -52,7 +51,7 @@ data GameObject t = Player {
 }
 
 data Input t = Input {
-    inputKeys :: ![(GLFW.Key, Bool, GameObject t -> GameObject t)],
+    inputKeys :: ![(GLFW.Key, Bool, World t -> GameObject t -> IO (GameObject t))],
     inputMouseDelta :: !(Vec2 GLfloat),
     inputLastMousePos :: !(Vec2 GLfloat)
 }
@@ -62,8 +61,8 @@ bindWorldUniforms :: World t -> GLuint -> IO ()
 bindWorldUniforms world shader =
     bindUniforms shader $ worldUniforms world
 
-loadGLTextureSafe :: WorldState -> FilePath -> IO GL.TextureObject
-loadGLTextureSafe wState file = do
+loadWorldTexture :: WorldState -> FilePath -> IO GL.TextureObject
+loadWorldTexture wState file = do
     (Image (Size w h) pd) <- juicyLoadImage file
     texName <- liftM head (GL.genObjectNames 1)
     GL.textureBinding GL.Texture2D $= Just texName
@@ -76,40 +75,3 @@ loadGLTextureSafe wState file = do
 -- | Synonym for getCurrentTime.
 getWorldTime :: IO UTCTime
 getWorldTime = getCurrentTime
-
--- IOGameObject Monad stuff. Probably won't be
--- implemented, but I will keep it here
-{-
-newtype IOGameObject t a =
-    IOGameObject (GameObject t -> IO (GameObject t, a))
-
-bindIOGO :: IOGameObject t a -> (a -> IOGameObject t b) -> IOGameObject t b
-bindIOGO (IOGameObject iworld) action =
-    IOGameObject $ \s -> iworld s >>= \(w, iw) ->
-        let IOGameObject g = action iw
-        in g w
-
-unitIOGO :: a -> IOGameObject t a
-unitIOGO v = IOGameObject (\w -> return (w, v))
-
-instance Monad (IOGameObject t) where
-  (>>=) = bindIOGO
-  return = unitIOGO
-
--- IOWorld Monad stuff.
-
-newtype IOWorld t a = IOWorld (World t -> IO (World t, a))
-
-bindIOW :: IOWorld t a -> (a -> IOWorld t b) -> IOWorld t b
-bindIOW (IOWorld iworld) action =
-    IOWorld $ \s -> iworld s >>= \(w, iw) ->
-        let IOWorld g = action iw
-        in g w
-
-unitIOW :: a -> IOWorld t a
-unitIOW v = IOWorld (\w -> return (w, v))
-
-instance Monad (IOWorld t) where
-  (>>=) = bindIOW
-  return = unitIOW
--}

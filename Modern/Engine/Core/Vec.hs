@@ -2,8 +2,8 @@ module Engine.Core.Vec where
 
 -- TODO: dot product, cross product, etc.
 
-data Vec3 a = Vec3 !a !a !a deriving (Show)
-data Vec2 a = Vec2 !a !a deriving (Show)
+data Vec3 a = Vec3 !a !a !a deriving (Show, Eq)
+data Vec2 a = Vec2 !a !a deriving (Show, Eq)
 
 instance Functor Vec3 where
     fmap f (Vec3 x y z) = Vec3 (f x) (f y) (f z)

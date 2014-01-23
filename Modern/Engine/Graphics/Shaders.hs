@@ -21,7 +21,7 @@ import Engine.Graphics.Textures
 type ShaderAttrib = Vec3 GLuint
 
 -- | Name, Values
-type ShaderUniform = (String, [GLfloat])
+type ShaderUniform = (String, IO [GLfloat])
 
 -- | Loads a pair of vertex and fragment shaders
 --   given the two FilePaths.
@@ -50,7 +50,7 @@ loadShader shaderTypeFlag filePath = do
             glShaderSource sid 1 codePtrPtr nullPtr
     glCompileShader sid
 
-    checkStatus gl_COMPILE_STATUS glGetShaderiv glGetShaderInfoLog sid
+    _ <- checkStatus gl_COMPILE_STATUS glGetShaderiv glGetShaderInfoLog sid
 
     return sid
 
@@ -69,7 +69,7 @@ checkStatus statusFlag glGetFn glInfoLogFn idT = do
     logLength <- fetch gl_INFO_LOG_LENGTH
     when (logLength > 0) $
         allocaArray0 (fromIntegral logLength) $ \msgPtr -> do
-            glInfoLogFn idT logLength nullPtr msgPtr
+            _ <- glInfoLogFn idT logLength nullPtr msgPtr
             peekCString msgPtr >>=
                 if status 
                     then \t -> do
@@ -134,7 +134,8 @@ disableShaderAttribs [] = return ()
 -- | Calls glUniformxf on all Uniforms, given the
 --   shader.
 bindUniforms :: GLuint -> [ShaderUniform] -> IO ()
-bindUniforms shader ((name, vals):xs) = do
+bindUniforms shader ((name, valsIo):xs) = do
+    vals <- valsIo
     let len = length vals
     loc <- withCString name $ glGetUniformLocation shader
 

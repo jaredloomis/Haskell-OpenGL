@@ -1,0 +1,19 @@
+`ghci`
+CPU: 1-23%
+RAM: 316 MiB
+
+`ghc (No flags)`
+CPU: 1-6%
+RAM: 44 MiB
+
+`ghc -fllvm -O2`
+CPU: 1-3%
+RAM: 43 MiB
+
+`ghc -O, ghc -O2`
+CPU: 1-4%
+RAM: 43 MiB
+
+`ghc -fvia-C -O2`
+CPU: 1-4%
+RAM: 43 MiB

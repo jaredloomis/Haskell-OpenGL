@@ -18,13 +18,13 @@ mkPlayer = Player   (Vec3 0 20 0) (Vec3 0 0 0) 5
 pUpdate :: World t -> IO (GameObject t)
 pUpdate w = do
     p <- readIORef (worldPlayer w)
-    let entities = worldEntities w
+    --let entities = worldEntities w
     state <- readIORef (worldState w)
     let origSpeed = playerSpeed p
         speed = origSpeed * stateDelta state
         newP = p{playerSpeed = speed}
     -- Do actual update
-    modifiedP <- (playerKeyUpdateSafe $ playerMouseUpdate newP) entities
+    modifiedP <- playerKeyUpdateSafe w $ playerMouseUpdate newP
 
     return modifiedP{playerSpeed = origSpeed}
 
@@ -35,25 +35,25 @@ baseInput =  Input [(GLFW.Key'A, False, aIn), (GLFW.Key'D, False, dIn),
                     (GLFW.Key'LeftShift, False, shiftIn), 
                     (GLFW.Key'Space, False, spaceIn)] (Vec2 0 0) (Vec2 0 0)
 
-aIn :: GameObject t -> GameObject t
-aIn p = moveFromLook p (Vec3 (playerSpeed p) 0 0)
-dIn :: GameObject t -> GameObject t
-dIn p = moveFromLook p (Vec3 (-playerSpeed p) 0 0)
-wIn :: GameObject t -> GameObject t
-wIn p = moveFromLook p (Vec3 0 0 (-playerSpeed p))
-sIn :: GameObject t -> GameObject t
-sIn p = moveFromLook p (Vec3 0 0 (playerSpeed p))
+aIn :: World t -> GameObject t -> IO (GameObject t)
+aIn w p = moveFromLookSlide w p (Vec3 (playerSpeed p) 0 0)
+dIn :: World t -> GameObject t -> IO (GameObject t)
+dIn w p = moveFromLookSlide w p (Vec3 (-playerSpeed p) 0 0)
+wIn :: World t -> GameObject t -> IO (GameObject t)
+wIn w p = moveFromLookSlide w p (Vec3 0 0 (-playerSpeed p))
+sIn :: World t -> GameObject t -> IO (GameObject t)
+sIn w p = moveFromLookSlide w p (Vec3 0 0 (playerSpeed p))
 
-shiftIn :: GameObject t -> GameObject t
-shiftIn p = moveObject p (Vec3 0 (-playerSpeed p) 0)
+shiftIn :: World t -> GameObject t -> IO (GameObject t)
+shiftIn w p = moveObjectSlide w p (Vec3 0 (-playerSpeed p) 0)
 
-spaceIn :: GameObject t -> GameObject t
-spaceIn p = moveObject p (Vec3 0 (playerSpeed p) 0)
+spaceIn :: World t -> GameObject t -> IO (GameObject t)
+spaceIn w p = moveObjectSlide w p (Vec3 0 (playerSpeed p) 0)
 
 -- | Takes a Player and a Vec3 of movement
 --   and moves player locally based on rotation.
 moveFromLook :: GameObject t -> Vec3 GLfloat-> GameObject t
-moveFromLook player (Vec3 idx idy idz) =
+moveFromLook player@(Player{}) (Vec3 idx idy idz) =
     let Vec3 _ rry _ = playerRotation player
         dx = realToFrac idx
         dz = realToFrac idz
@@ -65,12 +65,49 @@ moveFromLook player (Vec3 idx idy idz) =
         mz = dx * cosDeg (ry - 90) + dz * cosDeg ry
         
     in moveObject player $ Vec3 (realToFrac mx) my (realToFrac mz)
+moveFromLook _ _ =
+    error "Player.moveFromLook can only be used on Players."
 
-moveObject :: GameObject t -> Vec3 GLfloat -> GameObject t
-moveObject p@(Player{}) (Vec3 dx dy dz) =
-    let (Vec3 ix iy iz) = playerPosition p
-        newPos = Vec3 (ix + dx) (iy + dy) (iz + dz)
-    in p{playerPosition = newPos}
+-- | Takes a Player and a Vec3 of movement
+--   and moves player locally based on rotation.
+moveFromLookSlide :: World t -> GameObject t -> Vec3 GLfloat-> IO (GameObject t)
+moveFromLookSlide world player@(Player{}) (Vec3 idx idy idz) = do
+    let Vec3 _ rry _ = playerRotation player
+        dx = realToFrac idx
+        dz = realToFrac idz
+        
+        ry = realToFrac rry :: Float
+
+        mx = dx * sinDeg (ry - 90) + dz * sinDeg ry
+        my = idy
+        mz = dx * cosDeg (ry - 90) + dz * cosDeg ry
+
+    moveObjectSlide world player $ Vec3 (realToFrac mx) my (realToFrac mz)
+moveFromLookSlide _ _ _ =
+    error "Player.moveFromLook can only be used on Players."
+
+moveObjectSlide :: World t -> GameObject t -> Vec3 GLfloat -> IO (GameObject t)
+moveObjectSlide world player@(Player{}) (Vec3 dx dy dz) = do
+    playerX <- if dx /= 0
+        then do
+            let playerXP = moveObject player $ Vec3 dx 0 0
+            intersectingX <- isIntersectingAny playerXP (worldEntities world)
+            return $ if intersectingX then player else playerXP
+        else return player
+
+    playerY <- if dy /= 0
+        then do
+            let playerYP = moveObject playerX $ Vec3 0 dy 0
+            intersectingY <- isIntersectingAny playerYP (worldEntities world)
+            return $ if intersectingY then playerX else playerYP
+        else return playerX
+
+    if dz /= 0
+        then do
+            let playerZP = moveObject playerY $ Vec3 0 0 dz
+            intersectingZ <- isIntersectingAny playerZP (worldEntities world)
+            return $ if intersectingZ then playerY else playerZP
+        else return playerY
 
 playerMouseUpdate :: GameObject t -> GameObject t
 playerMouseUpdate player =
@@ -111,7 +148,6 @@ playerMouseUpdate player =
             -- I don't think this will ever happen.
             | otherwise                                         = rx
 
-
         -- Update inputLastMousePos
         newInput = (playerInput player){inputLastMousePos = curPos}
 
@@ -119,32 +155,34 @@ playerMouseUpdate player =
         newRot = Vec3 newRx newRy rz
     in player{playerRotation = newRot, playerInput = newInput}
 
-playerKeyUpdateSafe :: GameObject t -> [IORef (GameObject t)] -> IO (GameObject t)
-playerKeyUpdateSafe player objects = do
-    ret <- playerKeyUpdateTailSafe player objects
+-- | Player update with collision detection.
+playerKeyUpdateSafe :: World t -> GameObject t -> IO (GameObject t)
+playerKeyUpdateSafe world player = do
+    ret <- playerKeyUpdateTailSafe world player
     return ret{playerInput = playerInput player}
 
 -- | Returns Player after safely applying all input functions.
 --   UNSAFE! Returns given player with an empty inputKeys!
 --   Use playerKeyUpdateSafe instead.
-playerKeyUpdateTailSafe :: GameObject t -> [IORef (GameObject t)]-> IO (GameObject t)
-playerKeyUpdateTailSafe
-    p@(Player _ _ _ _ (Input ((_, isDown, func):xs) mouse lm)) objects =
+playerKeyUpdateTailSafe :: World t -> GameObject t -> IO (GameObject t)
+playerKeyUpdateTailSafe w
+    p@(Player _ _ _ _ (Input ((_, isDown, func):xs) mouse lm)) = do
     -- If the key is down, apply corresponding function to player
-    let newPlayer = if isDown then func p else p
-        --retp = newPlayer{playerInput = Input xs mouse lm}
-
+    newPlayer <- if isDown then func w p else return p
     -- Give modified player to the function again, to recursively
     -- apply each key update.
-    in do
-        intersecting <- isIntersectingAny newPlayer objects
-        let retp = if intersecting
-                        then p{playerInput = Input xs mouse lm}
-                    else newPlayer{playerInput = Input xs mouse lm}
-        --retp = newPlayer{playerInput = Input xs mouse lm}
-        playerKeyUpdateTailSafe retp objects
-playerKeyUpdateTailSafe p@(Player _ _ _ _ (Input [] _ _)) _ = return p
+    {-intersecting <- isIntersectingAny newPlayer (worldEntities w)
+    let retp = if intersecting
+                    then p{playerInput = Input xs mouse lm}
+                else newPlayer{playerInput = Input xs mouse lm}-}
+    let retp = newPlayer{playerInput = Input xs mouse lm}
+    playerKeyUpdateTailSafe w retp
+playerKeyUpdateTailSafe _ p@(Player _ _ _ _ (Input [] _ _)) = return p
+playerKeyUpdateTailSafe _ _ =
+    error $ "Player.playerKeyUpdateTailSafe is meant"
+        ++ " to be used only on Players."
 
+{-
 playerKeyUpdate :: GameObject t -> GameObject t
 playerKeyUpdate player =
     (playerKeyUpdateTail player){playerInput = playerInput player}
@@ -162,6 +200,7 @@ playerKeyUpdateTail p@(Player _ _ _ _ (Input ((_, isDown, func):xs) mouse lm)) =
     -- apply each key update.
     in playerKeyUpdateTail retp
 playerKeyUpdateTail p@(Player _ _ _ _ (Input [] _ _)) = p
+-}
 
 -- | Takes a Player and "moves the camera" by
 --   moving the whole world in the opposite direction.
