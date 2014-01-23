@@ -1,10 +1,10 @@
 <h1>Haskell-OpenGL</h1>
 <h2>Screenshots</h2>
-<h3>Simplex procedurally generated terrain.</h3>
+<h4>Simplex procedurally generated terrain.</h4>
 
 ![](http://i.imgur.com/SBSaObn.png)
 
-<h3>Loading of models, including textures.</h3>
+<h4>Loading of models, including textures.</h4>
 
 ![](http://i.imgur.com/URxxELT.png)
 <h2>Plan</h2>
