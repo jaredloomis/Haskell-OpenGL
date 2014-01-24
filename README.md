@@ -56,6 +56,8 @@ All commands using the `-O` or `-O2` flags performed basically the same, with a 
     - [GPUGems](http://http.developer.nvidia.com/GPUGems/gpugems_ch09.html)
 
 <h4>Performance increases</h4>
+- Analyze generated [Haskell Core](http://www.haskell.org/haskellwiki/Performance/GHC#Looking_at_the_Core) code for possible efficiency increases.
+    - [Tutorial on how to read and use Core](http://alpmestan.com/2013/06/27/ghc-core-by-example-episode-1/)
 - Instead of splitting a loaded terrain, just create a function to load multiple terrains and place them next to each other.
 - Octree or some kind of grouping of vertices to speed up collision detection. <i>Actually, collision detection is not that slow when using ghc (not ghci), but this should still be implemented at some point.</i>
     - Bounding Volume Hierarchy seems to be the best choice.
