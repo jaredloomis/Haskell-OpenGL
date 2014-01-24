@@ -34,6 +34,7 @@ baseInput =  Input [(GLFW.Key'A, False, aIn), (GLFW.Key'D, False, dIn),
                     (GLFW.Key'W, False, wIn), (GLFW.Key'S, False, sIn),
                     (GLFW.Key'LeftShift, False, shiftIn), 
                     (GLFW.Key'Space, False, spaceIn)] (Vec2 0 0) (Vec2 0 0)
+                    0.1
 
 aIn :: World t -> GameObject t -> IO (GameObject t)
 aIn w p = moveFromLookSlide w p (Vec3 (playerSpeed p) 0 0)
@@ -85,29 +86,6 @@ moveFromLookSlide world player@(Player{}) (Vec3 idx idy idz) = do
     moveObjectSlide world player $ Vec3 (realToFrac mx) my (realToFrac mz)
 moveFromLookSlide _ _ _ =
     error "Player.moveFromLook can only be used on Players."
-
-moveObjectSlide :: World t -> GameObject t -> Vec3 GLfloat -> IO (GameObject t)
-moveObjectSlide world player@(Player{}) (Vec3 dx dy dz) = do
-    playerX <- if dx /= 0
-        then do
-            let playerXP = moveObject player $ Vec3 dx 0 0
-            intersectingX <- isIntersectingAny playerXP (worldEntities world)
-            return $ if intersectingX then player else playerXP
-        else return player
-
-    playerY <- if dy /= 0
-        then do
-            let playerYP = moveObject playerX $ Vec3 0 dy 0
-            intersectingY <- isIntersectingAny playerYP (worldEntities world)
-            return $ if intersectingY then playerX else playerYP
-        else return playerX
-
-    if dz /= 0
-        then do
-            let playerZP = moveObject playerY $ Vec3 0 0 dz
-            intersectingZ <- isIntersectingAny playerZP (worldEntities world)
-            return $ if intersectingZ then playerY else playerZP
-        else return playerY
 
 playerMouseUpdate :: GameObject t -> GameObject t
 playerMouseUpdate player =
@@ -166,18 +144,14 @@ playerKeyUpdateSafe world player = do
 --   Use playerKeyUpdateSafe instead.
 playerKeyUpdateTailSafe :: World t -> GameObject t -> IO (GameObject t)
 playerKeyUpdateTailSafe w
-    p@(Player _ _ _ _ (Input ((_, isDown, func):xs) mouse lm)) = do
+    p@(Player _ _ _ _ (Input ((_, isDown, func):xs) mouse lm ms)) = do
     -- If the key is down, apply corresponding function to player
     newPlayer <- if isDown then func w p else return p
     -- Give modified player to the function again, to recursively
     -- apply each key update.
-    {-intersecting <- isIntersectingAny newPlayer (worldEntities w)
-    let retp = if intersecting
-                    then p{playerInput = Input xs mouse lm}
-                else newPlayer{playerInput = Input xs mouse lm}-}
-    let retp = newPlayer{playerInput = Input xs mouse lm}
+    let retp = newPlayer{playerInput = Input xs mouse lm ms}
     playerKeyUpdateTailSafe w retp
-playerKeyUpdateTailSafe _ p@(Player _ _ _ _ (Input [] _ _)) = return p
+playerKeyUpdateTailSafe _ p@(Player _ _ _ _ (Input [] _ _ _)) = return p
 playerKeyUpdateTailSafe _ _ =
     error $ "Player.playerKeyUpdateTailSafe is meant"
         ++ " to be used only on Players."

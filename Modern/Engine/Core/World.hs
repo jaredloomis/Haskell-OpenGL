@@ -53,7 +53,8 @@ data GameObject t = Player {
 data Input t = Input {
     inputKeys :: ![(GLFW.Key, Bool, World t -> GameObject t -> IO (GameObject t))],
     inputMouseDelta :: !(Vec2 GLfloat),
-    inputLastMousePos :: !(Vec2 GLfloat)
+    inputLastMousePos :: !(Vec2 GLfloat),
+    inputMouseSpeed :: !GLfloat
 }
 
 -- | Bind a world's uniforms to given shader.

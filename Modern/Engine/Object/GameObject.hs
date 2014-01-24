@@ -107,6 +107,29 @@ getAABBs pe@(PureEntity{}) = modelAABBs $ pentityModel pe
 getAABBs (Player{}) = Just [playerAABB]
 getAABBs ee@(EffectfulEntity{}) = modelAABBs $ eentityModel ee
 
+moveObjectSlide :: World t -> GameObject t -> Vec3 GLfloat -> IO (GameObject t)
+moveObjectSlide world object (Vec3 dx dy dz) = do
+    objectX <- if dx /= 0
+        then do
+            let objectXP = moveObject object $ Vec3 dx 0 0
+            intersectingX <- isIntersectingAny objectXP (worldEntities world)
+            return $ if intersectingX then object else objectXP
+        else return object
+
+    objectY <- if dy /= 0
+        then do
+            let objectYP = moveObject objectX $ Vec3 0 dy 0
+            intersectingY <- isIntersectingAny objectYP (worldEntities world)
+            return $ if intersectingY then objectX else objectYP
+        else return objectX
+
+    if dz /= 0
+        then do
+            let objectZP = moveObject objectY $ Vec3 0 0 dz
+            intersectingZ <- isIntersectingAny objectZP (worldEntities world)
+            return $ if intersectingZ then objectY else objectZP
+        else return objectY
+
 moveObject :: GameObject t -> Vec3 GLfloat -> GameObject t
 moveObject obj deltaPos =
     setPos obj (getPos obj + deltaPos)

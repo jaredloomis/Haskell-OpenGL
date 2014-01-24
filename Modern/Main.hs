@@ -131,10 +131,12 @@ keyPressed world _ k _ state _ = do
     writeIORef playerRef newPlayer
     
     where
-        checkType (Input keyMap mouse lm) key action =
+        checkType :: Input t -> GLFW.Key -> GLFW.KeyState -> Input t
+        checkType origIn key action =
             let isPressed = action /= GLFW.KeyState'Released
-                newIn = Input (map (\w@(ckey, _, func) ->
+                keyMap = inputKeys origIn
+                newMap = map (\w@(ckey, _, func) ->
                     if ckey == key
                         then (key, isPressed, func)
-                    else w) keyMap) mouse lm
-            in newIn
+                    else w) keyMap
+            in origIn{inputKeys = newMap}
