@@ -55,7 +55,7 @@ All commands using the `-O` or `-O2` flags performed basically the same, with a 
 - Shadows (This can be very complicated and hard to do without a glm-like library)
     - [GPUGems](http://http.developer.nvidia.com/GPUGems/gpugems_ch09.html)
 
-<h4>Performance fixes</h4>
+<h4>Performance increases</h4>
 - Instead of splitting a loaded terrain, just create a function to load multiple terrains and place them next to each other.
 - Octree or some kind of grouping of vertices to speed up collision detection. <i>Actually, collision detection is not that slow when using ghc (not ghci), but this should still be implemented at some point.</i>
     - Bounding Volume Hierarchy seems to be the best choice.
