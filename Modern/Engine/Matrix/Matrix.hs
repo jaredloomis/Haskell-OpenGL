@@ -10,7 +10,8 @@ import Engine.Core.Vec
 import qualified Graphics.Rendering.OpenGL as GL
 import Graphics.Rendering.OpenGL (($=), GLfloat, GLmatrix)
 
--- | 4x4 Matrix in the OpenGL orientation: translation column is the last 4 elements.
+-- | 4x4 Matrix in the OpenGL orientation:
+--   translation column is the last 4 elements.
 type Matrix4x4 = [GVector4]
 -- | 3x3 Matrix in the OpenGL orientation.
 type Matrix3x3 = [GVector3]
@@ -80,7 +81,8 @@ gmatrixMulVec m v = map (gdotVec v) (transpose m)
 gmatrix4x4To3x3 :: Matrix4x4 -> Matrix3x3
 gmatrix4x4To3x3 m = take 3 $ map gvec4To3 m
 
--- | Pads the 3x3 matrix to a 4x4 matrix with a 1 in bottom right corner and 0 elsewhere.
+-- | Pads the 3x3 matrix to a 4x4 matrix with a 1 in 
+--   bottom right corner and 0 elsewhere.
 gmatrix3x3To4x4 :: Matrix3x3 -> Matrix4x4
 gmatrix3x3To4x4 [x,y,z] = [x ++ [0], y ++ [0], z ++ [0], [0,0,0,1]]
 gmatrix3x3To4x4 m = m
@@ -135,11 +137,15 @@ glookAtMatrixG eye center up =
     let z = gdirectionVec eye center in
     let x = gnormalizeVec $ gcrossVec3 up z in
     let y = gnormalizeVec $ gcrossVec3 z x in
-    gmatrixMul (gmatrix3x3To4x4 $ transpose [x,y,z]) (gtranslationMatrix (gnegateVec eye))
+    gmatrixMul
+        (gmatrix3x3To4x4 $ transpose [x,y,z])
+        (gtranslationMatrix (gnegateVec eye))
 
--- | Creates a frustumMatrix from the given left, right, bottom, top, znear and zfar
+-- | Creates a frustumMatrix from the given
+--   left, right, bottom, top, znear and zfar
 --   values for the view frustum.
-gfrustumMatrix :: GLfloat -> GLfloat -> GLfloat -> GLfloat -> GLfloat -> GLfloat -> Matrix4x4
+gfrustumMatrix ::
+    GLfloat -> GLfloat -> GLfloat -> GLfloat -> GLfloat -> GLfloat -> Matrix4x4
 gfrustumMatrix left right bottom top znear zfar =
     let x = 2*znear/(right-left)
         y = 2*znear/(top-bottom)
@@ -199,7 +205,8 @@ gcrossVec3 _ _ = [0,0,1]
 
 -- | Substract two 3-vectors
 gsubV3 :: (Num a) => GL.Vertex3 a -> GL.Vertex3 a -> GL.Vertex3 a
-gsubV3 (GL.Vertex3 u0 u1 u2) (GL.Vertex3 v0 v1 v2) = GL.Vertex3 (u0-v0) (u1-v1) (u2-v2)
+gsubV3 (GL.Vertex3 u0 u1 u2) (GL.Vertex3 v0 v1 v2) =
+    GL.Vertex3 (u0-v0) (u1-v1) (u2-v2)
 -- | Cross product of two 3-vectors.
 gcrossV3 :: (Num a) => GL.Vertex3 a -> GL.Vertex3 a -> GL.Vertex3 a
 gcrossV3 (GL.Vertex3 u0 u1 u2) (GL.Vertex3 v0 v1 v2) = 

@@ -1,6 +1,3 @@
---{-# LANGUAGE NoMonomorphismRestriction #-}
-{-# LANGUAGE RankNTypes #-}
-
 module Engine.Core.Vec where
 
 -- TODO: dot product, cross product, etc.
@@ -8,27 +5,6 @@ module Engine.Core.Vec where
 data Vec4 a = Vec4 !a !a !a !a deriving (Show, Eq)
 data Vec3 a = Vec3 !a !a !a deriving (Show, Eq)
 data Vec2 a = Vec2 !a !a deriving (Show, Eq)
-
-{-
-vec3Length :: Floating a => Vec3 a -> a
-vec3Length (Vec3 a b c) = sqrt (a*a + b*b + c*c)
-vec3Cross :: Num a => Vec3 a -> Vec3 a -> Vec3 a
-vec3Cross (Vec3 u0 u1 u2) (Vec3 v0 v1 v2) =
-    Vec3 (u1*v2-u2*v1) (u2*v0-u0*v2) (u0*v1-u1*v0)
-vec3Normalize :: Floating a => Vec3 a -> Vec3 a
-vec3Normalize v = vec3Scale (recip $ vec3Length v) v
-vec3Scale :: Num a => a -> Vec3 a -> Vec3 a
-vec3Scale s (Vec3 a b c) = Vec3 (s*a) (s*b) (s*c)
-gdotVec :: Num a => Vec3 a -> Vec3 a -> a
-gdotVec a b = vec3Sum $ a * b
-vec3Sum :: Num a => Vec3 a -> a
-vec3Sum (Vec3 x y z) = x + y + z
-vec3Direction :: Floating a => Vec3 a -> Vec3 a -> Vec3 a
-vec3Direction u v = vec3Normalize (u - v)
-vec3Negate :: Num a => Vec3 a -> Vec3 a
-vec3Negate = fmap negate
--}
-
 
 instance Functor Vec4 where
     fmap f (Vec4 x y z w) = Vec4 (f x) (f y) (f z) (f w)

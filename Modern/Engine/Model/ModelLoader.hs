@@ -205,7 +205,7 @@ loadObjMaterialLib :: IORef WorldState -> Handle -> IO [Material]
 loadObjMaterialLib wStateRef handle = do
     eof <- hIsEOF handle
     if not eof
-        then do 
+        then do
             line <- hGetLine handle
             if "mtllib " `isPrefixOf` line
                 then loadMtlFile wStateRef . head . rawObjLine $ line

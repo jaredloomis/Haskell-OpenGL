@@ -30,11 +30,12 @@ data WorldState = WorldState {
 
 -- TODO: Make this more flexible
 playerAABB :: AABB
-playerAABB = AABB (Vec3 (-1) (-2) (-1)) (Vec3 1 1 1)
+playerAABB = AABB (Vec3 (-0.5) (-2) (-0.5)) (Vec3 0.5 1 0.5)
 
 data GameObject t = Player {
     playerPosition :: !(Vec3 GLfloat),
     playerRotation :: !(Vec3 GLfloat),
+    playerVelocity :: !(Vec3 GLfloat),
     playerSpeed :: !GLfloat,
     playerUpdate :: World t -> IO (GameObject t),
     playerInput :: !(Input t)

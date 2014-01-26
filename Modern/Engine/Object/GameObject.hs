@@ -57,6 +57,37 @@ isIntersectingAny collider (ref:xs) = do
     else isIntersectingAny collider xs
 isIntersectingAny _ [] = return False
 
+-- | Test if the given object intersects with any of the
+--   objects in the given list.
+getObjectIntersecter :: GameObject t -> [IORef (GameObject t)] -> IO (Maybe AABB)
+getObjectIntersecter collider (ref:xs) = do
+    collidee <- readIORef ref
+    let intersecter = getIntersecter collider collidee
+    if isJust intersecter
+        then return intersecter
+    else getObjectIntersecter collider xs
+getObjectIntersecter _ [] = return Nothing
+
+-- | Test if two objects intersect.
+getIntersecter :: GameObject t -> GameObject t -> Maybe AABB
+getIntersecter l r
+    | isJust (getWholeAABB l) &&
+      isJust (getWholeAABB r) =
+        let Just wholeabl = calculateNewWholeAABB l
+            Just wholeabr = calculateNewWholeAABB r
+        in
+            if intersecting wholeabl wholeabr
+                then if not (isJust (getAABBs l) && isJust (getAABBs r))
+                    then Just wholeabr
+                else
+                    let Just newl = calculateNewAABBs l
+                        Just newr = calculateNewAABBs r
+                    in anyIntersectGet (head newl) newr
+            else Nothing
+    | otherwise = Nothing
+
+
+
 -- | Update an GameObject without side effects.
 pureUpdate :: GameObject t -> GameObject t
 pureUpdate (Player{}) =
@@ -107,6 +138,41 @@ getAABBs pe@(PureEntity{}) = modelAABBs $ pentityModel pe
 getAABBs (Player{}) = Just [playerAABB]
 getAABBs ee@(EffectfulEntity{}) = modelAABBs $ eentityModel ee
 
+applyGravity :: World t -> GameObject t -> IO (GameObject t)
+applyGravity world object =
+    moveObjectSafe world object (Vec3 0 (-0.1) 0)
+
+moveObjectSlideIntersecter ::
+    World t -> GameObject t -> Vec3 GLfloat -> IO (GameObject t, Maybe AABB)
+moveObjectSlideIntersecter world object (Vec3 dx dy dz) = do
+    (objectX, abX) <- if dx /= 0
+        then do
+            let objectXP = moveObject object $ Vec3 dx 0 0
+            intersectingX <- getObjectIntersecter objectXP (worldEntities world)
+            return $ if isJust intersectingX
+                        then (object, intersectingX)
+                    else (objectXP, Nothing)
+        else return (object, Nothing)
+
+    (objectY, abY) <- if dy /= 0
+        then do
+            let objectYP = moveObject objectX $ Vec3 0 dy 0
+            intersectingY <- getObjectIntersecter objectYP (worldEntities world)
+            return $ if isJust intersectingY
+                        then (objectX, intersectingY)
+                    else (objectYP, abX)
+        else return (objectX, abX)
+
+    if dz /= 0
+        then do
+            let objectZP = moveObject objectY $ Vec3 0 0 dz
+            intersectingZ <- getObjectIntersecter objectZP (worldEntities world)
+            return $ if isJust intersectingZ
+                        then (objectY, intersectingZ)
+                    else (objectZP, abY)
+        else return (objectY, abY)
+
+
 moveObjectSlide :: World t -> GameObject t -> Vec3 GLfloat -> IO (GameObject t)
 moveObjectSlide world object (Vec3 dx dy dz) = do
     objectX <- if dx /= 0
@@ -129,6 +195,14 @@ moveObjectSlide world object (Vec3 dx dy dz) = do
             intersectingZ <- isIntersectingAny objectZP (worldEntities world)
             return $ if intersectingZ then objectY else objectZP
         else return objectY
+
+moveObjectSafe :: World t -> GameObject t -> Vec3 GLfloat -> IO (GameObject t)
+moveObjectSafe world object vec = do
+    let moved = moveObject object vec
+    intersectingObject <- isIntersectingAny moved (worldEntities world)
+    return $ if intersectingObject
+        then object
+    else moved
 
 moveObject :: GameObject t -> Vec3 GLfloat -> GameObject t
 moveObject obj deltaPos =

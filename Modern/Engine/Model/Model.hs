@@ -67,15 +67,8 @@ createModel vert frag attrNames buffData valLens vertCount = do
     attribs <- createAttribs program attrNames
     ids <- idAll buffData
 
-    print $ length buffData  ----
-    print $ length attribs
-    print $ length valLens
-    print $ length ids  ----
-
     let sAttribs = createShaderAttribs attribs ids valLens
     return $ Model program sAttribs [] vertCount
-            --Nothing
-            --(Just $ aabbsFromPointsGrouped (head buffData) 5)
             (Just $ aabbByFace (head buffData))
             (Just $ aabbFromPoints (head buffData))
 

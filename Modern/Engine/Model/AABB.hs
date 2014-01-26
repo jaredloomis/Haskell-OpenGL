@@ -85,6 +85,13 @@ anyIntersect l (r:rs) =
     intersecting l r || anyIntersect l rs
 anyIntersect _ _ = False
 
+anyIntersectGet :: AABB -> [AABB] -> Maybe AABB
+anyIntersectGet l (r:rs) =
+    if intersecting l r
+        then Just r
+    else anyIntersectGet l rs
+anyIntersectGet _ _ = Nothing
+
 -- | Check if 2 AABB's are intersecting.
 {-# INLINE intersecting #-}
 intersecting :: AABB -> AABB -> Bool

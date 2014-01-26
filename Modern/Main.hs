@@ -18,7 +18,7 @@ import Engine.Graphics.Window
 import Engine.Core.Vec
 import Engine.Core.World
 
-main ::  IO ()
+main :: IO ()
 main = do
     -- Initialize GLFW, create a window, open it.
     win <- createGLFWWindow 800 600
@@ -95,11 +95,9 @@ updateStep world = do
     writeIORef playerRef newPlayer
 
     effectfulUpdateWorld world
-    
 ---------------
 -- CALLBACKS --
 ---------------
-
 cursorMove :: IORef (GameObject t) -> GLFW.CursorPosCallback
 cursorMove playerRef _ x y = do
     player <- readIORef playerRef
