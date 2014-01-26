@@ -41,6 +41,7 @@ All commands using the `-O` or `-O2` flags performed basically the same, with a 
 
 <h2>Todo</h2>
 <h4>Additions</h4>
+- Walking
 - Text / GUI
 - Physics
 - Audio support using a library
@@ -67,9 +68,23 @@ All commands using the `-O` or `-O2` flags performed basically the same, with a 
 - Speed up .obj loading. Currently reads the same file multiple times, making it <b>really</b> slow.
 
 <h4>Organization</h4>
+- <b>Make the framework more functional. Preferably w/o FRP, but if it may be necessary.</b>
 - Fix normals in procedurally generated terrain (Every other face is off by a bit).
 - Check out [Vinyl](http://www.jonmsterling.com/posts/2013-04-06-vinyl-modern-records-for-haskell.html).
 - Better documentation / comments.
 - Use <i>throw </i> instead of <i>error</i>.
 - Better generalization of loading .obj files (ie. not requiring slashes if only specifying vertices).
 - Maybe FRP? <i>Use [Helm](https://github.com/switchface/helm/blob/master/src/FRP/Helm/Utilities.hs) for inspiration</i> if anything.
+
+<h2>Copyright</h2>
+Haskell-OpenGL - An open source game/library written in Haskell.
+Copyright (C) 2014  [fiendfan1](https://github.com/fiendfan1/)
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License version 3
+as published by the Free Software Foundation.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+[GNU General Public License](https://gnu.org/licenses/gpl.html) for more details.
