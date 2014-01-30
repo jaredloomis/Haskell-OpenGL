@@ -29,8 +29,6 @@ pUpdate w = do
     modifiedP <- playerKeyUpdateSafe w $ playerMouseUpdate newP
     gravityP <- applyGravityVelocity w modifiedP
 
-    print $ playerVelocity gravityP
-
     resolvedP <- resolveVelocity w gravityP
 
     return resolvedP{playerSpeed = origSpeed}
@@ -43,17 +41,6 @@ baseInput =  Input [(GLFW.Key'A, False, aIn), (GLFW.Key'D, False, dIn),
                     (GLFW.Key'Space, False, spaceIn)] (Vec2 0 0) (Vec2 0 0)
                     0.1
 
-{-
-aIn :: World t -> GameObject t -> IO (GameObject t)
-aIn w p = moveFromLookSlide w p (Vec3 (playerSpeed p) 0 0)
-dIn :: World t -> GameObject t -> IO (GameObject t)
-dIn w p = moveFromLookSlide w p (Vec3 (-playerSpeed p) 0 0)
-wIn :: World t -> GameObject t -> IO (GameObject t)
-wIn w p = moveFromLookSlide w p (Vec3 0 0 (-playerSpeed p))
-sIn :: World t -> GameObject t -> IO (GameObject t)
-sIn w p = moveFromLookSlide w p (Vec3 0 0 (playerSpeed p))
--}
-
 aIn :: World t -> GameObject t -> IO (GameObject t)
 aIn _ p = return $ setVelocityFromLook p (Vec3 (playerSpeed p) 0 0)
 dIn :: World t -> GameObject t -> IO (GameObject t)
@@ -63,17 +50,17 @@ wIn _ p = return $ setVelocityFromLook p (Vec3 0 0 (-playerSpeed p))
 sIn :: World t -> GameObject t -> IO (GameObject t)
 sIn _ p = return $ setVelocityFromLook p (Vec3 0 0 (playerSpeed p))
 
-
 shiftIn :: World t -> GameObject t -> IO (GameObject t)
-shiftIn w p = moveObjectSlide w p (Vec3 0 (-playerSpeed p) 0)
+shiftIn _ p =
+    return $
+        p{playerVelocity =
+            playerVelocity p + Vec3 0 (-(playerSpeed p)) 0}
 
 spaceIn :: World t -> GameObject t -> IO (GameObject t)
-spaceIn _ p = do
-    print $ playerSpeed p
+spaceIn _ p =
     return $
         p{playerVelocity =
             playerVelocity p + Vec3 0 (playerSpeed p) 0}
---moveObjectSlide w p (Vec3 0 (playerSpeed p) 0)
 
 -- | Takes a Player and a Vec3 of movement
 --   and moves player locally based on rotation.
@@ -135,7 +122,7 @@ moveWithStep world player@(Player{}) movement@(Vec3 mx _ mz) = do
             let Just (AABB _ (Vec3 _ abMaxY _)) = mabInt
                 (Just (AABB (Vec3 _ pMiny _) _)) = calculateNewWholeAABB moved
                 yStep = abMaxY - pMiny
-            in if abs yStep < 3
+            in if abs yStep < 3 && abs yStep > 1e-3
                     then do
                     moved2 <- moveObjectSlide world moved $
                                     Vec3 mx (yStep+1e-2) mz
@@ -224,16 +211,18 @@ applyGravityVelocity world p@(Player{}) = do
                 m <- moveObjectSafe world p (Vec3 0 pvy 0)
                 return $ getPos m == getPos p
             else if pvy == 0 then do
-                m <- moveObjectSafe world p (Vec3 0 (-0.005) 0)
+                m <- moveObjectSafe world p (Vec3 0 (-0.05) 0)
                 return $ getPos m == getPos p
             else return False
     if atRest
         then return p{playerVelocity = Vec3 pvx 0 pvz}
     else
         let Vec3 vx vy vz = playerVelocity p
-            newY = max (vy - 0.005) (-1)
+            newY = max (vy - 0.02) (-1)
         in return p{playerVelocity =
             Vec3 vx newY vz}
+applyGravityVelocity _ _ =
+    error "Player.applyGravityVelocity can only be used on Players."
 
 
 resolveVelocity :: World t -> GameObject t -> IO (GameObject t)
@@ -243,20 +232,6 @@ resolveVelocity world p@(Player{}) =
         movedPlayer <- moveWithStep world p pVel
         return movedPlayer{playerVelocity =
                 Vec3 0 yv 0}
-{-do
-    let pv@(Vec3 vx vy vz) = playerVelocity p
-    --print $ playerVelocity p
-    (obj, aabb)moveObjectSlideIntersecter world p pv
-    if isJust aabb
-        then
-            let (AABB (Vec3 _ minY _) (Vec _ maxY _)) = calculateNewWholeAABB obj
-            in if vy > 0
-                then
-                let Just (AABB _ (Vec3 _ abMaxY _)) = mabInt
-                    (Just (AABB (Vec3 _ pMiny _) _)) = calculateNewWholeAABB obj
-                    yStep = abMaxY - pMiny
-            setPos obj 
--}
 
 -- | Takes a Player and "moves the camera" by
 --   moving the whole world in the opposite direction.

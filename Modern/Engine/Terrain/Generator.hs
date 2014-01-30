@@ -6,36 +6,50 @@ import Engine.Model.Model
 import Engine.Terrain.Noise
 
 genSimplexModelSplit :: FilePath -> FilePath ->
-    GLfloat ->  -- ^ Width
+    (Int, Int) ->  -- ^ Width
+    GLfloat ->  -- ^ Spacing
     Int ->  -- ^ Octaves
     GLfloat ->  -- ^ Wavelength
     GLfloat ->  -- ^ Waveheight / intensity
     IO [Model]
-genSimplexModelSplit vert frag w octaves wavelength intensity = do
-    -- TODO: make the last 3 args configurable.
-    heights <- simplexNoise (floor w) octaves wavelength intensity
+genSimplexModelSplit vert frag (w, h) spacing octaves wavelength intensity = do
+    heights <- genHeightsSplit (w, h) (0, 0) 4 octaves wavelength intensity
+
+    mapM (\x -> putTogether vert frag x (w, h)) heights
+
+putTogether :: FilePath -> FilePath -> [[GLfloat]] -> (Int, Int) -> IO Model
+putTogether vert frag heights (width, height) = do
     let hCoords = heightsToCoords heights 0 1
 
-        flat = createFlat 1 w
+        flat = createFlat 1 (realToFrac width)
 
         vertices = applyHeights flat hCoords
         normals = calculateNormals vertices
 
-    createModelSplit vert frag ["position", "normal"] [vertices, normals] [3, 3] 5
+    createModel vert frag ["position", "normal"] [vertices, normals] [3, 3] 5
+
+
+genHeightsSplit :: (Int, Int) -> (Int, Int) -> Int -> Int -> GLfloat -> GLfloat -> IO [[[GLfloat]]]
+genHeightsSplit (width, height) (startx, starty) splits octaves wavelength intensity
+    | max startx starty < width = do
+        cur <- simplexNoiseSection (width, height) (startx, starty) octaves wavelength intensity
+        rest <- genHeightsSplit (width, height)
+                (startx + width, starty + width) splits octaves wavelength intensity
+        return $ cur : rest
+    | otherwise = return []
+    
 
 genSimplexModel :: FilePath -> FilePath ->
     GLfloat ->  -- ^ Width
+    GLfloat ->  -- ^ Spacing
     Int ->      -- ^ Octaves
     GLfloat ->  -- ^ Wavelength
     GLfloat ->  -- ^ Waveheight / intensity
     IO Model
-genSimplexModel vert frag w octaves wavelength intensity = do
-    -- TODO: make the last 3 args configurable.
-    heights <- simplexNoise (floor w) octaves wavelength intensity
-    let hCoords = heightsToCoords heights 0 1
-
-        flat = createFlat 1 w
-
+genSimplexModel vert frag w spacing octaves wavelength intensity = do
+    heights <- simplexNoise (floor w) spacing octaves wavelength intensity
+    let hCoords = heightsToCoords heights 0 spacing
+        flat = createFlat spacing w
         vertices = applyHeights flat hCoords
         normals = calculateNormals vertices
 
@@ -50,7 +64,7 @@ createFlat spacing width =
         createFlatRaw s w x =
             createStrip s w x 0 ++
                 if x < w 
-                    then createFlatRaw s w (x+1)
+                    then createFlatRaw s w (x+spacing)
                 else []
 
 createStrip :: GLfloat -> GLfloat -> GLfloat -> GLfloat -> [GLfloat]

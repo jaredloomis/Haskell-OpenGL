@@ -64,8 +64,11 @@ createModel ::
     IO Model
 createModel vert frag attrNames buffData valLens vertCount = do
     program <- loadProgram vert frag
+    print $ "PROGRAM: " ++ show program
     attribs <- createAttribs program attrNames
+    print $ "ATTRIBS: " ++ show (length attribs)
     ids <- idAll buffData
+    print $ "IDS: " ++ show (length ids)
 
     let sAttribs = createShaderAttribs attribs ids valLens
     return $ Model program sAttribs [] vertCount

@@ -90,15 +90,26 @@ simplex3D p octaves l x y z = harmonic octaves
 
 -- | Generate a 2D list of the height returned by simplex
 --   for each coordinate.
-simplexNoise :: Int -> Int -> GLfloat -> GLfloat -> IO [[GLfloat]]
-simplexNoise width octaves wavelength intensity = do
+simplexNoise :: Int -> GLfloat -> Int -> GLfloat -> GLfloat -> IO [[GLfloat]]
+simplexNoise width spacing octaves wavelength intensity = do
     seed <- randomRIO (0, 100)
     let raw = map
             (\(x, y) -> intensity * realToFrac
                 (simplex3D (perm seed) octaves (realToFrac wavelength) x y 0))
-            [(fromIntegral x, fromIntegral y) |
-                x <- [0..(width-1)],
-                y <- [0..(width-1)]]
+            [(realToFrac x, realToFrac y) |
+                x <- [0, spacing .. (fromIntegral $ width-1)],
+                y <- [0, spacing .. (fromIntegral $ width-1)]]
+    return $ splitInterval raw width
+
+simplexNoiseSection :: (Int, Int) -> (Int, Int) -> Int -> GLfloat -> GLfloat -> IO [[GLfloat]]
+simplexNoiseSection (width, height) (startx, starty) octaves wavelength intensity = do
+    seed <- randomRIO (0, 100)
+    let raw = map
+            (\(x, y) -> intensity * realToFrac
+                (simplex3D (perm seed) octaves (realToFrac wavelength) x y 0))
+            [(realToFrac x, realToFrac y) |
+                x <- [startx .. (width-1)],
+                y <- [starty .. (height-1)]]
     return $ splitInterval raw width
 
 splitInterval :: [a] -> Int -> [[a]]

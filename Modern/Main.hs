@@ -82,8 +82,6 @@ updateStep world = do
     worldState world $= wState{
         stateTime = worldTime, stateDelta = delta}
 
-    --print delta
-
     let playerRef = worldPlayer world
     player <- readIORef playerRef
     -- Update player

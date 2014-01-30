@@ -3,6 +3,7 @@ module Engine.Core.World where
 import Data.IORef (IORef)
 import Control.Monad (liftM)
 import Data.Time (getCurrentTime, UTCTime)
+--import qualified Data.Vector as V
 
 import qualified Graphics.UI.GLFW as GLFW
 import qualified Graphics.Rendering.OpenGL as GL
@@ -17,7 +18,7 @@ import Engine.Model.AABB
 
 data World t = World {
     worldPlayer :: !(IORef (GameObject t)),
-    worldEntities :: ![IORef (GameObject t)],
+    worldEntities :: !(IORef [GameObject t]),
     worldUniforms :: ![ShaderUniform],
     worldState :: !(IORef WorldState)
 }

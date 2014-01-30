@@ -22,6 +22,7 @@ import Engine.Model.Model
 --   Uses the attributes/uniforms specified by the world
 --   as well as ones specified by individual
 --   objects.
+{-
 renderWorld :: World t -> IO ()
 renderWorld world 
     -- If the array of entities is empty, the
@@ -76,6 +77,61 @@ renderWorld world
 
     -- Continue rendering the rest of the entities in the world.
     renderWorld (world{worldEntities = tail $ worldEntities world})
+-}
+
+renderWorld :: World t -> IO ()
+renderWorld world = do
+    objects <- readIORef $ worldEntities world
+    renderObjects world objects
+
+renderObjects :: World t -> [GameObject t] -> IO ()
+renderObjects world (object:rest) = do
+    let model = pentityModel object
+        Vec3 objx objy objz = getPos object
+        mShader = modelShader model
+
+    -- Begin a state where transformations remain in affect
+    -- only until glPopMatrix is called.
+    glPushMatrix
+
+    -- Move Object
+    glTranslatef objx objy objz
+
+    -- Use object's shader
+    glUseProgram mShader
+
+    -- Bind buffers to variable names in shader.
+    bindShaderAttribs $ modelShaderVars model
+    -------bindWorldUniforms world mShader
+    bindTextures (modelTextures model) mShader
+
+    -- Set time uniform.
+    wState <- readIORef $ worldState world
+    let utcTime = stateTime wState
+    let dayTime = realToFrac $ utctDayTime utcTime
+    bindUniforms mShader [("time", return [dayTime])]
+
+    -- Do the drawing.
+    glDrawArrays gl_TRIANGLES 0 (modelVertCount model)
+
+    -- TODO: Remove if not necessary.
+    -- Disable textures.
+    unBindTextures (fromIntegral . length . modelTextures $ model)
+
+    -- Turn off VBO/VAO
+    disableShaderAttribs $ modelShaderVars model
+
+    -- Disable the object's shader.
+    glUseProgram 0
+
+    -- End transformations so that later commands are not
+    -- affected.
+    glPopMatrix
+
+    -- Continue rendering the rest of the entities in the world.
+    renderObjects world rest
+renderObjects _ [] = return ()
+
 
 -------------------------------
 -- UTILITY / SETUP FUNCTIONS --
