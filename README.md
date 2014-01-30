@@ -39,7 +39,13 @@ Performance by GHC/GHCI command:
 
 All commands using the `-O` or `-O2` flags performed basically the same, with a decrease of `1%` CPU usage from `-fllvm`, well within the margin of error. The version of llvm used was 3.4, which is "untested", so performance could be increased with the correct version.
 
+Flags that also seem to help
+- -funfolding-use-threshold=16
+
 <h2>Todo</h2>
+
+- <b>#1 - Don't use IORefs in the World data structure!!!!</b>
+
 <h4>Additions</h4>
 - Walking
 - Text / GUI
@@ -69,6 +75,7 @@ All commands using the `-O` or `-O2` flags performed basically the same, with a 
 
 <h4>Organization</h4>
 - <b>Make the framework more functional. Preferably w/o FRP, but if it may be necessary.</b>
+    - <b>Use [Lenses](http://hackage.haskell.org/package/lens). This is probably going to require a very large rewrite.</b>
 - Fix normals in procedurally generated terrain (Every other face is off by a bit).
 - Check out [Vinyl](http://www.jonmsterling.com/posts/2013-04-06-vinyl-modern-records-for-haskell.html).
 - Better documentation / comments.
