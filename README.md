@@ -44,7 +44,8 @@ Flags that also seem to help
 
 <h2>Todo</h2>
 
-- <b>#1 - Don't use IORefs in the World data structure!!!!</b>
+- <b>#1. Don't use IORefs in the World data structure!!!!</b>
+- #2. Cleanup code again, some useless functions have piled up.
 
 <h4>Additions</h4>
 - Walking
