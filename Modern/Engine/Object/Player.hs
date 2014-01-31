@@ -34,10 +34,14 @@ pUpdate w =
 
 -- | Input for first person camera.
 baseInput :: Input t
-baseInput =  Input [(GLFW.Key'A, False, aIn), (GLFW.Key'D, False, dIn),
-                    (GLFW.Key'W, False, wIn), (GLFW.Key'S, False, sIn),
-                    (GLFW.Key'LeftShift, False, shiftIn), 
-                    (GLFW.Key'Space, False, spaceIn)] (Vec2 0 0) (Vec2 0 0)
+baseInput =  Input [(GLFW.Key'A, GLFW.KeyState'Repeating, GLFW.KeyState'Released, aIn),
+                    (GLFW.Key'D, GLFW.KeyState'Repeating, GLFW.KeyState'Released, dIn),
+                    (GLFW.Key'W, GLFW.KeyState'Repeating, GLFW.KeyState'Released, wIn),
+                    (GLFW.Key'S, GLFW.KeyState'Repeating, GLFW.KeyState'Released, sIn),
+                    (GLFW.Key'LeftShift, GLFW.KeyState'Repeating, GLFW.KeyState'Released, shiftIn), 
+                    (GLFW.Key'Space, GLFW.KeyState'Pressed, GLFW.KeyState'Released, spaceIn),
+                    (GLFW.Key'Escape, GLFW.KeyState'Repeating, GLFW.KeyState'Released, spaceIn)]
+                    (Vec2 0 0) (Vec2 0 0)
                     0.1
 
 aIn :: World t -> GameObject t -> GameObject t
@@ -56,9 +60,18 @@ shiftIn _ p =
 
 spaceIn :: World t -> GameObject t -> GameObject t
 spaceIn _ p =
+        let curVel@(Vec3 _ vy _) = playerVelocity p
+        in if abs vy < 0.01
+            then p{playerVelocity =
+                    curVel + Vec3 0 0.4 0}
+            else p
+
+{-
+escIn :: World t -> GameObject t -> GameObject t
+escIn _ p =
         p{playerVelocity =
             playerVelocity p + Vec3 0 (playerSpeed p) 0}
-
+-}
 -- | Takes a Player and a Vec3 of movement
 --   and moves player locally based on rotation.
 moveFromLook :: GameObject t -> Vec3 GLfloat -> GameObject t
@@ -189,9 +202,19 @@ playerKeyUpdateSafe world player =
 --   Use playerKeyUpdateSafe instead.
 playerKeyUpdateTailSafe :: World t -> GameObject t -> GameObject t
 playerKeyUpdateTailSafe w
-    p@(Player _ _ _ _ _ (Input ((_, isDown, func):xs) mouse lm ms)) =
-    -- If the key is down, apply corresponding function to player
-    let newPlayer = if isDown then func w p else p
+    p@(Player _ _ _ _ _ (Input ((_, desired, found, func):xs) mouse lm ms)) =
+    -- If the recorded keystate matches desired keystate,
+    -- apply corresponding function to player.
+    -- Assumes KeyState'Repeating = KeyState'Repeating || KeyState'Pressed
+    let newPlayer
+            | desired == GLFW.KeyState'Repeating =
+                if found == desired ||
+                        found == GLFW.KeyState'Pressed
+                    then func w p
+                else p
+            | desired == found =
+                func w p
+            | otherwise = p
     -- Give modified player to the function again, to recursively
     -- apply each key update.
         retp = newPlayer{playerInput = Input xs mouse lm ms}

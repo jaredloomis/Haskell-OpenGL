@@ -1,9 +1,7 @@
 module Engine.Core.World where
 
---import Data.IORef (IORef)
 import Control.Monad (liftM)
 import Data.Time (getCurrentTime, UTCTime)
---import qualified Data.Vector as V
 
 import qualified Graphics.UI.GLFW as GLFW
 import qualified Graphics.Rendering.OpenGL as GL
@@ -26,7 +24,8 @@ data World t = World {
 data WorldState = WorldState {
     stateTextureCount :: !GLuint,
     stateTime :: !UTCTime,
-    stateDelta :: !GLfloat
+    stateDelta :: !GLfloat,
+    statePaused :: !Bool
 }
 
 -- TODO: Make this more flexible
@@ -53,7 +52,7 @@ data GameObject t = Player {
 }
 
 data Input t = Input {
-    inputKeys :: ![(GLFW.Key, Bool, World t -> GameObject t -> GameObject t)],
+    inputKeys :: ![(GLFW.Key, GLFW.KeyState, GLFW.KeyState, World t -> GameObject t -> GameObject t)],
     inputMouseDelta :: !(Vec2 GLfloat),
     inputLastMousePos :: !(Vec2 GLfloat),
     inputMouseSpeed :: !GLfloat
@@ -64,6 +63,7 @@ bindWorldUniforms :: World t -> GLuint -> IO ()
 bindWorldUniforms world shader =
     bindUniforms shader $ worldUniforms world
 
+-- | Load a texture using the WorldState to keep track of texture ID.
 loadWorldTexture :: WorldState -> FilePath -> IO GL.TextureObject
 loadWorldTexture wState file = do
     (Image (Size w h) pd) <- juicyLoadImage file

@@ -2,6 +2,7 @@ module Main where
 
 import Data.Bits ((.|.))
 import Data.Time (diffUTCTime)
+import Control.Monad (when)
 
 import qualified Graphics.UI.GLFW as GLFW
 
@@ -31,10 +32,12 @@ main = do
     -- Register the function called whe our window is resized.
     GLFW.setFramebufferSizeCallback win (Just resizeScene)
 
-    -- Make cursor Hidden
+    -- Make cursor Hidden.
     GLFW.setCursorInputMode win GLFW.CursorInputMode'Disabled
 
+    -- Begin game loop.
     loop win world
+    -- Shutdown when game loop is done.
     shutdown win
 
     where
@@ -77,15 +80,16 @@ updateStep win world = do
         newState = wState{
         stateTime = worldTime, stateDelta = delta}
 
+    -- Update player input
     player <- updatePlayerInput win $ worldPlayer world
 
-        -- Update player
-    let tmpPlayer = effectfulUpdate player world{worldPlayer = player}
+    -- Update player
+    let tmpPlayer = updateObject player world{worldPlayer = player}
         -- Set mouse delta movement to 0.
         pin = (playerInput tmpPlayer){inputMouseDelta = Vec2 0 0}
         newPlayer = tmpPlayer{playerInput = pin}
 
-    return $ (effectfulUpdateWorld world){
+    return $ (updateWorld world){
         worldPlayer = newPlayer,
         worldState = newState}
 
@@ -99,6 +103,7 @@ updatePlayerInput win player@(Player{}) = do
 
 updateInput :: GLFW.Window -> Input t -> IO (Input t)
 updateInput win input = do
+    checkForEsc win
     let mousePos = inputLastMousePos input
     newKeys <- loopThrough win $ inputKeys input
     newMousePos <- mouseUpdate win
@@ -109,12 +114,20 @@ updateInput win input = do
 
     where
     loopThrough :: GLFW.Window ->
-                  [(GLFW.Key, Bool, World t -> GameObject t -> GameObject t)] ->
-                  IO [(GLFW.Key, Bool, World t -> GameObject t -> GameObject t)]
-    loopThrough w ((key, _, func):others) = do
-        isDown <- GLFW.getKey w key
+                  [(GLFW.Key, GLFW.KeyState, GLFW.KeyState, World t -> GameObject t -> GameObject t)] ->
+                  IO [(GLFW.Key, GLFW.KeyState, GLFW.KeyState, World t -> GameObject t -> GameObject t)]
+    loopThrough w ((key, desired, lastState, func) : others) = do
+        returnedState <- GLFW.getKey w key
+        let keyState
+                | returnedState == GLFW.KeyState'Released =
+                    GLFW.KeyState'Released
+                | returnedState == GLFW.KeyState'Pressed &&
+                    (lastState == GLFW.KeyState'Pressed ||
+                     lastState == GLFW.KeyState'Repeating) =
+                    GLFW.KeyState'Repeating
+                | otherwise = GLFW.KeyState'Pressed
 
-        let curVal = (key, isDown /= GLFW.KeyState'Released, func)
+        let curVal = (key, desired, keyState, func)
         restVal <- loopThrough win others
         return $ curVal : restVal
     loopThrough _ [] = return []
@@ -123,3 +136,14 @@ updateInput win input = do
     mouseUpdate w = do
         (x, y) <- GLFW.getCursorPos w
         return $ Vec2 (realToFrac x) (realToFrac y)
+
+checkForEsc :: GLFW.Window -> IO ()
+checkForEsc win = do
+    isDown <- GLFW.getKey win GLFW.Key'Escape
+
+    when (isDown == GLFW.KeyState'Pressed) $ do
+        currentCursorMode <- GLFW.getCursorInputMode win
+        GLFW.setCursorInputMode win $
+            if currentCursorMode == GLFW.CursorInputMode'Disabled
+                then GLFW.CursorInputMode'Normal
+            else GLFW.CursorInputMode'Disabled

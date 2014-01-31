@@ -1,7 +1,6 @@
 {-# LANGUAGE RankNTypes #-}
 module Engine.Object.GameObject where
 
-import Data.IORef (IORef, modifyIORef', readIORef)
 import Data.Maybe (isJust)
 
 import Graphics.Rendering.OpenGL.Raw
@@ -35,7 +34,7 @@ calculateNewWholeAABB obj
         in Just $ AABB (l + pos) (r + pos)
     | otherwise = Nothing
 
--- | Using the object's current AABB's and position,
+-- | Using the object's current AABBs and position,
 --   create a new AABB.
 calculateNewAABBs :: GameObject t -> Maybe [AABB]
 calculateNewAABBs obj
@@ -47,43 +46,26 @@ calculateNewAABBs obj
         in Just $ transformAll aabbs (getPos obj)
     | otherwise = Nothing
 
--- | Test if the given object intersects with any of the
---   objects in the given list.
-isIntersectingAny :: GameObject t -> [IORef (GameObject t)] -> IO Bool
-isIntersectingAny collider (ref:xs) = do
-    collidee <- readIORef ref
-    if objectsIntersect collider collidee
-        then return True
-    else isIntersectingAny collider xs
-isIntersectingAny _ [] = return False
+-- | Check if the needle intersects with any in the
+--   haystack.
+isIntersectingAny :: GameObject t -> [GameObject t] -> Bool
+isIntersectingAny collider (collidee:xs) =
+    objectsIntersect collider collidee ||
+        isIntersectingAny collider xs
+isIntersectingAny _ [] = False
 
-isIntersectingAny2 :: GameObject t -> [GameObject t] -> Bool
-isIntersectingAny2 collider (collidee:xs) =
-    if objectsIntersect collider collidee
-        then True
-    else isIntersectingAny2 collider xs
-isIntersectingAny2 _ [] = False
-
--- | Test if the given object intersects with any of the
---   objects in the given list.
-getObjectIntersecter :: GameObject t -> [IORef (GameObject t)] -> IO (Maybe AABB)
-getObjectIntersecter collider (ref:xs) = do
-    collidee <- readIORef ref
-    let intersecter = getIntersecter collider collidee
-    if isJust intersecter
-        then return intersecter
-    else getObjectIntersecter collider xs
-getObjectIntersecter _ [] = return Nothing
-
-getObjIntersecter :: GameObject t -> [GameObject t] -> Maybe AABB
-getObjIntersecter collider (collidee:xs) =
+-- | Check if the needle intersects with any in the haystack,
+--   if it does, the intersected AABB is returned.
+getObjectIntersecter :: GameObject t -> [GameObject t] -> Maybe AABB
+getObjectIntersecter collider (collidee:xs) =
     let intersecter = getIntersecter collider collidee
     in if isJust intersecter
         then intersecter
-    else getObjIntersecter collider xs
-getObjIntersecter _ [] = Nothing
+    else getObjectIntersecter collider xs
+getObjectIntersecter _ [] = Nothing
 
--- | Test if two objects intersect.
+-- | Test if two objects intersect, yeilding the
+--   offending AABB if they do.
 getIntersecter :: GameObject t -> GameObject t -> Maybe AABB
 getIntersecter l r
     | isJust (getWholeAABB l) &&
@@ -101,53 +83,25 @@ getIntersecter l r
             else Nothing
     | otherwise = Nothing
 
+-- | Update an GameObject.
+updateObject :: GameObject t -> World t -> GameObject t
+updateObject p@(Player{}) w = playerUpdate p w
+updateObject pe@(PureEntity{}) _ = pentityUpdate pe pe
+updateObject ee@(EffectfulEntity{}) w = eentityUpdate ee w ee
 
-
--- | Update an GameObject without side effects.
-pureUpdate :: GameObject t -> GameObject t
-pureUpdate (Player{}) =
-    error $ "Error: attempted to call GameObject.pureUpdate"
-        ++ " on a nonpure GameObject: Player."
-pureUpdate pe@(PureEntity{}) = pentityUpdate pe pe
-pureUpdate (EffectfulEntity{}) =
-    error $ "Error: attempted to call GameObject.pureUpdate"
-        ++ " on a nonpure GameObject: EffectfulEntity."
-
--- | Update an GameObject with side effects.
-effectfulUpdate :: GameObject t -> World t -> GameObject t
-effectfulUpdate p@(Player{}) w = playerUpdate p w
-effectfulUpdate pe@(PureEntity{}) _ = pureUpdate pe
-effectfulUpdate ee@(EffectfulEntity{}) w = eentityUpdate ee w ee
-
--- | Call pureUpdate on all IORef'd GameObjects.
-pureUpdateAll :: [IORef (GameObject t)] -> IO ()
-pureUpdateAll (object:rest) = do
-    modifyIORef' object pureUpdate
-    pureUpdateAll rest
-pureUpdateAll [] = return ()
-
--- | Call effectfulUpdate on all IORef'd GameObjects in
+-- | Call updateObject on all IORef'd GameObjects in
 --   the world.
-effectfulUpdateWorld :: World t -> World t
-effectfulUpdateWorld world =
+updateWorld :: World t -> World t
+updateWorld world =
     let objs =  worldEntities world
-        newObjs = updateAllNew objs world
+        newObjs = updateAll objs world
     in world{worldEntities = newObjs}
 
-
-updateAllNew :: [GameObject t] -> World t -> [GameObject t]
-updateAllNew objs world =
-    map (`effectfulUpdate` world) objs
-
--- | Call effectfulUpdate on all IORef'd GameObjects,
+-- | Call updateObject on all GameObjects,
 --   given the World.
-effectfulUpdateAll :: [GameObject t] -> World t -> [GameObject t]
-effectfulUpdateAll (obj:rest) world =
-    let newObj = effectfulUpdate obj world
-    -- Make sure object is evaluated, prevents leaks.
-    --newObj `seq` writeIORef object newObj
-    in newObj : effectfulUpdateAll rest world
-effectfulUpdateAll [] _ = []
+updateAll :: [GameObject t] -> World t -> [GameObject t]
+updateAll objects world =
+    map (`updateObject` world) objects
 
 getWholeAABB :: GameObject t -> Maybe AABB
 getWholeAABB (Player{}) = Just playerAABB
@@ -170,8 +124,7 @@ moveObjectSlideIntersecter world object (Vec3 dx dy dz) =
             then
                 let objectXP = moveObject object $ Vec3 dx 0 0
                     entities = worldEntities world
-                    intersectingX = getObjIntersecter objectXP entities
-            --intersectingX <- getObjectIntersecter objectXP (worldEntities world)
+                    intersectingX = getObjectIntersecter objectXP entities
                 in if isJust intersectingX
                         then (object, intersectingX)
                     else (objectXP, Nothing)
@@ -181,8 +134,7 @@ moveObjectSlideIntersecter world object (Vec3 dx dy dz) =
             then
                 let objectYP = moveObject objectX $ Vec3 0 dy 0
                     entities = worldEntities world
-                    intersectingY = getObjIntersecter objectYP entities
-            --intersectingY <- getObjectIntersecter objectYP (worldEntities world)
+                    intersectingY = getObjectIntersecter objectYP entities
                 in if isJust intersectingY
                         then (objectX, intersectingY)
                     else (objectYP, abX)
@@ -192,8 +144,7 @@ moveObjectSlideIntersecter world object (Vec3 dx dy dz) =
         then
             let objectZP = moveObject objectY $ Vec3 0 0 dz
                 entities = worldEntities world
-                intersectingZ = getObjIntersecter objectZP entities
-                --intersectingZ <- getObjectIntersecter objectZP (worldEntities world)
+                intersectingZ = getObjectIntersecter objectZP entities
             in if isJust intersectingZ
                         then (objectY, intersectingZ)
                     else (objectZP, abY)
@@ -206,8 +157,7 @@ moveObjectSlide world object (Vec3 dx dy dz) =
         then
             let objectXP = moveObject object $ Vec3 dx 0 0
                 entities = worldEntities world
-                intersectingX = isIntersectingAny2 objectXP entities
-            --intersectingX <- isIntersectingAny objectXP (worldEntities world)
+                intersectingX = isIntersectingAny objectXP entities
             in if intersectingX then object else objectXP
         else object
 
@@ -215,8 +165,7 @@ moveObjectSlide world object (Vec3 dx dy dz) =
             then
                 let objectYP = moveObject objectX $ Vec3 0 dy 0
                     entities = worldEntities world
-                    intersectingY = isIntersectingAny2 objectYP entities
-                --intersectingY <- isIntersectingAny objectYP (worldEntities world)
+                    intersectingY = isIntersectingAny objectYP entities
                 in if intersectingY then objectX else objectYP
             else objectX
 
@@ -224,7 +173,7 @@ moveObjectSlide world object (Vec3 dx dy dz) =
         then
             let objectZP = moveObject objectY $ Vec3 0 0 dz
                 entities = worldEntities world
-                intersectingZ = isIntersectingAny2 objectZP entities
+                intersectingZ = isIntersectingAny objectZP entities
             in if intersectingZ then objectY else objectZP
         else objectY
 
@@ -232,7 +181,7 @@ moveObjectSafe :: World t -> GameObject t -> Vec3 GLfloat -> GameObject t
 moveObjectSafe world object vec =
     let moved = moveObject object vec
         entities = worldEntities world
-        intersectingObject = isIntersectingAny2 moved entities
+        intersectingObject = isIntersectingAny moved entities
     in if intersectingObject
         then object
     else moved

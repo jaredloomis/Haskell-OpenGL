@@ -15,12 +15,13 @@ mkWorld :: IO (World ())
 mkWorld = do
     obja <- mkObj
     objb <- mkObj2
-    World mkPlayer [obja, objb] [("lightPos", return [2.0, 2.0, 0.0])] <$> mkWorldState
+    World mkPlayer [obja, objb]
+        [("lightPos", return [2.0, 2.0, 0.0])] <$> mkWorldState
 
 mkWorldState :: IO WorldState
 mkWorldState = do
     t <- getWorldTime
-    return $ WorldState 0 t 0
+    return $ WorldState 0 t 0 False
 
 mkWorldStateRef :: IO (IORef WorldState)
 mkWorldStateRef = mkWorldState >>= newIORef
@@ -53,7 +54,7 @@ mkTerrain :: IO Model
 mkTerrain = genSimplexModel
             "shaders/max.vert"
             "shaders/max.frag"
-            70
+            50
             1
             1
             20
