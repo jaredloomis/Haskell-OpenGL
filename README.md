@@ -44,7 +44,7 @@ Flags that also seem to help
 
 <h2>Todo</h2>
 
-- <b>#1. Don't use IORefs in the World data structure!!!!</b>
+- <del><b>#1. Don't use IORefs in the World data structure!!!!</b></del>
 - #2. Cleanup code again, some useless functions have piled up.
 
 <h4>Additions</h4>
@@ -96,3 +96,6 @@ This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 [GNU General Public License](https://gnu.org/licenses/gpl.html) for more details.
+
+<h3>Contact</h3>
+fiendfan1@yahoo.com
