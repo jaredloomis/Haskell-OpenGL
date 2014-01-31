@@ -1,6 +1,6 @@
 module Engine.Core.World where
 
-import Data.IORef (IORef)
+--import Data.IORef (IORef)
 import Control.Monad (liftM)
 import Data.Time (getCurrentTime, UTCTime)
 --import qualified Data.Vector as V
@@ -17,10 +17,10 @@ import Engine.Model.Model
 import Engine.Model.AABB
 
 data World t = World {
-    worldPlayer :: !(IORef (GameObject t)),
-    worldEntities :: !(IORef [GameObject t]),
+    worldPlayer :: !(GameObject t),
+    worldEntities :: ![GameObject t],
     worldUniforms :: ![ShaderUniform],
-    worldState :: !(IORef WorldState)
+    worldState :: !WorldState
 }
 
 data WorldState = WorldState {
@@ -38,7 +38,7 @@ data GameObject t = Player {
     playerRotation :: !(Vec3 GLfloat),
     playerVelocity :: !(Vec3 GLfloat),
     playerSpeed :: !GLfloat,
-    playerUpdate :: World t -> IO (GameObject t),
+    playerUpdate :: World t -> GameObject t,
     playerInput :: !(Input t)
 } | PureEntity {
     pentityPosition :: !(Vec3 GLfloat),
@@ -47,13 +47,13 @@ data GameObject t = Player {
     pentityAttribute :: !t
 } | EffectfulEntity {
     eentityPosition :: !(Vec3 GLfloat),
-    eentityUpdate :: World t -> GameObject t -> IO (GameObject t),
+    eentityUpdate :: World t -> GameObject t -> GameObject t,
     eentityModel :: !Model,
     eentityAttribute :: !t
 }
 
 data Input t = Input {
-    inputKeys :: ![(GLFW.Key, Bool, World t -> GameObject t -> IO (GameObject t))],
+    inputKeys :: ![(GLFW.Key, Bool, World t -> GameObject t -> GameObject t)],
     inputMouseDelta :: !(Vec2 GLfloat),
     inputLastMousePos :: !(Vec2 GLfloat),
     inputMouseSpeed :: !GLfloat

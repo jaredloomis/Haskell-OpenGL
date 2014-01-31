@@ -1,7 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 module Engine.Object.GameObject where
 
-import Data.IORef (IORef, modifyIORef', readIORef, writeIORef)
+import Data.IORef (IORef, modifyIORef', readIORef)
 import Data.Maybe (isJust)
 
 import Graphics.Rendering.OpenGL.Raw
@@ -114,9 +114,9 @@ pureUpdate (EffectfulEntity{}) =
         ++ " on a nonpure GameObject: EffectfulEntity."
 
 -- | Update an GameObject with side effects.
-effectfulUpdate :: GameObject t -> World t -> IO (GameObject t)
+effectfulUpdate :: GameObject t -> World t -> GameObject t
 effectfulUpdate p@(Player{}) w = playerUpdate p w
-effectfulUpdate pe@(PureEntity{}) _ = return $ pureUpdate pe
+effectfulUpdate pe@(PureEntity{}) _ = pureUpdate pe
 effectfulUpdate ee@(EffectfulEntity{}) w = eentityUpdate ee w ee
 
 -- | Call pureUpdate on all IORef'd GameObjects.
@@ -128,30 +128,26 @@ pureUpdateAll [] = return ()
 
 -- | Call effectfulUpdate on all IORef'd GameObjects in
 --   the world.
-effectfulUpdateWorld :: World t -> IO ()
-effectfulUpdateWorld world = do
-    let entitiesRef =  worldEntities world
-    objs <- readIORef entitiesRef
-    updateAllNew objs world >>= writeIORef entitiesRef
-    --effectfulUpdateAll (worldEntities world) world
+effectfulUpdateWorld :: World t -> World t
+effectfulUpdateWorld world =
+    let objs =  worldEntities world
+        newObjs = updateAllNew objs world
+    in world{worldEntities = newObjs}
 
-updateAllNew :: [GameObject t] -> World t -> IO [GameObject t]
-updateAllNew (object:restObjs) world = do
-    cur <- effectfulUpdate object world
-    rest <- updateAllNew restObjs world
-    return $ cur:rest
-updateAllNew [] _ = return []
+
+updateAllNew :: [GameObject t] -> World t -> [GameObject t]
+updateAllNew objs world =
+    map (`effectfulUpdate` world) objs
 
 -- | Call effectfulUpdate on all IORef'd GameObjects,
 --   given the World.
-effectfulUpdateAll :: [IORef (GameObject t)] -> World t -> IO ()
-effectfulUpdateAll (object:rest) world = do
-    obj <- readIORef object
-    newObj <- effectfulUpdate obj world
+effectfulUpdateAll :: [GameObject t] -> World t -> [GameObject t]
+effectfulUpdateAll (obj:rest) world =
+    let newObj = effectfulUpdate obj world
     -- Make sure object is evaluated, prevents leaks.
-    newObj `seq` writeIORef object newObj
-    effectfulUpdateAll rest world
-effectfulUpdateAll [] _ = return ()
+    --newObj `seq` writeIORef object newObj
+    in newObj : effectfulUpdateAll rest world
+effectfulUpdateAll [] _ = []
 
 getWholeAABB :: GameObject t -> Maybe AABB
 getWholeAABB (Player{}) = Just playerAABB
@@ -163,83 +159,81 @@ getAABBs pe@(PureEntity{}) = modelAABBs $ pentityModel pe
 getAABBs (Player{}) = Just [playerAABB]
 getAABBs ee@(EffectfulEntity{}) = modelAABBs $ eentityModel ee
 
-applyGravity :: World t -> GameObject t -> IO (GameObject t)
+applyGravity :: World t -> GameObject t -> GameObject t
 applyGravity world object =
     moveObjectSafe world object (Vec3 0 (-0.1) 0)
 
 moveObjectSlideIntersecter ::
-    World t -> GameObject t -> Vec3 GLfloat -> IO (GameObject t, Maybe AABB)
-moveObjectSlideIntersecter world object (Vec3 dx dy dz) = do
-    (objectX, abX) <- if dx /= 0
-        then do
-            let objectXP = moveObject object $ Vec3 dx 0 0
-            entities <- readIORef $ worldEntities world
-            let intersectingX = getObjIntersecter objectXP entities
+    World t -> GameObject t -> Vec3 GLfloat -> (GameObject t, Maybe AABB)
+moveObjectSlideIntersecter world object (Vec3 dx dy dz) =
+    let (objectX, abX) = if dx /= 0
+            then
+                let objectXP = moveObject object $ Vec3 dx 0 0
+                    entities = worldEntities world
+                    intersectingX = getObjIntersecter objectXP entities
             --intersectingX <- getObjectIntersecter objectXP (worldEntities world)
-            return $ if isJust intersectingX
+                in if isJust intersectingX
                         then (object, intersectingX)
                     else (objectXP, Nothing)
-        else return (object, Nothing)
+            else (object, Nothing)
 
-    (objectY, abY) <- if dy /= 0
-        then do
-            let objectYP = moveObject objectX $ Vec3 0 dy 0
-            entities <- readIORef $ worldEntities world
-            let intersectingY = getObjIntersecter objectYP entities
+        (objectY, abY) = if dy /= 0
+            then
+                let objectYP = moveObject objectX $ Vec3 0 dy 0
+                    entities = worldEntities world
+                    intersectingY = getObjIntersecter objectYP entities
             --intersectingY <- getObjectIntersecter objectYP (worldEntities world)
-            return $ if isJust intersectingY
+                in if isJust intersectingY
                         then (objectX, intersectingY)
                     else (objectYP, abX)
-        else return (objectX, abX)
+            else (objectX, abX)
 
-    if dz /= 0
-        then do
+    in if dz /= 0
+        then
             let objectZP = moveObject objectY $ Vec3 0 0 dz
-            entities <- readIORef $ worldEntities world
-            let intersectingZ = getObjIntersecter objectZP entities
-            --intersectingZ <- getObjectIntersecter objectZP (worldEntities world)
-            return $ if isJust intersectingZ
+                entities = worldEntities world
+                intersectingZ = getObjIntersecter objectZP entities
+                --intersectingZ <- getObjectIntersecter objectZP (worldEntities world)
+            in if isJust intersectingZ
                         then (objectY, intersectingZ)
                     else (objectZP, abY)
-        else return (objectY, abY)
+            else (objectY, abY)
 
 
-moveObjectSlide :: World t -> GameObject t -> Vec3 GLfloat -> IO (GameObject t)
-moveObjectSlide world object (Vec3 dx dy dz) = do
-    objectX <- if dx /= 0
-        then do
+moveObjectSlide :: World t -> GameObject t -> Vec3 GLfloat -> GameObject t
+moveObjectSlide world object (Vec3 dx dy dz) =
+    let objectX = if dx /= 0
+        then
             let objectXP = moveObject object $ Vec3 dx 0 0
-            entities <- readIORef $ worldEntities world
-            let intersectingX = isIntersectingAny2 objectXP entities
+                entities = worldEntities world
+                intersectingX = isIntersectingAny2 objectXP entities
             --intersectingX <- isIntersectingAny objectXP (worldEntities world)
-            return $ if intersectingX then object else objectXP
-        else return object
+            in if intersectingX then object else objectXP
+        else object
 
-    objectY <- if dy /= 0
-        then do
-            let objectYP = moveObject objectX $ Vec3 0 dy 0
-            entities <- readIORef $ worldEntities world
-            let intersectingY = isIntersectingAny2 objectYP entities
-            --intersectingY <- isIntersectingAny objectYP (worldEntities world)
-            return $ if intersectingY then objectX else objectYP
-        else return objectX
+        objectY = if dy /= 0
+            then
+                let objectYP = moveObject objectX $ Vec3 0 dy 0
+                    entities = worldEntities world
+                    intersectingY = isIntersectingAny2 objectYP entities
+                --intersectingY <- isIntersectingAny objectYP (worldEntities world)
+                in if intersectingY then objectX else objectYP
+            else objectX
 
-    if dz /= 0
-        then do
+    in if dz /= 0
+        then
             let objectZP = moveObject objectY $ Vec3 0 0 dz
-            entities <- readIORef $ worldEntities world
-            let intersectingZ = isIntersectingAny2 objectZP entities
-            --intersectingZ <- isIntersectingAny objectZP (worldEntities world)
-            return $ if intersectingZ then objectY else objectZP
-        else return objectY
+                entities = worldEntities world
+                intersectingZ = isIntersectingAny2 objectZP entities
+            in if intersectingZ then objectY else objectZP
+        else objectY
 
-moveObjectSafe :: World t -> GameObject t -> Vec3 GLfloat -> IO (GameObject t)
-moveObjectSafe world object vec = do
+moveObjectSafe :: World t -> GameObject t -> Vec3 GLfloat -> GameObject t
+moveObjectSafe world object vec =
     let moved = moveObject object vec
-    --intersectingObject <- isIntersectingAny moved (worldEntities world)
-    entities <- readIORef $ worldEntities world
-    let intersectingObject = isIntersectingAny2 moved entities
-    return $ if intersectingObject
+        entities = worldEntities world
+        intersectingObject = isIntersectingAny2 moved entities
+    in if intersectingObject
         then object
     else moved
 

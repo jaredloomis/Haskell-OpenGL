@@ -1,6 +1,5 @@
 module Engine.Object.Player where
 
-import Data.IORef
 import Data.Maybe (isJust)
 
 import qualified Graphics.UI.GLFW as GLFW
@@ -18,20 +17,20 @@ mkPlayer = Player   (Vec3 0 20 0) (Vec3 0 0 0)
                     pUpdate
                     baseInput
 
-pUpdate :: World t -> IO (GameObject t)
-pUpdate w = do
-    p <- readIORef (worldPlayer w)
-    state <- readIORef (worldState w)
-    let origSpeed = playerSpeed p
+pUpdate :: World t -> GameObject t
+pUpdate w =
+    let p = worldPlayer w
+        state = worldState w
+        origSpeed = playerSpeed p
         speed = origSpeed * stateDelta state
         newP = p{playerSpeed = speed}
-    -- Do actual update
-    modifiedP <- playerKeyUpdateSafe w $ playerMouseUpdate newP
-    gravityP <- applyGravityVelocity w modifiedP
+        -- Do actual update
+        modifiedP = playerKeyUpdateSafe w $ playerMouseUpdate newP
+        gravityP = applyGravityVelocity w modifiedP
 
-    resolvedP <- resolveVelocity w gravityP
+        resolvedP = resolveVelocity w gravityP
 
-    return resolvedP{playerSpeed = origSpeed}
+    in resolvedP{playerSpeed = origSpeed}
 
 -- | Input for first person camera.
 baseInput :: Input t
@@ -41,24 +40,22 @@ baseInput =  Input [(GLFW.Key'A, False, aIn), (GLFW.Key'D, False, dIn),
                     (GLFW.Key'Space, False, spaceIn)] (Vec2 0 0) (Vec2 0 0)
                     0.1
 
-aIn :: World t -> GameObject t -> IO (GameObject t)
-aIn _ p = return $ setVelocityFromLook p (Vec3 (playerSpeed p) 0 0)
-dIn :: World t -> GameObject t -> IO (GameObject t)
-dIn _ p = return $ setVelocityFromLook p (Vec3 (-playerSpeed p) 0 0)
-wIn :: World t -> GameObject t -> IO (GameObject t)
-wIn _ p = return $ setVelocityFromLook p (Vec3 0 0 (-playerSpeed p))
-sIn :: World t -> GameObject t -> IO (GameObject t)
-sIn _ p = return $ setVelocityFromLook p (Vec3 0 0 (playerSpeed p))
+aIn :: World t -> GameObject t -> GameObject t
+aIn _ p = setVelocityFromLook p (Vec3 (playerSpeed p) 0 0)
+dIn :: World t -> GameObject t -> GameObject t
+dIn _ p = setVelocityFromLook p (Vec3 (-playerSpeed p) 0 0)
+wIn :: World t -> GameObject t -> GameObject t
+wIn _ p = setVelocityFromLook p (Vec3 0 0 (-playerSpeed p))
+sIn :: World t -> GameObject t -> GameObject t
+sIn _ p = setVelocityFromLook p (Vec3 0 0 (playerSpeed p))
 
-shiftIn :: World t -> GameObject t -> IO (GameObject t)
+shiftIn :: World t -> GameObject t -> GameObject t
 shiftIn _ p =
-    return $
         p{playerVelocity =
             playerVelocity p + Vec3 0 (-(playerSpeed p)) 0}
 
-spaceIn :: World t -> GameObject t -> IO (GameObject t)
+spaceIn :: World t -> GameObject t -> GameObject t
 spaceIn _ p =
-    return $
         p{playerVelocity =
             playerVelocity p + Vec3 0 (playerSpeed p) 0}
 
@@ -82,7 +79,7 @@ moveFromLook _ _ =
 
 -- | Takes a Player and a Vec3 of movement
 --   and moves player locally based on rotation.
-moveFromLookSlide :: World t -> GameObject t -> Vec3 GLfloat-> IO (GameObject t)
+moveFromLookSlide :: World t -> GameObject t -> Vec3 GLfloat -> GameObject t
 moveFromLookSlide world player@(Player{}) (Vec3 idx idy idz) =
     let Vec3 _ rry _ = playerRotation player
         dx = realToFrac idx
@@ -113,9 +110,9 @@ setVelocityFromLook player@(Player{}) (Vec3 idx idy idz) =
             playerVelocity player + Vec3 (realToFrac mx) my (realToFrac mz)}
 setVelocityFromLook _ _ = error "Player.setVelocityFromLook"
 
-moveWithStep :: World t -> GameObject t -> Vec3 GLfloat -> IO (GameObject t)
+moveWithStep :: World t -> GameObject t -> Vec3 GLfloat -> GameObject t
 moveWithStep world player@(Player{}) movement@(Vec3 mx _ mz) = do
-    (moved, mabInt) <- moveObjectSlideIntersecter
+    let (moved, mabInt) = moveObjectSlideIntersecter
                 world player movement
     if isJust mabInt
         then
@@ -123,15 +120,15 @@ moveWithStep world player@(Player{}) movement@(Vec3 mx _ mz) = do
                 (Just (AABB (Vec3 _ pMiny _) _)) = calculateNewWholeAABB moved
                 yStep = abMaxY - pMiny
             in if abs yStep < 3 && abs yStep > 1e-3
-                    then do
-                    moved2 <- moveObjectSlide world moved $
+                    then
+                    let moved2 = moveObjectSlide world moved $
                                     Vec3 mx (yStep+1e-2) mz
-                    let Vec3 velX _ velZ = playerVelocity moved2
-                    return moved2{playerVelocity = Vec3 velX 0 velZ}
+                        Vec3 velX _ velZ = playerVelocity moved2
+                    in moved2{playerVelocity = Vec3 velX 0 velZ}
                 else
                     let Vec3 velX _ velZ = playerVelocity moved
-                    in return moved{playerVelocity = Vec3 velX 0 velZ}
-    else return moved
+                    in moved{playerVelocity = Vec3 velX 0 velZ}
+    else moved
 moveWithStep _ _ _ =
     error "Player.moveWithStep can only be used on Players."
 
@@ -182,55 +179,54 @@ playerMouseUpdate player =
     in player{playerRotation = newRot, playerInput = newInput}
 
 -- | Player update with collision detection.
-playerKeyUpdateSafe :: World t -> GameObject t -> IO (GameObject t)
-playerKeyUpdateSafe world player = do
-    ret <- playerKeyUpdateTailSafe world player
-    return ret{playerInput = playerInput player}
+playerKeyUpdateSafe :: World t -> GameObject t -> GameObject t
+playerKeyUpdateSafe world player =
+    let ret = playerKeyUpdateTailSafe world player
+    in ret{playerInput = playerInput player}
 
 -- | Returns Player after safely applying all input functions.
 --   UNSAFE! Returns given player with an empty inputKeys!
 --   Use playerKeyUpdateSafe instead.
-playerKeyUpdateTailSafe :: World t -> GameObject t -> IO (GameObject t)
+playerKeyUpdateTailSafe :: World t -> GameObject t -> GameObject t
 playerKeyUpdateTailSafe w
-    p@(Player _ _ _ _ _ (Input ((_, isDown, func):xs) mouse lm ms)) = do
+    p@(Player _ _ _ _ _ (Input ((_, isDown, func):xs) mouse lm ms)) =
     -- If the key is down, apply corresponding function to player
-    newPlayer <- if isDown then func w p else return p
+    let newPlayer = if isDown then func w p else p
     -- Give modified player to the function again, to recursively
     -- apply each key update.
-    let retp = newPlayer{playerInput = Input xs mouse lm ms}
-    playerKeyUpdateTailSafe w retp
-playerKeyUpdateTailSafe _ p@(Player _ _ _ _ _ (Input [] _ _ _)) = return p
+        retp = newPlayer{playerInput = Input xs mouse lm ms}
+    in playerKeyUpdateTailSafe w retp
+playerKeyUpdateTailSafe _ p@(Player _ _ _ _ _ (Input [] _ _ _)) = p
 playerKeyUpdateTailSafe _ _ =
     error $ "Player.playerKeyUpdateTailSafe is meant"
         ++ " to be used only on Players."
 
-applyGravityVelocity :: World t -> GameObject t -> IO (GameObject t)
-applyGravityVelocity world p@(Player{}) = do
+applyGravityVelocity :: World t -> GameObject t -> GameObject t
+applyGravityVelocity world p@(Player{}) =
     let Vec3 pvx pvy pvz = playerVelocity p
-    atRest <- if pvy < 0 then do
-                m <- moveObjectSafe world p (Vec3 0 pvy 0)
-                return $ getPos m == getPos p
-            else if pvy == 0 then do
-                m <- moveObjectSafe world p (Vec3 0 (-0.05) 0)
-                return $ getPos m == getPos p
-            else return False
-    if atRest
-        then return p{playerVelocity = Vec3 pvx 0 pvz}
+        atRest = if pvy < 0 then
+                let m = moveObjectSafe world p (Vec3 0 pvy 0)
+                in getPos m == getPos p
+            else if pvy == 0 then
+                let m = moveObjectSafe world p (Vec3 0 (-0.05) 0)
+                in getPos m == getPos p
+            else False
+    in if atRest
+        then p{playerVelocity = Vec3 pvx 0 pvz}
     else
         let Vec3 vx vy vz = playerVelocity p
             newY = max (vy - 0.02) (-1)
-        in return p{playerVelocity =
+        in p{playerVelocity =
             Vec3 vx newY vz}
 applyGravityVelocity _ _ =
     error "Player.applyGravityVelocity can only be used on Players."
 
 
-resolveVelocity :: World t -> GameObject t -> IO (GameObject t)
+resolveVelocity :: World t -> GameObject t -> GameObject t
 resolveVelocity world p@(Player{}) =
     let pVel@(Vec3 _ yv _) = playerVelocity p
-    in do
-        movedPlayer <- moveWithStep world p pVel
-        return movedPlayer{playerVelocity =
+        movedPlayer = moveWithStep world p pVel
+    in movedPlayer{playerVelocity =
                 Vec3 0 yv 0}
 
 -- | Takes a Player and "moves the camera" by

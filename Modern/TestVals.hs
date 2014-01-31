@@ -13,20 +13,9 @@ import Engine.Model.Model
 
 mkWorld :: IO (World ())
 mkWorld = do
-    --obj1 <- mkObj >>= newIORef
-    --obj2 <- mkObj2 >>= newIORef
-    --terrains <- mkTerrains >>= return . map mkObjWithModel
-    --terrainsRef <- sequence terrains >>= mapM newIORef
     obja <- mkObj
     objb <- mkObj2
-    objects <- newIORef [obja, objb]
-    World
-        <$> newIORef mkPlayer
-        <*> return objects
-        -- <*> return [obj1, obj2]
-        -- <*> return terrainsRef
-        <*> return [("lightPos", return [2.0, 2.0, 0.0])]
-        <*> mkWorldStateRef
+    World mkPlayer [obja, objb] [("lightPos", return [2.0, 2.0, 0.0])] <$> mkWorldState
 
 mkWorldState :: IO WorldState
 mkWorldState = do

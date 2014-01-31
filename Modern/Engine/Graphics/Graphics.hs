@@ -1,6 +1,5 @@
 module Engine.Graphics.Graphics where
 
-import Data.IORef (readIORef)
 import Data.Time (utctDayTime)
 
 import qualified Graphics.UI.GLFW as GLFW
@@ -81,7 +80,7 @@ renderWorld world
 
 renderWorld :: World t -> IO ()
 renderWorld world = do
-    objects <- readIORef $ worldEntities world
+    let objects = worldEntities world
     renderObjects world objects
 
 renderObjects :: World t -> [GameObject t] -> IO ()
@@ -106,9 +105,9 @@ renderObjects world (object:rest) = do
     bindTextures (modelTextures model) mShader
 
     -- Set time uniform.
-    wState <- readIORef $ worldState world
-    let utcTime = stateTime wState
-    let dayTime = realToFrac $ utctDayTime utcTime
+    let wState = worldState world
+        utcTime = stateTime wState
+        dayTime = realToFrac $ utctDayTime utcTime
     bindUniforms mShader [("time", return [dayTime])]
 
     -- Do the drawing.
