@@ -11,7 +11,7 @@
 Simple but well-written 3D (which also allows for 2D) game &| game library written in Haskell using [OpenGL](http://hackage.haskell.org/package/OpenGL) and [GLFW-b](http://hackage.haskell.org/package/GLFW-b-1.4.3). Also using [GLUtil](https://github.com/acowley/GLUtil) and [JuicyPixels](http://hackage.haskell.org/package/JuicyPixels).
 
 <h2>Performance</h2>
-Benchmark was done with a procedurally generated terrain, 50x50 vertices, with collision detection per face and a surrounding AABB to check general collision. Benchmarked on 1/22/14 with `ghc 7.6.3`.
+Benchmark was done with a procedurally generated terrain, 50x50 vertices, with collision detection per face and a surrounding AABB to check general collision. Test was performed by walking around the terrain. Benchmarked on 1/31/14 with `ghc 7.6.3`.
 
 Tested on `Arch Linux 64 bit` with
 - `16GB RAM`
@@ -19,28 +19,19 @@ Tested on `Arch Linux 64 bit` with
 
 Performance by GHC/GHCI command:
 - `ghci`
-    - CPU: `1-23%`
-    - RAM: `316 MB`
+    - CPU: `1-25%`
+    - RAM: `315 MB`
 - `ghc` (No flags)
-    - CPU: `1-6%`
-    - RAM: `44 MiB`
-- `ghc -O`
+    - CPU: `1-8%`
+    - RAM: `55 MiB`
+- `ghc -O`, `ghc -O2`, `ghc -fvia-C -O`, `ghc -O -fllvm`
     - CPU: `1-4%`
-    - RAM: `43 MiB`
-- `ghc -O2`
+    - RAM: `53 MiB`
+- `ghc -O -funfolding-use-threshold=16`
     - CPU: `1-4%`
-    - RAM: `43 MiB`
-- `ghc -fllvm -O2`
-    - CPU: `1-3%`
-    - RAM: `43 MiB`
-- `ghc -fvia-C -O2`
-    - CPU: `1-4%`
-    - RAM: `43 MiB`
+    - RAM: `52 MiB`
 
-All commands using the `-O` or `-O2` flags performed basically the same, with a decrease of `1%` CPU usage from `-fllvm`, well within the margin of error. The version of llvm used was 3.4, which is "untested", so performance could be increased with the correct version.
-
-Flags that also seem to help
-- -funfolding-use-threshold=16
+All commands using the `-O` or `-O2` flags performed basically the same, with a decrease of `~1%` CPU usage from `-fllvm`, well within the margin of error. The version of llvm used was 3.4, which is "untested", so performance could be increased with the correct version. Adding the `-funfolding-use-threshold=16` flag decresed memory usage by 1 MiB, without affecting CPU usage.
 
 <h2>Todo</h2>
 
@@ -48,7 +39,7 @@ Flags that also seem to help
 - #2. Cleanup code again, some useless functions have piled up.
 
 <h4>Additions</h4>
-- Walking
+- <del>Walking</del>
 - Text / GUI
 - Physics
 - Audio support using a library
@@ -64,6 +55,8 @@ Flags that also seem to help
     - [GPUGems](http://http.developer.nvidia.com/GPUGems/gpugems_ch09.html)
 
 <h4>Performance increases</h4>
+- Use [Parallelism](http://www.haskell.org/haskellwiki/Parallel), specifically in loading .obj.
+    - Load entire string from file (into `ByteString` preferably), then use par.
 - Analyze generated [Haskell Core](http://www.haskell.org/haskellwiki/Performance/GHC#Looking_at_the_Core) code for possible efficiency increases.
     - [Tutorial on how to read and use Core](http://alpmestan.com/2013/06/27/ghc-core-by-example-episode-1/)
 - Instead of splitting a loaded terrain, just create a function to load multiple terrains and place them next to each other.
@@ -75,12 +68,14 @@ Flags that also seem to help
 - Speed up .obj loading. Currently reads the same file multiple times, making it <b>really</b> slow.
 
 <h4>Organization</h4>
-- <b>Make the framework more functional. Preferably w/o FRP, but if it may be necessary.</b>
-    - <b>Use [Lenses](http://hackage.haskell.org/package/lens). This is probably going to require a very large rewrite.</b>
+- Add feature to distinguish key press from key held.
+- Split `Player` and `Entity` data types, they do not share enough in common.
+- Define classes to constrain functions, instead of forcing the use of `GameObjects`
+- Maybe Use [Lenses](http://hackage.haskell.org/package/lens).
 - Fix normals in procedurally generated terrain (Every other face is off by a bit).
 - Check out [Vinyl](http://www.jonmsterling.com/posts/2013-04-06-vinyl-modern-records-for-haskell.html).
 - Better documentation / comments.
-- Use <i>throw </i> instead of <i>error</i>.
+- Use <i>throw </i> instead of <i>error</i>?
 - Better generalization of loading .obj files (ie. not requiring slashes if only specifying vertices).
 - Maybe FRP? <i>Use [Helm](https://github.com/switchface/helm/blob/master/src/FRP/Helm/Utilities.hs) for inspiration</i> if anything.
 
