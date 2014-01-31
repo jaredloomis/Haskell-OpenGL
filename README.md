@@ -35,11 +35,9 @@ All commands using the `-O` or `-O2` flags performed basically the same, with a 
 
 <h2>Todo</h2>
 
-- <del><b>#1. Don't use IORefs in the World data structure!!!!</b></del>
-- #2. Cleanup code again, some useless functions have piled up.
+- Cleanup code again, some useless functions have piled up.
 
 <h4>Additions</h4>
-- <del>Walking</del>
 - Text / GUI
 - Physics
 - Audio support using a library
@@ -68,9 +66,8 @@ All commands using the `-O` or `-O2` flags performed basically the same, with a 
 - Speed up .obj loading. Currently reads the same file multiple times, making it <b>really</b> slow.
 
 <h4>Organization</h4>
-- Add feature to distinguish key press from key held.
 - Split `Player` and `Entity` data types, they do not share enough in common.
-- Define classes to constrain functions, instead of forcing the use of `GameObjects`
+- Define classes to constrain functions, instead of forcing the use of `GameObjects`.
 - Maybe Use [Lenses](http://hackage.haskell.org/package/lens).
 - Fix normals in procedurally generated terrain (Every other face is off by a bit).
 - Check out [Vinyl](http://www.jonmsterling.com/posts/2013-04-06-vinyl-modern-records-for-haskell.html).
