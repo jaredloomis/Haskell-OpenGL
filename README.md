@@ -53,6 +53,7 @@ All commands using the `-O` or `-O2` flags performed basically the same, with a 
     - [GPUGems](http://http.developer.nvidia.com/GPUGems/gpugems_ch09.html)
 
 <h4>Performance increases</h4>
+- Use Bang Patterns.
 - Use [Parallelism](http://www.haskell.org/haskellwiki/Parallel), specifically in loading .obj.
     - Load entire string from file (into `ByteString` preferably), then use par.
 - Analyze generated [Haskell Core](http://www.haskell.org/haskellwiki/Performance/GHC#Looking_at_the_Core) code for possible efficiency increases.
@@ -75,6 +76,16 @@ All commands using the `-O` or `-O2` flags performed basically the same, with a 
 - Use <i>throw </i> instead of <i>error</i>?
 - Better generalization of loading .obj files (ie. not requiring slashes if only specifying vertices).
 - Maybe FRP? <i>Use [Helm](https://github.com/switchface/helm/blob/master/src/FRP/Helm/Utilities.hs) for inspiration</i> if anything.
+
+<h2>Interesting Extensions</h2>
+- [Stackoverflow question](http://stackoverflow.com/questions/10845179/which-haskell-ghc-extensions-should-users-use-avoid/10849782#10849782)
+- [GADTs](http://www.haskell.org/haskellwiki/GADTs_for_dummies)
+- [Tuple sections](http://www.haskell.org/ghc/docs/7.0.1/html/users_guide/syntax-extns.html)
+- Record wild cards
+- [Existential types](http://www.haskell.org/haskellwiki/Existential_type)
+- [Multi-parameter type classes](http://www.haskell.org/haskellwiki/Multi-parameter_type_class)
+- [Type Families](http://www.haskell.org/haskellwiki/GHC/Type_families)
+- <b>Bang Patterns</b>
 
 <h2>Copyright</h2>
 Haskell-OpenGL - An open source game/library written in Haskell.
