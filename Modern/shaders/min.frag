@@ -1,10 +1,10 @@
-#version 430
+#version 420
 
 in vec3 fragColor;
 in vec3 vertex;
 in vec3 norm;
 in vec2 textureCoord;
-in int texId;
+in flat int texId;
 
 out vec4 outColor;
 
@@ -27,7 +27,7 @@ void main()
     vec3 lightDirection = normalize(lightPosTrans - vertexPosition);
 
     //Basically how much light is hitting the vertex
-    float diffuseLightIntensity = max(0.0, dot(surfaceNormal, -lightDirection));
+    float diffuseLightIntensity = clamp(dot(surfaceNormal, -lightDirection), 0.0, 1.0);
 
     //"Main color"(diffuse) of vertex
     vec3 diffColor = diffuseLightIntensity * fragColor;
@@ -64,7 +64,25 @@ void main()
     }
     else
     {
-        //outColor = vec4(specColor, 1.0) + vec4(diffColor, 1.0);
-        outColor = vec4(ambColor, 1.0) + vec4(diffColor + specColor, 1.0);
+        //vec3 lightPos = vec3(0, 40.0, 0);
+
+        vec3 lightPosTrans = vec3(gl_ModelViewMatrix * vec4(lightPos, 1.0));
+
+        vec3 vertexPosition = vec3(gl_ModelViewMatrix * vec4(vertex, 1.0));
+
+        //Surface normal of current vertex
+        vec3 surfaceNormal = normalize(vec3(gl_NormalMatrix * norm));
+
+        //Direction light has traveled to get to vertexPosition
+        vec3 lightDirection = normalize(lightPosTrans - vertexPosition);
+
+        //Basically how much light is hitting the vertex
+        float diffuseLightIntensity = clamp(dot(surfaceNormal, lightDirection), 0.0, 1.0);
+
+        //"Main color"(diffuse) of vertex
+        vec3 diffColor = diffuseLightIntensity * fragColor;
+
+        outColor = vec4(ambColor, 1.0) + vec4(specColor, 1.0) + vec4(diffColor, 1.0);
+        //outColor = vec4(ambColor, 1.0) + vec4(diffColor + specColor, 1.0);
     }
 }

@@ -1,4 +1,4 @@
-#version 430
+#version 420
 
 layout(location = 0) in vec3 position;
 layout(location = 1) in vec3 normal;
@@ -10,7 +10,7 @@ out vec3 fragColor;
 out vec3 vertex;
 out vec2 textureCoord;
 out vec3 norm;
-out int texId;
+out flat int texId;
 
 void main()
 {

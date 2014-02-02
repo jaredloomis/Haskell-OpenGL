@@ -172,10 +172,9 @@ moveWithStep world player@(Player{}) movement@(Vec3 mx _ mz) = do
         then
             let abMaxYs = map (\(AABB _ (Vec3 _ ymax _)) -> ymax) $ fromJust mabInt
                 abMaxY = maximum abMaxYs
-                --Just (AABB _ (Vec3 _ abMaxY _)) = mabInt
                 (Just (AABB (Vec3 _ pMiny _) _)) = calculateNewWholeAABB moved
                 yStep = abMaxY - pMiny
-            in if abs yStep < 3 && abs yStep > 1e-2
+            in if abs yStep < 100 && abs yStep > 1e-2
                     then
                     let moved2 = moveObjectSlide world moved $
                                     Vec3 mx (yStep+1e-2) mz
@@ -185,6 +184,7 @@ moveWithStep world player@(Player{}) movement@(Vec3 mx _ mz) = do
                     let Vec3 velX _ velZ = playerVelocity moved
                     in moved{playerVelocity = Vec3 velX 0 velZ}
     else moved
+
 moveWithStep _ _ _ =
     error "Player.moveWithStep can only be used on Players."
 
@@ -291,7 +291,6 @@ applyGravityVelocity world p@(Player{}) =
             Vec3 vx newY vz}
 applyGravityVelocity _ _ =
     error "Player.applyGravityVelocity can only be used on Players."
-
 
 resolveVelocity :: World t -> GameObject t -> GameObject t
 resolveVelocity world p@(Player{}) =

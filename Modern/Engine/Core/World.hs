@@ -41,7 +41,7 @@ data GameObject t = Player {
     playerRotation :: !(Vec3 GLfloat),
     playerVelocity :: !(Vec3 GLfloat),
     playerSpeed :: !GLfloat,
-    playerUpdate :: World t -> World t,
+    playerUpdate :: !(World t -> World t),
     playerInput :: !(Input t)
 } | PureEntity {
     pentityPosition :: !(Vec3 GLfloat),
@@ -50,7 +50,7 @@ data GameObject t = Player {
     pentityAttribute :: !t
 } | EffectfulEntity {
     eentityPosition :: !(Vec3 GLfloat),
-    eentityUpdate :: World t -> GameObject t -> GameObject t,
+    eentityUpdate :: !(GameObject t -> World t -> World t),
     eentityModel :: !Model,
     eentityAttribute :: !t
 }

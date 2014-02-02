@@ -19,7 +19,7 @@ mkWorld = do
     objb <- mkObj2
     objc <- mkObj3
     World mkPlayer [obja, objb, objc]
-        [("lightPos", return [2.0, 2.0, 0.0])] <$> mkWorldState
+        [("lightPos", return [0.0, 40.0, 0.0])] <$> mkWorldState
 
 mkWorldState :: IO WorldState
 mkWorldState = do
@@ -57,8 +57,8 @@ mkModel = do
 
 mkTerrain :: IO Model
 mkTerrain = genSimplexModel
-            "shaders/max.vert"
-            "shaders/max.frag"
+            "shaders/min.vert"
+            "shaders/min.frag"
             50
             1
             1

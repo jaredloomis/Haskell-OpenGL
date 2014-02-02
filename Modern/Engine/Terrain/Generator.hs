@@ -30,7 +30,10 @@ genSimplexModel vert frag w spacing octaves wavelength intensity = do
         vertices = applyHeights flat hCoords
         normals = calculateNormals vertices
 
-    createModel vert frag ["position", "normal"] [vertices, normals] [3, 3]
+    createModel vert frag ["position", "normal", "color", "texCoord", "textureId"]
+                    [vertices, normals, take (length vertices * 3) (cycle [0, 1, 0]),
+                    replicate (length vertices * 2) (-1),
+                    replicate (length vertices) (-1)] [3, 3, 3, 2, 1]
                     (fromIntegral $ length vertices `div` 3)
 
 createFlat :: GLfloat -> GLfloat -> [GLfloat]

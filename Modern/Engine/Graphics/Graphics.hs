@@ -101,7 +101,7 @@ renderObjects world (object:rest) = do
 
     -- Bind buffers to variable names in shader.
     bindShaderAttribs $ modelShaderVars model
-    -------bindWorldUniforms world mShader
+    bindWorldUniforms world mShader
     bindTextures (modelTextures model) mShader
 
     -- Set time uniform.

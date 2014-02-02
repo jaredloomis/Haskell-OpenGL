@@ -93,7 +93,7 @@ getIntersecter l r
 updateObject :: GameObject t -> World t -> GameObject t
 updateObject p@(Player{}) w = worldPlayer $ playerUpdate p w
 updateObject pe@(PureEntity{}) _ = pentityUpdate pe pe
-updateObject ee@(EffectfulEntity{}) w = eentityUpdate ee w ee
+updateObject ee@(EffectfulEntity{}) _ = ee
 
 -- | Call updateObject on all IORef'd GameObjects in
 --   the world.
