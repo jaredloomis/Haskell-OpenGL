@@ -1,7 +1,13 @@
-{-# LANGUAGE RankNTypes #-}
-module Engine.Object.GameObject where
+module Engine.Object.GameObject (
+    getPos, moveObjectSlide,
+    moveObjectSlideIntersecter,
+    updateAll, updateObject,
+    updateWorld, applyGravity,
+    moveObjectSafe, calculateNewWholeAABB,
+    moveObject, moveObjectSlideAllIntersecters
+) where
 
-import Data.Maybe (isJust)
+import Data.Maybe (isJust, fromJust)
 
 import Graphics.Rendering.OpenGL.Raw
 
@@ -85,7 +91,7 @@ getIntersecter l r
 
 -- | Update an GameObject.
 updateObject :: GameObject t -> World t -> GameObject t
-updateObject p@(Player{}) w = playerUpdate p w
+updateObject p@(Player{}) w = worldPlayer $ playerUpdate p w
 updateObject pe@(PureEntity{}) _ = pentityUpdate pe pe
 updateObject ee@(EffectfulEntity{}) w = eentityUpdate ee w ee
 
@@ -103,20 +109,26 @@ updateAll :: [GameObject t] -> World t -> [GameObject t]
 updateAll objects world =
     map (`updateObject` world) objects
 
+-- | Get surrounding AABB of object.
 getWholeAABB :: GameObject t -> Maybe AABB
 getWholeAABB (Player{}) = Just playerAABB
 getWholeAABB pe@(PureEntity{}) = modelWholeAABB $ pentityModel pe
 getWholeAABB ee@(EffectfulEntity{}) = modelWholeAABB $ eentityModel ee
 
+-- | Get specific AABBs of object.
 getAABBs :: GameObject t -> Maybe [AABB]
 getAABBs pe@(PureEntity{}) = modelAABBs $ pentityModel pe
 getAABBs (Player{}) = Just [playerAABB]
 getAABBs ee@(EffectfulEntity{}) = modelAABBs $ eentityModel ee
 
+-- | Safely move an object down, simulating
+--   very simple gravity.
 applyGravity :: World t -> GameObject t -> GameObject t
 applyGravity world object =
     moveObjectSafe world object (Vec3 0 (-0.1) 0)
 
+-- | Move an object on each axis independently, and return
+--   the AABB it intersected with, if applicable.
 moveObjectSlideIntersecter ::
     World t -> GameObject t -> Vec3 GLfloat -> (GameObject t, Maybe AABB)
 moveObjectSlideIntersecter world object (Vec3 dx dy dz) =
@@ -149,6 +161,53 @@ moveObjectSlideIntersecter world object (Vec3 dx dy dz) =
                         then (objectY, intersectingZ)
                     else (objectZP, abY)
             else (objectY, abY)
+
+-- | Move an object on each axis independently, and return
+--   the AABB it intersected with, if applicable.
+moveObjectSlideAllIntersecters ::
+    World t -> GameObject t -> Vec3 GLfloat -> (GameObject t, Maybe [AABB])
+moveObjectSlideAllIntersecters world object (Vec3 dx dy dz) =
+    let (objectX, abX) = if dx /= 0
+            then
+                let objectXP = moveObject object $ Vec3 dx 0 0
+                    entities = worldEntities world
+                    intersectingX = getObjectIntersecter objectXP entities
+                in if isJust intersectingX
+                        then (object, intersectingX)
+                    else (objectXP, Nothing)
+            else (object, Nothing)
+
+        (objectY, abY) = if dy /= 0
+            then
+                let objectYP = moveObject objectX $ Vec3 0 dy 0
+                    entities = worldEntities world
+                    intersectingY = getObjectIntersecter objectYP entities
+                in if isJust intersectingY
+                        then (objectX, intersectingY)
+                    else (objectYP, abX)
+            else (objectX, abX)
+
+    in if dz /= 0
+        then
+            let objectZP = moveObject objectY $ Vec3 0 0 dz
+                entities = worldEntities world
+                intersectingZ = getObjectIntersecter objectZP entities
+            in if isJust intersectingZ
+                        then
+                            let filtered = filter isJust [abX, abY, intersectingZ]
+                            in (objectY, if null filtered
+                                            then Nothing
+                                        else Just $ map fromJust filtered)
+                    else
+                        let filtered = filter isJust [abX, abY]
+                        in (objectZP, if null filtered
+                                        then Nothing
+                                    else Just $ map fromJust filtered)
+            else
+                let filtered = filter isJust [abX, abY]
+                in (objectY, if null filtered
+                                then Nothing
+                            else Just $ map fromJust filtered)
 
 
 moveObjectSlide :: World t -> GameObject t -> Vec3 GLfloat -> GameObject t

@@ -1,5 +1,8 @@
 {-# LANGUAGE RankNTypes, OverloadedStrings #-}
-module Engine.Model.ModelLoader where
+module Engine.Model.ModelLoader (
+    loadObjModel,
+    loadObj
+) where
 
 import Data.Maybe (fromJust)
 import Data.List
@@ -28,8 +31,11 @@ loadObjModel ::
 loadObjModel wStateRef objFile vert frag =
     let attrNames = ["position", "texCoord", "normal", "color", "textureId"]
     in do
-        obj <- loadObj objFile
-        --obj <- loadObjF objFile
+        -- obj <- loadObj objFile
+        handle <- openFile objFile ReadMode
+        fLines <- getFileLinesB handle
+        let (verts, norms, texs, faces) = loadByteString fLines
+            obj = packObj faces verts texs norms
 
         (mats, lib) <- loadObjMaterials wStateRef objFile
 
@@ -71,34 +77,37 @@ packObj faces vertices uvs normals =
 ----- ByteString loading begin -------------
 --------------------------------------------
 
-loadObjF :: FilePath -> IO (Vec3 [Maybe GLfloat])
-loadObjF file = do
-    handle <- openFile file ReadMode
-    (verts, norms, texs, faces) <- loadObjFast handle ([], [], [], [])
-    return $ packObj faces verts texs norms
+getFileLinesB :: Handle -> IO [B.ByteString]
+getFileLinesB handle = do
+    hSetBinaryMode handle True
+    contents <- B.hGetContents handle
+    return $ B.split '\n' contents
 
--- | Actually slower, probably due to the (++)'s and unpacking.
-loadObjFast :: Handle ->
-    ([Vec3 GLfloat], [Vec3 GLfloat], [Vec2 GLfloat], [Vec3 (Maybe GLuint)]) ->
-    IO ([Vec3 GLfloat], [Vec3 GLfloat], [Vec2 GLfloat], [Vec3 (Maybe GLuint)])
-loadObjFast handle (verts, norms, texs, faces) = do
-    eof <- hIsEOF handle
-    if not eof
-        then do
-            line <- B.hGetLine handle
-            let splitted = splitSpacesB line
-         
-            loadObjFast handle $
-                if "v " `B.isPrefixOf` line
-                    then (verts ++ [readObjVecLineB line], norms, texs, faces)
+loadByteString :: [B.ByteString] -> 
+    ([Vec3 GLfloat], [Vec3 GLfloat], [Vec2 GLfloat], [Vec3 (Maybe GLuint)])
+loadByteString =
+    foldr (\line -> consMine (if "v " `B.isPrefixOf` line
+                    then (Just $ readObjVecLineB line, Nothing, Nothing, Nothing)
                 else if "vn " `B.isPrefixOf` line
-                    then (verts, norms ++ [readObjVecLineB line], texs, faces)
+                    then (Nothing, Just $ readObjVecLineB line, Nothing, Nothing)
                 else if "vt " `B.isPrefixOf` line
-                    then (verts, norms, texs ++ [readObjTexLine $ B.unpack line], faces)
+                    then (Nothing, Nothing, Just $ readObjTexLine $ B.unpack line, Nothing)
                 else if "f " `B.isPrefixOf` line
-                    then (verts, norms, texs, faces ++ readFaceGroupsB (tail splitted))
-                else (verts, norms, texs, faces)
-    else hClose handle >> return (verts, norms, texs, faces)
+                    then (Nothing, Nothing, Nothing,
+                          Just $ readFaceGroupsB (tail $ splitSpacesB line))
+                else (Nothing, Nothing, Nothing, Nothing))) ([], [], [], [])
+        
+consMine :: (Maybe (Vec3 GLfloat),
+            Maybe (Vec3 GLfloat),
+            Maybe (Vec2 GLfloat),
+            Maybe [Vec3 (Maybe GLuint)]) ->
+          ([Vec3 GLfloat], [Vec3 GLfloat], [Vec2 GLfloat], [Vec3 (Maybe GLuint)])
+            -> ([Vec3 GLfloat], [Vec3 GLfloat], [Vec2 GLfloat], [Vec3 (Maybe GLuint)])
+consMine (Just a, _, _, _) (as, bs, cs, ds) = (a:as, bs, cs, ds)
+consMine (_, Just b, _, _) (as, bs, cs, ds) = (as, b:bs, cs, ds)
+consMine (_, _, Just c, _) (as, bs, cs, ds) = (as, bs, c:cs, ds)
+consMine (_, _, _, Just d) (as, bs, cs, ds) = (as, bs, cs, d++ds)
+consMine _ xs = xs
 
 readFaceGroupsB :: [B.ByteString] -> [Vec3 (Maybe GLuint)]
 readFaceGroupsB = foldr ((:) . readFaceGroupB) []
@@ -107,7 +116,6 @@ readFaceGroupB :: B.ByteString -> Vec3 (Maybe GLuint)
 readFaceGroupB x = 
     let splittedRaw = B.splitWith (=='/') x
     in toVec3UnknownB splittedRaw
-
 
 toVec3UnknownB :: [B.ByteString] -> Vec3 (Maybe GLuint)
 toVec3UnknownB (x:y:zs) =
@@ -237,6 +245,7 @@ listOfMats handle library currentMat = do
             else listOfMats handle library currentMat
     else hClose handle >> return []
 
+{-
 loadObjMatsRec :: Handle -> [Material] -> Int -> IO [(Material, Int)]
 loadObjMatsRec handle mats i = do
     eof <- hIsEOF handle
@@ -254,7 +263,7 @@ loadObjMatsRec handle mats i = do
                     then i + 1
                 else i
     else hClose handle >> return []
-
+-}
 findMaterial :: String -> [Material] -> Material
 findMaterial name library = head $ filter (\x -> matName x == name) library
 
@@ -312,8 +321,10 @@ fromVec3M (Nothing : _) = error "fromVec3M: argument contained Nothing."
 rawObjLine :: String -> [String]
 rawObjLine = tail . filter (not . null) . splitOn " "
 
+{-
 readOBJLine :: String -> [GLfloat]
 readOBJLine = readAll . tail . filter (not . null) . splitOn " "
+-}
 
 readAll :: Read a => [String] -> [a]
 readAll = map read
@@ -360,5 +371,7 @@ negateNothing (Just x : rest) len = x : negateNothing rest len
 negateNothing (Nothing : rest) len = replicate len (-1) ++ negateNothing rest len
 negateNothing [] _ = []
 
+{-
 splitSpaces :: String -> [String]
 splitSpaces = filter (not . null) . splitOn " "
+-}

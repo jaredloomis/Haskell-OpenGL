@@ -1,4 +1,8 @@
-module Engine.Core.World where
+module Engine.Core.World (
+    World(..), WorldState(..), playerAABB,
+    GameObject(..), Input(..), bindWorldUniforms,
+    loadWorldTexture, getWorldTime
+) where
 
 import Control.Monad (liftM)
 import Data.Time (getCurrentTime, UTCTime)
@@ -37,7 +41,7 @@ data GameObject t = Player {
     playerRotation :: !(Vec3 GLfloat),
     playerVelocity :: !(Vec3 GLfloat),
     playerSpeed :: !GLfloat,
-    playerUpdate :: World t -> GameObject t,
+    playerUpdate :: World t -> World t,
     playerInput :: !(Input t)
 } | PureEntity {
     pentityPosition :: !(Vec3 GLfloat),
@@ -52,7 +56,9 @@ data GameObject t = Player {
 }
 
 data Input t = Input {
-    inputKeys :: ![(GLFW.Key, GLFW.KeyState, GLFW.KeyState, World t -> GameObject t -> GameObject t)],
+    -- (Key, Wanted Keystate, Current Keystate,
+    --  Function to call when wanted == current)
+    inputKeys :: ![(GLFW.Key, GLFW.KeyState, GLFW.KeyState, World t -> World t)],
     inputMouseDelta :: !(Vec2 GLfloat),
     inputLastMousePos :: !(Vec2 GLfloat),
     inputMouseSpeed :: !GLfloat

@@ -5,31 +5,8 @@ import Graphics.Rendering.OpenGL.Raw (GLfloat)
 import Engine.Model.Model
 import Engine.Terrain.Noise
 
-genSimplexModelSplit :: FilePath -> FilePath ->
-    (Int, Int) ->  -- ^ Width
-    GLfloat ->  -- ^ Spacing
-    Int ->  -- ^ Octaves
-    GLfloat ->  -- ^ Wavelength
-    GLfloat ->  -- ^ Waveheight / intensity
-    IO [Model]
-genSimplexModelSplit vert frag (w, h) spacing octaves wavelength intensity = do
-    heights <- genHeightsSplit (w, h) (0, 0) 4 octaves wavelength intensity
-
-    mapM (\x -> putTogether vert frag x (w, h)) heights
-
-putTogether :: FilePath -> FilePath -> [[GLfloat]] -> (Int, Int) -> IO Model
-putTogether vert frag heights (width, height) = do
-    let hCoords = heightsToCoords heights 0 1
-
-        flat = createFlat 1 (realToFrac width)
-
-        vertices = applyHeights flat hCoords
-        normals = calculateNormals vertices
-
-    createModel vert frag ["position", "normal"] [vertices, normals] [3, 3] 5
-
-
-genHeightsSplit :: (Int, Int) -> (Int, Int) -> Int -> Int -> GLfloat -> GLfloat -> IO [[[GLfloat]]]
+genHeightsSplit ::
+    (Int, Int) -> (Int, Int) -> Int -> Int -> GLfloat -> GLfloat -> IO [[[GLfloat]]]
 genHeightsSplit (width, height) (startx, starty) splits octaves wavelength intensity
     | max startx starty < width = do
         cur <- simplexNoiseSection (width, height) (startx, starty) octaves wavelength intensity

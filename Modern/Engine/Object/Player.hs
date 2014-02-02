@@ -1,6 +1,9 @@
-module Engine.Object.Player where
+module Engine.Object.Player (
+    mkPlayer, moveFromLook,
+    moveFromLookSlide, applyTransformations
+) where
 
-import Data.Maybe (isJust)
+import Data.Maybe (isJust, fromJust)
 
 import qualified Graphics.UI.GLFW as GLFW
 import Graphics.Rendering.OpenGL.Raw
@@ -17,7 +20,7 @@ mkPlayer = Player   (Vec3 0 20 0) (Vec3 0 0 0)
                     pUpdate
                     baseInput
 
-pUpdate :: World t -> GameObject t
+pUpdate :: World t -> World t
 pUpdate w =
     let p = worldPlayer w
         state = worldState w
@@ -25,58 +28,80 @@ pUpdate w =
         speed = origSpeed * stateDelta state
         newP = p{playerSpeed = speed}
         -- Do actual update
-        modifiedP = playerKeyUpdateSafe w $ playerMouseUpdate newP
+        modifiedW = playerKeyUpdateSafe w{worldPlayer = playerMouseUpdate newP}
+        modifiedP = worldPlayer modifiedW
         gravityP = applyGravityVelocity w modifiedP
 
         resolvedP = resolveVelocity w gravityP
 
-    in resolvedP{playerSpeed = origSpeed}
+    in modifiedW{worldPlayer =
+        resolvedP{playerSpeed = origSpeed}}
 
 -- | Input for first person camera.
 baseInput :: Input t
-baseInput =  Input [(GLFW.Key'A, GLFW.KeyState'Repeating, GLFW.KeyState'Released, aIn),
-                    (GLFW.Key'D, GLFW.KeyState'Repeating, GLFW.KeyState'Released, dIn),
-                    (GLFW.Key'W, GLFW.KeyState'Repeating, GLFW.KeyState'Released, wIn),
-                    (GLFW.Key'S, GLFW.KeyState'Repeating, GLFW.KeyState'Released, sIn),
-                    (GLFW.Key'LeftShift, GLFW.KeyState'Repeating, GLFW.KeyState'Released, shiftIn), 
-                    (GLFW.Key'Space, GLFW.KeyState'Pressed, GLFW.KeyState'Released, spaceIn),
-                    (GLFW.Key'Escape, GLFW.KeyState'Repeating, GLFW.KeyState'Released, spaceIn)]
-                    (Vec2 0 0) (Vec2 0 0)
-                    0.1
+baseInput =  Input
+    [(GLFW.Key'A, GLFW.KeyState'Repeating, GLFW.KeyState'Released, aIn),
+     (GLFW.Key'D, GLFW.KeyState'Repeating, GLFW.KeyState'Released, dIn),
+     (GLFW.Key'W, GLFW.KeyState'Repeating, GLFW.KeyState'Released, wIn),
+     (GLFW.Key'S, GLFW.KeyState'Repeating, GLFW.KeyState'Released, sIn),
+     (GLFW.Key'LeftShift, GLFW.KeyState'Repeating, GLFW.KeyState'Released, shiftIn), 
+     (GLFW.Key'Space, GLFW.KeyState'Pressed, GLFW.KeyState'Released, spaceIn),
+     (GLFW.Key'Escape, GLFW.KeyState'Pressed, GLFW.KeyState'Released, escIn)]
+     (Vec2 0 0) (Vec2 0 0)
+     0.1
 
-aIn :: World t -> GameObject t -> GameObject t
-aIn _ p = setVelocityFromLook p (Vec3 (playerSpeed p) 0 0)
-dIn :: World t -> GameObject t -> GameObject t
-dIn _ p = setVelocityFromLook p (Vec3 (-playerSpeed p) 0 0)
-wIn :: World t -> GameObject t -> GameObject t
-wIn _ p = setVelocityFromLook p (Vec3 0 0 (-playerSpeed p))
-sIn :: World t -> GameObject t -> GameObject t
-sIn _ p = setVelocityFromLook p (Vec3 0 0 (playerSpeed p))
+aIn :: World t -> World t
+aIn w =
+    let p = worldPlayer w
+    in w{worldPlayer =
+        setVelocityFromLook p (Vec3 (playerSpeed p) 0 0)}
+dIn :: World t -> World t
+dIn w =
+    let p = worldPlayer w
+    in w{worldPlayer =
+        setVelocityFromLook p (Vec3 (-playerSpeed p) 0 0)}
+wIn :: World t -> World t
+wIn w =
+    let p = worldPlayer w
+    in w{worldPlayer =
+        setVelocityFromLook p (Vec3 0 0 (-playerSpeed p))}
+sIn :: World t -> World t
+sIn w =
+    let p = worldPlayer w
+    in w{worldPlayer =
+        setVelocityFromLook p (Vec3 0 0 (playerSpeed p))}
 
-shiftIn :: World t -> GameObject t -> GameObject t
-shiftIn _ p =
+shiftIn :: World t -> World t
+shiftIn w =
+    let p = worldPlayer w
+    in w{worldPlayer =
         p{playerVelocity =
-            playerVelocity p + Vec3 0 (-(playerSpeed p)) 0}
+            playerVelocity p + Vec3 0 (-(playerSpeed p)) 0}}
 
-spaceIn :: World t -> GameObject t -> GameObject t
-spaceIn _ p =
-        let curVel@(Vec3 _ vy _) = playerVelocity p
-        in if abs vy < 0.01
-            then p{playerVelocity =
-                    curVel + Vec3 0 0.4 0}
-            else p
+spaceIn :: World t -> World t
+spaceIn w =
+        let p = worldPlayer w
+            curVel@(Vec3 _ vy _) = playerVelocity p
+        in
+            if abs vy < 0.01
+                then w{worldPlayer =
+                    p{playerVelocity =
+                        curVel + Vec3 0 0.4 0}}
+            else w
 
-{-
-escIn :: World t -> GameObject t -> GameObject t
-escIn _ p =
-        p{playerVelocity =
-            playerVelocity p + Vec3 0 (playerSpeed p) 0}
--}
--- | Takes a Player and a Vec3 of movement
---   and moves player locally based on rotation.
-moveFromLook :: GameObject t -> Vec3 GLfloat -> GameObject t
-moveFromLook player@(Player{}) (Vec3 idx idy idz) =
-    let Vec3 _ rry _ = playerRotation player
+escIn :: World t -> World t
+escIn w =
+    let state = worldState w
+        paused = statePaused state
+    in w{
+        worldState = state{
+            statePaused = not paused
+            }
+        }
+
+calculateLookMovement :: GameObject t -> Vec3 GLfloat -> Vec3 GLfloat
+calculateLookMovement p@(Player{}) (Vec3 idx idy idz) =
+    let Vec3 _ rry _ = playerRotation p
         dx = realToFrac idx
         dz = realToFrac idz
         
@@ -85,46 +110,39 @@ moveFromLook player@(Player{}) (Vec3 idx idy idz) =
         mx = dx * sinDeg (ry - 90) + dz * sinDeg ry
         my = idy
         mz = dx * cosDeg (ry - 90) + dz * cosDeg ry
-        
-    in moveObject player $ Vec3 (realToFrac mx) my (realToFrac mz)
+    in Vec3 (realToFrac mx) my (realToFrac mz)
+calculateLookMovement _ _ =
+    error "Player.calculateLookMovement can only be used on Players."
+
+-- | Takes a Player and a Vec3 of movement
+--   and moves player locally based on rotation.
+moveFromLook :: GameObject t -> Vec3 GLfloat -> GameObject t
+moveFromLook player@(Player{}) givenVec =
+    let movement = calculateLookMovement player givenVec
+    in moveObject player movement
 moveFromLook _ _ =
     error "Player.moveFromLook can only be used on Players."
 
 -- | Takes a Player and a Vec3 of movement
 --   and moves player locally based on rotation.
 moveFromLookSlide :: World t -> GameObject t -> Vec3 GLfloat -> GameObject t
-moveFromLookSlide world player@(Player{}) (Vec3 idx idy idz) =
-    let Vec3 _ rry _ = playerRotation player
-        dx = realToFrac idx
-        dz = realToFrac idz
-        
-        ry = realToFrac rry :: Float
+moveFromLookSlide world player@(Player{}) idVec =
+    let movement = calculateLookMovement player idVec
 
-        mx = dx * sinDeg (ry - 90) + dz * sinDeg ry
-        my = idy
-        mz = dx * cosDeg (ry - 90) + dz * cosDeg ry
-
-    in moveWithStep world player $ Vec3 (realToFrac mx) my (realToFrac mz)
+    in moveWithStep world player movement
 moveFromLookSlide _ _ _ =
     error "Player.moveFromLookSlide can only be used on Players."
 
 setVelocityFromLook :: GameObject t -> Vec3 GLfloat -> GameObject t
-setVelocityFromLook player@(Player{}) (Vec3 idx idy idz) =
-    let Vec3 _ rry _ = playerRotation player
-        dx = realToFrac idx
-        dz = realToFrac idz
-        
-        ry = realToFrac rry :: Float
-
-        mx = dx * sinDeg (ry - 90) + dz * sinDeg ry
-        my = idy
-        mz = dx * cosDeg (ry - 90) + dz * cosDeg ry
+setVelocityFromLook player@(Player{}) idVec =
+    let movement = calculateLookMovement player idVec
     in player{playerVelocity =
-            playerVelocity player + Vec3 (realToFrac mx) my (realToFrac mz)}
+            playerVelocity player + movement}
 setVelocityFromLook _ _ = error "Player.setVelocityFromLook"
 
-moveWithStep :: World t -> GameObject t -> Vec3 GLfloat -> GameObject t
-moveWithStep world player@(Player{}) movement@(Vec3 mx _ mz) = do
+{-
+moveWithStepOld :: World t -> GameObject t -> Vec3 GLfloat -> GameObject t
+moveWithStepOld world player@(Player{}) movement@(Vec3 mx _ mz) = do
     let (moved, mabInt) = moveObjectSlideIntersecter
                 world player movement
     if isJust mabInt
@@ -132,7 +150,32 @@ moveWithStep world player@(Player{}) movement@(Vec3 mx _ mz) = do
             let Just (AABB _ (Vec3 _ abMaxY _)) = mabInt
                 (Just (AABB (Vec3 _ pMiny _) _)) = calculateNewWholeAABB moved
                 yStep = abMaxY - pMiny
-            in if abs yStep < 3 && abs yStep > 1e-3
+            in if abs yStep < 1 && abs yStep > 1e-2
+                    then
+                    let moved2 = moveObjectSlide world moved $
+                                    Vec3 mx (yStep+1e-2) mz
+                        Vec3 velX _ velZ = playerVelocity moved2
+                    in moved2{playerVelocity = Vec3 velX 0 velZ}
+                else
+                    let Vec3 velX _ velZ = playerVelocity moved
+                    in moved{playerVelocity = Vec3 velX 0 velZ}
+    else moved
+moveWithStepOld _ _ _ =
+    error "Player.moveWithStepOld can only be used on Players."
+-}
+
+moveWithStep :: World t -> GameObject t -> Vec3 GLfloat -> GameObject t
+moveWithStep world player@(Player{}) movement@(Vec3 mx _ mz) = do
+    let (moved, mabInt) = moveObjectSlideAllIntersecters
+                world player movement
+    if isJust mabInt
+        then
+            let abMaxYs = map (\(AABB _ (Vec3 _ ymax _)) -> ymax) $ fromJust mabInt
+                abMaxY = maximum abMaxYs
+                --Just (AABB _ (Vec3 _ abMaxY _)) = mabInt
+                (Just (AABB (Vec3 _ pMiny _) _)) = calculateNewWholeAABB moved
+                yStep = abMaxY - pMiny
+            in if abs yStep < 3 && abs yStep > 1e-2
                     then
                     let moved2 = moveObjectSlide world moved $
                                     Vec3 mx (yStep+1e-2) mz
@@ -144,6 +187,7 @@ moveWithStep world player@(Player{}) movement@(Vec3 mx _ mz) = do
     else moved
 moveWithStep _ _ _ =
     error "Player.moveWithStep can only be used on Players."
+
 
 playerMouseUpdate :: GameObject t -> GameObject t
 playerMouseUpdate player =
@@ -176,7 +220,7 @@ playerMouseUpdate player =
         -- and maxLookUp.
         newRx
             -- If rotation is in bounds, allow rotation.
-            | rx - dy >= maxLookDown && rx - dy <= maxLookUp    = rx - dy
+            | rx - dy >= maxLookDown && rx - dy <= maxLookUp      = rx - dy
             -- If player is trying to look down too far, set rotation to maxLookDown.
             | rx - dy < maxLookDown                             = maxLookDown
             -- If player is trying to look up too far, set rotation to maxLookUp.
@@ -192,34 +236,37 @@ playerMouseUpdate player =
     in player{playerRotation = newRot, playerInput = newInput}
 
 -- | Player update with collision detection.
-playerKeyUpdateSafe :: World t -> GameObject t -> GameObject t
-playerKeyUpdateSafe world player =
-    let ret = playerKeyUpdateTailSafe world player
-    in ret{playerInput = playerInput player}
+playerKeyUpdateSafe :: World t -> World t
+playerKeyUpdateSafe world =
+    let startPlayer = worldPlayer world
+        retW = playerKeyUpdateTailSafe world (worldPlayer world)
+        retP = (worldPlayer retW){playerInput = playerInput startPlayer}
+    in retW{worldPlayer = retP}
 
 -- | Returns Player after safely applying all input functions.
 --   UNSAFE! Returns given player with an empty inputKeys!
 --   Use playerKeyUpdateSafe instead.
-playerKeyUpdateTailSafe :: World t -> GameObject t -> GameObject t
+playerKeyUpdateTailSafe :: World t -> GameObject t -> World t
 playerKeyUpdateTailSafe w
-    p@(Player _ _ _ _ _ (Input ((_, desired, found, func):xs) mouse lm ms)) =
+    (Player _ _ _ _ _ (Input ((_, desired, found, func):xs) mouse lm ms)) =
     -- If the recorded keystate matches desired keystate,
     -- apply corresponding function to player.
     -- Assumes KeyState'Repeating = KeyState'Repeating || KeyState'Pressed
-    let newPlayer
+    let newWorld
             | desired == GLFW.KeyState'Repeating =
                 if found == desired ||
                         found == GLFW.KeyState'Pressed
-                    then func w p
-                else p
+                    then func w
+                else w
             | desired == found =
-                func w p
-            | otherwise = p
+                func w
+            | otherwise = w
     -- Give modified player to the function again, to recursively
     -- apply each key update.
+        newPlayer = worldPlayer newWorld
         retp = newPlayer{playerInput = Input xs mouse lm ms}
-    in playerKeyUpdateTailSafe w retp
-playerKeyUpdateTailSafe _ p@(Player _ _ _ _ _ (Input [] _ _ _)) = p
+    in playerKeyUpdateTailSafe newWorld{worldPlayer = retp} retp
+playerKeyUpdateTailSafe w (Player _ _ _ _ _ (Input [] _ _ _)) = w
 playerKeyUpdateTailSafe _ _ =
     error $ "Player.playerKeyUpdateTailSafe is meant"
         ++ " to be used only on Players."
@@ -227,13 +274,14 @@ playerKeyUpdateTailSafe _ _ =
 applyGravityVelocity :: World t -> GameObject t -> GameObject t
 applyGravityVelocity world p@(Player{}) =
     let Vec3 pvx pvy pvz = playerVelocity p
-        atRest = if pvy < 0 then
+        atRest
+            | pvy < 0 =
                 let m = moveObjectSafe world p (Vec3 0 pvy 0)
                 in getPos m == getPos p
-            else if pvy == 0 then
+            | pvy == 0 =
                 let m = moveObjectSafe world p (Vec3 0 (-0.05) 0)
                 in getPos m == getPos p
-            else False
+            | otherwise = False
     in if atRest
         then p{playerVelocity = Vec3 pvx 0 pvz}
     else
@@ -251,6 +299,9 @@ resolveVelocity world p@(Player{}) =
         movedPlayer = moveWithStep world p pVel
     in movedPlayer{playerVelocity =
                 Vec3 0 yv 0}
+resolveVelocity _ _ =
+    error $ "Player.resolveVelocity can only be used"
+            ++ " on Players"
 
 -- | Takes a Player and "moves the camera" by
 --   moving the whole world in the opposite direction.

@@ -2,13 +2,13 @@ module Main where
 
 import Data.Bits ((.|.))
 import Data.Time (diffUTCTime)
-import Control.Monad (when)
+--import Control.Monad (when)
 
 import qualified Graphics.UI.GLFW as GLFW
 
 import Graphics.Rendering.OpenGL.Raw
-    (glClear, gl_COLOR_BUFFER_BIT, glLoadIdentity, gl_DEPTH_BUFFER_BIT,
-     GLfloat)
+    (glClear, gl_COLOR_BUFFER_BIT, glLoadIdentity,
+     gl_DEPTH_BUFFER_BIT, GLfloat)
 
 import Engine.Graphics.Graphics
 import Engine.Object.Player
@@ -26,7 +26,7 @@ main = do
     initGL win
 
     -- Create default world with a Player
-    -- and one Entity
+    -- and one Entity.
     world <- mkWorld
 
     -- Register the function called whe our window is resized.
@@ -74,6 +74,10 @@ updateStep :: GLFW.Window -> World t -> IO (World t)
 updateStep win world = do
     let wState = worldState world
 
+    GLFW.setCursorInputMode win $ if statePaused wState
+        then GLFW.CursorInputMode'Normal
+    else GLFW.CursorInputMode'Disabled
+
     -- Update the world time and delta.
     worldTime <- getWorldTime
     let delta = realToFrac $ diffUTCTime worldTime (stateTime wState)
@@ -84,14 +88,16 @@ updateStep win world = do
     player <- updatePlayerInput win $ worldPlayer world
 
     -- Update player
-    let tmpPlayer = updateObject player world{worldPlayer = player}
+    let newWorld = playerUpdate player
+                world{worldPlayer = player, worldState = newState}
+        tmpPlayer = worldPlayer newWorld
         -- Set mouse delta movement to 0.
         pin = (playerInput tmpPlayer){inputMouseDelta = Vec2 0 0}
         newPlayer = tmpPlayer{playerInput = pin}
 
-    return $ (updateWorld world){
-        worldPlayer = newPlayer,
-        worldState = newState}
+    return $ (updateWorld newWorld){
+        worldPlayer = newPlayer
+    }
 
 updatePlayerInput :: GLFW.Window -> GameObject t -> IO (GameObject t)
 updatePlayerInput win player@(Player{}) = do
@@ -100,10 +106,13 @@ updatePlayerInput win player@(Player{}) = do
     return $ player{
         playerInput = newIn
     }
+updatePlayerInput _ _ =
+    error $ "Main.updatePlayerInput can only"
+        ++ " be used on Players."
 
 updateInput :: GLFW.Window -> Input t -> IO (Input t)
 updateInput win input = do
-    checkForEsc win
+    --checkForEsc win
     let mousePos = inputLastMousePos input
     newKeys <- loopThrough win $ inputKeys input
     newMousePos <- mouseUpdate win
@@ -114,10 +123,11 @@ updateInput win input = do
 
     where
     loopThrough :: GLFW.Window ->
-                  [(GLFW.Key, GLFW.KeyState, GLFW.KeyState, World t -> GameObject t -> GameObject t)] ->
-                  IO [(GLFW.Key, GLFW.KeyState, GLFW.KeyState, World t -> GameObject t -> GameObject t)]
+                  [(GLFW.Key, GLFW.KeyState, GLFW.KeyState, World t -> World t)] ->
+                  IO [(GLFW.Key, GLFW.KeyState, GLFW.KeyState, World t -> World t)]
     loopThrough w ((key, desired, lastState, func) : others) = do
         returnedState <- GLFW.getKey w key
+
         let keyState
                 | returnedState == GLFW.KeyState'Released =
                     GLFW.KeyState'Released
@@ -136,14 +146,3 @@ updateInput win input = do
     mouseUpdate w = do
         (x, y) <- GLFW.getCursorPos w
         return $ Vec2 (realToFrac x) (realToFrac y)
-
-checkForEsc :: GLFW.Window -> IO ()
-checkForEsc win = do
-    isDown <- GLFW.getKey win GLFW.Key'Escape
-
-    when (isDown == GLFW.KeyState'Pressed) $ do
-        currentCursorMode <- GLFW.getCursorInputMode win
-        GLFW.setCursorInputMode win $
-            if currentCursorMode == GLFW.CursorInputMode'Disabled
-                then GLFW.CursorInputMode'Normal
-            else GLFW.CursorInputMode'Disabled
