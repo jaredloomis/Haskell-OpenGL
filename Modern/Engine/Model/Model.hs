@@ -1,14 +1,11 @@
 module Engine.Model.Model where
 
-import Foreign.C.String (withCString)
-
 import Graphics.Rendering.OpenGL.Raw
 
 import Engine.Graphics.Shaders
 import Engine.Graphics.Textures
-import Engine.Core.Util
-import Engine.Core.Vec
 import Engine.Model.AABB
+import Engine.Graphics.GraphicsUtils
 
 data Model = Model {
     modelShader :: !GLuint,
@@ -42,7 +39,6 @@ createModelSplit vert frag attrNames buffData valLens splits =
 
         sequence models
 
-
 splitAllData :: Int -> [[GLfloat]] -> [[[GLfloat]]]
 splitAllData = map . splitData
 
@@ -64,51 +60,13 @@ createModel ::
     IO Model
 createModel vert frag attrNames buffData valLens vertCount = do
     program <- loadProgram vert frag
-    print $ "PROGRAM: " ++ show program
-    attribs <- createAttribs program attrNames
-    print $ "ATTRIBS: " ++ show (length attribs)
-    ids <- idAll buffData
-    print $ "IDS: " ++ show (length ids)
+    attribs <- getAttrLocs program attrNames
+    ids <- createBufferIdAll buffData
 
     let sAttribs = createShaderAttribs attribs ids valLens
     return $ Model program sAttribs [] vertCount
             (Just $ aabbByFace (head buffData))
             (Just $ aabbFromPoints (head buffData))
-
--- | Simply pack the arguments together into an array of
---   ShaderAttribs.
-createShaderAttribs :: [GLuint] -> [GLuint] -> [GLuint] -> [ShaderAttrib]
-createShaderAttribs (attr:attrs) (buff:buffs) (size:sizes) =
-    Vec3 attr buff size : createShaderAttribs attrs buffs sizes
-createShaderAttribs [] [] [] = []
-createShaderAttribs _ _ _ =
-    error $ "Model.createShaderAttribs: "
-        ++ "given lists are not the same length."
-
--- | Create an id for each buffer data.
-idAll :: [[GLfloat]] -> IO [GLuint]
-idAll (cur:others) = do
-    currentId <- bufferId cur
-    otherId <- idAll others
-    return $ currentId:otherId
-idAll [] = return []
-
--- | Retrieve location of each shader attrib
---   in the given program.
-createAttribs :: GLuint -> [String] -> IO [GLuint]
-createAttribs prog (attrName:xs) = do
-    curN <- withCString attrName $ glGetAttribLocation prog
-    let cur = fromIntegral curN
-    rest <- createAttribs prog xs
-    return $ cur:rest
-createAttribs _ [] = return []
-
--- | Create a buffer id for the information.
-bufferId :: [GLfloat] -> IO GLuint
-bufferId info = do
-    vertexArrayId <- withNewPtr (glGenVertexArrays 1)
-    glBindVertexArray vertexArrayId
-    fillNewBuffer info
 
 -- | Length of info. Assumes triangle faces.
 lengthAll :: [[GLfloat]] -> [GLuint]

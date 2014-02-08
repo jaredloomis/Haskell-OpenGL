@@ -1,6 +1,8 @@
 module Engine.Graphics.Graphics where
 
 import Data.Time (utctDayTime)
+import Foreign.Marshal.Array (withArrayLen)
+import Data.Bits ((.|.))
 
 import qualified Graphics.UI.GLFW as GLFW
 
@@ -12,71 +14,7 @@ import Engine.Graphics.Shaders
 import Engine.Core.Vec
 import Engine.Object.GameObject
 import Engine.Model.Model
-
------------------------------
--- GENERAL RENDERING FUNCS --
------------------------------
-
--- | Render all entities in the world.
---   Uses the attributes/uniforms specified by the world
---   as well as ones specified by individual
---   objects.
-{-
-renderWorld :: World t -> IO ()
-renderWorld world 
-    -- If the array of entities is empty, the
-    -- function is done.
-    | null $ worldEntities world = return ()
-
-    | otherwise = do
-    let objectRef = head $ worldEntities world
-    object <- readIORef objectRef
-    let model = pentityModel object
-        Vec3 objx objy objz = getPos object
-        mShader = modelShader model
-
-    -- Begin a state where transformations remain in affect
-    -- only until glPopMatrix is called.
-    glPushMatrix
-
-    -- Move Object
-    glTranslatef objx objy objz
-
-    -- Use object's shader
-    glUseProgram mShader
-
-    -- Bind buffers to variable names in shader.
-    --bindAll (modelBufferIds model) (modelAttribLocs model)
-    bindShaderAttribs $ modelShaderVars model
-    bindWorldUniforms world mShader
-    bindTextures (modelTextures model) mShader
-
-    -- Set time uniform.
-    wState <- readIORef $ worldState world
-    let utcTime = stateTime wState
-    let dayTime = realToFrac $ utctDayTime utcTime
-    bindUniforms mShader [("time", return [dayTime])]
-
-    -- Do the drawing.
-    glDrawArrays gl_TRIANGLES 0 (modelVertCount model)
-
-    -- TODO: Remove if not necessary.
-    -- Disable textures.
-    unBindTextures (fromIntegral . length . modelTextures $ model)
-
-    -- Turn off VBO/VAO
-    disableShaderAttribs $ modelShaderVars model
-
-    -- Disable the object's shader.
-    glUseProgram 0
-
-    -- End transformations so that later commands are not
-    -- affected.
-    glPopMatrix
-
-    -- Continue rendering the rest of the entities in the world.
-    renderWorld (world{worldEntities = tail $ worldEntities world})
--}
+import Engine.Graphics.Textures
 
 renderWorld :: World t -> IO ()
 renderWorld world = do
@@ -100,15 +38,15 @@ renderObjects world (object:rest) = do
     glUseProgram mShader
 
     -- Bind buffers to variable names in shader.
-    bindShaderAttribs $ modelShaderVars model
-    bindWorldUniforms world mShader
+    setShaderAttribs $ modelShaderVars model
+    setWorldUniforms world mShader
     bindTextures (modelTextures model) mShader
 
     -- Set time uniform.
     let wState = worldState world
         utcTime = stateTime wState
         dayTime = realToFrac $ utctDayTime utcTime
-    bindUniforms mShader [("time", return [dayTime])]
+    setUniforms mShader [("time", return [dayTime])]
 
     -- Do the drawing.
     glDrawArrays gl_TRIANGLES 0 (modelVertCount model)
@@ -131,6 +69,15 @@ renderObjects world (object:rest) = do
     renderObjects world rest
 renderObjects _ [] = return ()
 
+
+renderWorldFB :: FrameBuffer -> World t -> GLuint -> IO ()
+renderWorldFB fb@(FB name _) world shader = do
+    let objects = worldEntities world
+    glBindFramebuffer gl_FRAMEBUFFER name
+    glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
+    renderObjects world objects
+    glBindFramebuffer gl_FRAMEBUFFER 0
+    renderFromFrameBuffer shader fb
 
 -------------------------------
 -- UTILITY / SETUP FUNCTIONS --
@@ -162,14 +109,18 @@ initGL win = do
 
     -- Enable textures.
     glEnable gl_TEXTURE
-    glTexParameteri gl_TEXTURE_2D gl_TEXTURE_MAG_FILTER (fromIntegral gl_LINEAR)
-    glTexParameteri gl_TEXTURE_2D gl_TEXTURE_MIN_FILTER (fromIntegral gl_LINEAR)
-    glTexParameteri gl_TEXTURE_2D gl_TEXTURE_WRAP_S (fromIntegral gl_CLAMP_TO_EDGE)
-    glTexParameteri gl_TEXTURE_2D gl_TEXTURE_WRAP_T (fromIntegral gl_CLAMP_TO_EDGE)
+    glTexParameteri gl_TEXTURE_2D gl_TEXTURE_MAG_FILTER
+        (fromIntegral gl_NEAREST)
+    glTexParameteri gl_TEXTURE_2D gl_TEXTURE_MIN_FILTER
+        (fromIntegral gl_NEAREST)
+    glTexParameteri gl_TEXTURE_2D gl_TEXTURE_WRAP_S
+        (fromIntegral gl_CLAMP_TO_EDGE)
+    glTexParameteri gl_TEXTURE_2D gl_TEXTURE_WRAP_T
+        (fromIntegral gl_CLAMP_TO_EDGE)
 
     -- Call resize function.
     (w,h) <- GLFW.getFramebufferSize win
-    resizeScene win w h
+    resizeScene win w h 
 
 resizeScene :: GLFW.WindowSizeCallback
 -- Prevent divide by 0
@@ -187,3 +138,18 @@ resizeScene _ width height = do
     -- Go back to default modelview matrix and load identity.
     glMatrixMode gl_MODELVIEW
     glLoadIdentity
+
+cleanupObjects :: [GameObject t] -> IO ()
+cleanupObjects (object:rest) = do
+    -- Delete shader.
+    glDeleteProgram (modelShader $ getModel object)
+
+    -- TODO: Better cleanup. I think this does nothing.
+    -- Delete buffers.
+    let shaderVarBufIds = map (\(Vec3 _ bufId _) -> bufId)
+                              (modelShaderVars $ getModel object)
+    withArrayLen shaderVarBufIds $
+         glDeleteBuffers . fromIntegral
+
+    cleanupObjects rest
+cleanupObjects [] = return ()

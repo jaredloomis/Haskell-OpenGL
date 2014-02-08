@@ -31,7 +31,7 @@ mkWorldStateRef = mkWorldState >>= newIORef
 
 mkObj :: IO (GameObject ())
 mkObj =
-    PureEntity (Vec3 10 10 10) id <$> mkModel <*> return ()
+    PureEntity (Vec3 10 3 10) id <$> mkModel <*> return ()
 
 mkObj2 :: IO (GameObject ())
 mkObj2 =

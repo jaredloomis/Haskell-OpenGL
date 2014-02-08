@@ -4,7 +4,8 @@ module Engine.Object.GameObject (
     updateAll, updateObject,
     updateWorld, applyGravity,
     moveObjectSafe, calculateNewWholeAABB,
-    moveObject, moveObjectSlideAllIntersecters
+    moveObject, moveObjectSlideAllIntersecters,
+    getModel
 ) where
 
 import Data.Maybe (isJust, fromJust)
@@ -258,3 +259,9 @@ getPos :: GameObject t -> Vec3 GLfloat
 getPos p@(Player{}) = playerPosition p
 getPos pe@(PureEntity{}) = pentityPosition pe
 getPos ee@(EffectfulEntity{}) = eentityPosition ee
+
+getModel :: GameObject t -> Model
+getModel (Player{}) =
+    error "GameObject.getModel called on Player"
+getModel pe@(PureEntity{}) = pentityModel pe
+getModel ee@(EffectfulEntity{}) = eentityModel ee

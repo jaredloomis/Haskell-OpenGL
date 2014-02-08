@@ -2,7 +2,6 @@ module Main where
 
 import Data.Bits ((.|.))
 import Data.Time (diffUTCTime)
---import Control.Monad (when)
 
 import qualified Graphics.UI.GLFW as GLFW
 
@@ -37,6 +36,8 @@ main = do
 
     -- Begin game loop.
     loop win world
+    -- Delete stuff left in OpenGL.
+    cleanupObjects $ worldEntities world
     -- Shutdown when game loop is done.
     shutdown win
 
@@ -56,6 +57,9 @@ main = do
 
             -- Swap back and front buffer.
             GLFW.swapBuffers win
+            
+            -- XXX: Should I flush?
+            --glFlush
 
             loop win newWorld
 
@@ -122,9 +126,10 @@ updateInput win input = do
     }
 
     where
-    loopThrough :: GLFW.Window ->
-                  [(GLFW.Key, GLFW.KeyState, GLFW.KeyState, World t -> World t)] ->
-                  IO [(GLFW.Key, GLFW.KeyState, GLFW.KeyState, World t -> World t)]
+    loopThrough ::
+        GLFW.Window ->
+        [(GLFW.Key, GLFW.KeyState, GLFW.KeyState, World t -> World t)] ->
+        IO [(GLFW.Key, GLFW.KeyState, GLFW.KeyState, World t -> World t)]
     loopThrough w ((key, desired, lastState, func) : others) = do
         returnedState <- GLFW.getKey w key
 

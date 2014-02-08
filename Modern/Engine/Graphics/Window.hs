@@ -7,6 +7,12 @@ import qualified Graphics.UI.GLFW as GLFW
 createGLFWWindow :: Int -> Int -> IO GLFW.Window
 createGLFWWindow width height = do
     _ <- GLFW.init
+
+    -- Window Hints
+    GLFW.windowHint $ GLFW.WindowHint'RefreshRate 60
+    GLFW.windowHint $ GLFW.WindowHint'Samples 16
+    --GLFW.windowHint $ GLFW.WindowHint'OpenGLDebugContext True
+
     Just win <- GLFW.createWindow width height "GLFW + Haskell" Nothing Nothing
     GLFW.setWindowPos win 100 50
     GLFW.makeContextCurrent (Just win)

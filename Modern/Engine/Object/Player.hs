@@ -22,20 +22,36 @@ mkPlayer = Player   (Vec3 0 20 0) (Vec3 0 0 0)
 
 pUpdate :: World t -> World t
 pUpdate w =
-    let p = worldPlayer w
-        state = worldState w
-        origSpeed = playerSpeed p
-        speed = origSpeed * stateDelta state
-        newP = p{playerSpeed = speed}
-        -- Do actual update
-        modifiedW = playerKeyUpdateSafe w{worldPlayer = playerMouseUpdate newP}
-        modifiedP = worldPlayer modifiedW
-        gravityP = applyGravityVelocity w modifiedP
+    if not $ statePaused $ worldState w
+        then
+        let p = worldPlayer w
+            state = worldState w
+            origSpeed = playerSpeed p
+            speed = origSpeed * stateDelta state
+            newP = p{playerSpeed = speed}
+            -- Do actual update
+            modifiedW = playerKeyUpdateSafe w{worldPlayer = playerMouseUpdate newP}
+            modifiedP = worldPlayer modifiedW
+            gravityP = applyGravityVelocity w modifiedP
 
-        resolvedP = resolveVelocity w gravityP
+            resolvedP = resolveVelocity w gravityP
 
-    in modifiedW{worldPlayer =
-        resolvedP{playerSpeed = origSpeed}}
+        in modifiedW{worldPlayer =
+            resolvedP{playerSpeed = origSpeed}}
+    else
+        let p = worldPlayer w
+            state = worldState w
+            origSpeed = playerSpeed p
+            speed = origSpeed * stateDelta state
+            newP = p{playerSpeed = speed}
+            -- Do actual update
+            modifiedW = playerKeyUpdateSafe w{worldPlayer = playerMouseUpdate newP}
+            modifiedP = worldPlayer modifiedW
+            gravityP = applyGravityVelocity w modifiedP
+
+            resolvedP = resolveVelocity w gravityP
+        in modifiedW{worldPlayer =
+            resolvedP{playerSpeed = origSpeed}}
 
 -- | Input for first person camera.
 baseInput :: Input t
@@ -86,7 +102,7 @@ spaceIn w =
             if abs vy < 0.01
                 then w{worldPlayer =
                     p{playerVelocity =
-                        curVel + Vec3 0 0.4 0}}
+                        curVel + Vec3 0 0.2 0}}
             else w
 
 escIn :: World t -> World t
@@ -99,6 +115,7 @@ escIn w =
             }
         }
 
+-- | Calculate delta movement from Player and eaw input movement.
 calculateLookMovement :: GameObject t -> Vec3 GLfloat -> Vec3 GLfloat
 calculateLookMovement p@(Player{}) (Vec3 idx idy idz) =
     let Vec3 _ rry _ = playerRotation p
@@ -133,6 +150,8 @@ moveFromLookSlide world player@(Player{}) idVec =
 moveFromLookSlide _ _ _ =
     error "Player.moveFromLookSlide can only be used on Players."
 
+-- | Calculate new velocity from current object
+--   and raw movement.
 setVelocityFromLook :: GameObject t -> Vec3 GLfloat -> GameObject t
 setVelocityFromLook player@(Player{}) idVec =
     let movement = calculateLookMovement player idVec
@@ -140,30 +159,8 @@ setVelocityFromLook player@(Player{}) idVec =
             playerVelocity player + movement}
 setVelocityFromLook _ _ = error "Player.setVelocityFromLook"
 
-{-
-moveWithStepOld :: World t -> GameObject t -> Vec3 GLfloat -> GameObject t
-moveWithStepOld world player@(Player{}) movement@(Vec3 mx _ mz) = do
-    let (moved, mabInt) = moveObjectSlideIntersecter
-                world player movement
-    if isJust mabInt
-        then
-            let Just (AABB _ (Vec3 _ abMaxY _)) = mabInt
-                (Just (AABB (Vec3 _ pMiny _) _)) = calculateNewWholeAABB moved
-                yStep = abMaxY - pMiny
-            in if abs yStep < 1 && abs yStep > 1e-2
-                    then
-                    let moved2 = moveObjectSlide world moved $
-                                    Vec3 mx (yStep+1e-2) mz
-                        Vec3 velX _ velZ = playerVelocity moved2
-                    in moved2{playerVelocity = Vec3 velX 0 velZ}
-                else
-                    let Vec3 velX _ velZ = playerVelocity moved
-                    in moved{playerVelocity = Vec3 velX 0 velZ}
-    else moved
-moveWithStepOld _ _ _ =
-    error "Player.moveWithStepOld can only be used on Players."
--}
-
+-- | Move Player from raw delta movement, simulating
+--   the Player stepping up small steps.
 moveWithStep :: World t -> GameObject t -> Vec3 GLfloat -> GameObject t
 moveWithStep world player@(Player{}) movement@(Vec3 mx _ mz) = do
     let (moved, mabInt) = moveObjectSlideAllIntersecters
@@ -174,21 +171,22 @@ moveWithStep world player@(Player{}) movement@(Vec3 mx _ mz) = do
                 abMaxY = maximum abMaxYs
                 (Just (AABB (Vec3 _ pMiny _) _)) = calculateNewWholeAABB moved
                 yStep = abMaxY - pMiny
-            in if abs yStep < 100 && abs yStep > 1e-2
+            in if abs yStep < 2
                     then
-                    let moved2 = moveObjectSlide world moved $
+                    let moved2 =
+                            moveObjectSlide world moved $
                                     Vec3 mx (yStep+1e-2) mz
                         Vec3 velX _ velZ = playerVelocity moved2
+                        
                     in moved2{playerVelocity = Vec3 velX 0 velZ}
                 else
                     let Vec3 velX _ velZ = playerVelocity moved
                     in moved{playerVelocity = Vec3 velX 0 velZ}
     else moved
-
 moveWithStep _ _ _ =
     error "Player.moveWithStep can only be used on Players."
 
-
+-- | Update rotation from mouse input.
 playerMouseUpdate :: GameObject t -> GameObject t
 playerMouseUpdate player =
     let Vec2 rawdx rawdy = inputMouseDelta $ playerInput player
@@ -196,7 +194,6 @@ playerMouseUpdate player =
         -- TODO: adjust multipliers
         (dxx, dy) = (rawdx*0.1, rawdy*0.1)
 
-        --ppos = playerPosition player
         Vec3 rx ry rz = playerRotation player
 
         dx = -dxx
@@ -271,6 +268,7 @@ playerKeyUpdateTailSafe _ _ =
     error $ "Player.playerKeyUpdateTailSafe is meant"
         ++ " to be used only on Players."
 
+-- | Change Player's velocity to simulate gravity.
 applyGravityVelocity :: World t -> GameObject t -> GameObject t
 applyGravityVelocity world p@(Player{}) =
     let Vec3 pvx pvy pvz = playerVelocity p
@@ -286,12 +284,13 @@ applyGravityVelocity world p@(Player{}) =
         then p{playerVelocity = Vec3 pvx 0 pvz}
     else
         let Vec3 vx vy vz = playerVelocity p
-            newY = max (vy - 0.02) (-1)
+            newY = max (vy - 0.01) (-1)
         in p{playerVelocity =
             Vec3 vx newY vz}
 applyGravityVelocity _ _ =
     error "Player.applyGravityVelocity can only be used on Players."
 
+-- | Translate velocity into a new position.
 resolveVelocity :: World t -> GameObject t -> GameObject t
 resolveVelocity world p@(Player{}) =
     let pVel@(Vec3 _ yv _) = playerVelocity p

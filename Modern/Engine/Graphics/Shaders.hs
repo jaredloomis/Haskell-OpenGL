@@ -1,11 +1,15 @@
 {-# LANGUAGE RankNTypes #-}
-module Engine.Graphics.Shaders where
+module Engine.Graphics.Shaders (
+    ShaderAttrib, ShaderUniform, createShaderAttribs,
+    loadProgram, bindTextures, unBindTextures,
+    setShaderAttribs, disableShaderAttribs, setUniforms,
+    getMatrixFromGL, quickGetUniform, getAttrLocs
+) where
 
 import Control.Monad (when)
 import Control.Applicative ((<$>))
 import Foreign
-    (with, nullPtr, Ptr, Storable, toBool, allocaArray0,
-     alloca, peek)
+    (with, nullPtr, Ptr, Storable, toBool, allocaArray0)
 import Foreign.C.String (withCString, peekCString)
 import Foreign.C.Types (CChar)
 
@@ -16,12 +20,23 @@ import qualified Graphics.GLUtil as GU
 
 import Engine.Core.Vec
 import Engine.Graphics.Textures
+import Engine.Graphics.GraphicsUtils
 
 -- | Attrib id, Buffer id, size of attrib.
 type ShaderAttrib = Vec3 GLuint
 
 -- | Name, Values
 type ShaderUniform = (String, IO [GLfloat])
+
+-- | Simply pack the arguments together into an array of
+--   ShaderAttribs.
+createShaderAttribs :: [GLuint] -> [GLuint] -> [GLuint] -> [ShaderAttrib]
+createShaderAttribs (attr:attrs) (buff:buffs) (size:sizes) =
+    Vec3 attr buff size : createShaderAttribs attrs buffs sizes
+createShaderAttribs [] [] [] = []
+createShaderAttribs _ _ _ =
+    error $ "Model.createShaderAttribs: "
+        ++ "given lists are not the same length."
 
 -- | Loads a pair of vertex and fragment shaders
 --   given the two FilePaths.
@@ -112,16 +127,16 @@ unBindTextures =
             glBindTexture gl_TEXTURE_2D 0
 
 -- | Binds a list of ShaderAttribs.
-bindShaderAttribs :: [ShaderAttrib] -> IO ()
-bindShaderAttribs (Vec3 attr buf len : rest) = do
+setShaderAttribs :: [ShaderAttrib] -> IO ()
+setShaderAttribs (Vec3 attr buf len : rest) = do
     -- Enable the attribute buffer.
     glEnableVertexAttribArray attr
     -- Give OpenGL the information.
     glBindBuffer gl_ARRAY_BUFFER buf
     -- Tell OpenGL about the info.
     glVertexAttribPointer attr (fromIntegral len) gl_FLOAT 0 0 GU.offset0
-    bindShaderAttribs rest
-bindShaderAttribs [] = return ()
+    setShaderAttribs rest
+setShaderAttribs [] = return ()
 
 -- | Disables a list of ShaderAttribs. Call after drawing?
 disableShaderAttribs :: [ShaderAttrib] -> IO ()
@@ -133,8 +148,8 @@ disableShaderAttribs [] = return ()
 
 -- | Calls glUniformxf on all Uniforms, given the
 --   shader.
-bindUniforms :: GLuint -> [ShaderUniform] -> IO ()
-bindUniforms shader ((name, valsIo):xs) = do
+setUniforms :: GLuint -> [ShaderUniform] -> IO ()
+setUniforms shader ((name, valsIo):xs) = do
     vals <- valsIo
     let len = length vals
     loc <- withCString name $ glGetUniformLocation shader
@@ -147,13 +162,24 @@ bindUniforms shader ((name, valsIo):xs) = do
         _ -> putStrLn $ "Bad length value in ShaderUniform " 
                         ++ name ++ ": " ++ show len
 
-    bindUniforms shader xs
-bindUniforms _ [] = return ()
+    setUniforms shader xs
+setUniforms _ [] = return ()
 
--- | Utility function to get a uniform value from a shader.
+-- | Retrieve location of each shader attrib
+--   in the given program.
+getAttrLocs :: GLuint -> [String] -> IO [GLuint]
+getAttrLocs prog (attrName:xs) = do
+    curN <- withCString attrName $ glGetAttribLocation prog
+    let cur = fromIntegral curN
+    rest <- getAttrLocs prog xs
+    return $ cur:rest
+getAttrLocs _ [] = return []
+
+-- | Get a matrix from OpenGL.
+getMatrixFromGL :: GLenum -> IO [GLfloat]
+getMatrixFromGL mat = withNewPtrArray (glGetFloatv mat) 16
+
+-- | Utility function to get a uniform location from a shader.
 quickGetUniform :: GLuint -> String -> IO GLint
-quickGetUniform shader name = withCString name $ glGetUniformLocation shader
-
--- | Perform IO action with a new pointer.
-withNewPtr :: forall b a. Storable b => (Ptr b -> IO a) -> IO b
-withNewPtr f = alloca (\p -> f p >> peek p)
+quickGetUniform shader name =
+    withCString name $ glGetUniformLocation shader

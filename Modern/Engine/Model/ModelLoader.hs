@@ -10,6 +10,8 @@ import Data.List.Split
 import System.IO
 import Data.IORef
 
+import Criterion.Main
+
 import qualified Data.ByteString.Char8 as B
 
 import Graphics.Rendering.OpenGL.Raw (GLfloat, GLuint)
@@ -96,6 +98,12 @@ loadByteString =
                     then (Nothing, Nothing, Nothing,
                           Just $ readFaceGroupsB (tail $ splitSpacesB line))
                 else (Nothing, Nothing, Nothing, Nothing))) ([], [], [], [])
+
+test :: IO ()
+test = defaultMain [
+    bench "fact 30" $ whnf splitSpacesB "Why be gay?",
+    bench "fact 40" $ whnf splitSpacesB "Hello, world, how are you???"
+    ]
         
 consMine :: (Maybe (Vec3 GLfloat),
             Maybe (Vec3 GLfloat),

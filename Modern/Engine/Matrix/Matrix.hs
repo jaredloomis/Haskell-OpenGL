@@ -1,33 +1,98 @@
--- | Shamelessly stolen from:
---   https://github.com/SonOfLilit/modern-opengl-tutorial/blob/master/Matrix.hs
---   who stole it from:
+-- | Taken from:
 --   https://github.com/kig/tomtegebra/blob/master/Tomtegebra/Matrix.hs
 module Engine.Matrix.Matrix where
 
 import Data.List
 import Foreign.Ptr
 import Engine.Core.Vec
+import Data.Time (utctDayTime)
+
 import qualified Graphics.Rendering.OpenGL as GL
-import Graphics.Rendering.OpenGL (($=), GLfloat, GLmatrix)
+import Graphics.Rendering.OpenGL.Raw
+import Graphics.Rendering.OpenGL (($=), GLmatrix)
+
+import Engine.Core.World
+import Engine.Graphics.Shaders
+import Engine.Object.GameObject
+import Engine.Model.Model
+
+data WorldMatrices = WorldMatrices {
+    matrixModel :: Matrix4x4,
+    matrixView :: Matrix4x4,
+    matrixProjection :: Matrix4x4
+}
 
 -- | 4x4 Matrix in the OpenGL orientation:
 --   translation column is the last 4 elements.
-type Matrix4x4 = [GVector4]
+type Matrix4x4 = [[GLfloat]]
 -- | 3x3 Matrix in the OpenGL orientation.
-type Matrix3x3 = [GVector3]
+type Matrix3x3 = [[GLfloat]]
 -- | Four element GLfloat vector.
 type GVector4 = [GLfloat]
 -- | Three element GLfloat vector.
 type GVector3 = [GLfloat]
 
-grotate :: GLfloat -> GL.Vector3 GLfloat -> IO ()
-grotate = GL.rotate
+renderObjectsMat :: World t -> WorldMatrices -> [GameObject t] -> IO ()
+renderObjectsMat world wm (object:rest) = do
+    let model = pentityModel object
+        Vec3 objx objy objz = getPos object
+        mShader = modelShader model
 
-gtranslate :: GL.Vector3 GLfloat -> IO ()
-gtranslate = GL.translate 
+        modelMat = matrixModel wm
 
-glScale3 :: GL.Vector3 GLfloat -> IO ()
-glScale3 (GL.Vector3 x y z) = GL.scale x y z
+        -- Move Object
+        translated = gtranslationMatrix [objx, objy, objz]
+
+    -- Use object's shader
+    glUseProgram mShader
+
+    --glUniformMatrix4fv (fromIntegral mShader) 1 (fromIntegral gl_FALSE)
+
+    -- Bind buffers to variable names in shader.
+    setShaderAttribs $ modelShaderVars model
+    setWorldUniforms world mShader
+    bindTextures (modelTextures model) mShader
+
+    -- Set time uniform.
+    let wState = worldState world
+        utcTime = stateTime wState
+        dayTime = realToFrac $ utctDayTime utcTime
+    setUniforms mShader [("time", return [dayTime])]
+
+    -- Do the drawing.
+    glDrawArrays gl_TRIANGLES 0 (modelVertCount model)
+
+    -- TODO: Remove if not necessary.
+    -- Disable textures.
+    unBindTextures (fromIntegral . length . modelTextures $ model)
+
+    -- Turn off VBO/VAO
+    disableShaderAttribs $ modelShaderVars model
+
+    -- Disable the object's shader.
+    glUseProgram 0
+
+    -- Continue rendering the rest of the entities in the world.
+    renderObjectsMat world wm rest
+renderObjectsMat _ _ [] = return ()
+
+
+calculateMatricesFromPlayer :: GameObject a -> WorldMatrices
+calculateMatricesFromPlayer p@(Player{}) =
+    let Vec3 px py pz = playerPosition p
+        projMat = gperspectiveMatrix 60 (800/600) 0.1 100
+        viewMat = gtranslationMatrix [-px, -py, -pz]
+        modelMat = gidentityMatrix
+    in WorldMatrices modelMat viewMat projMat
+
+grotate :: GLfloat -> Vec3 GLfloat -> IO ()
+grotate amt (Vec3 x y z) = GL.rotate amt $ GL.Vector3 x y z
+
+gtranslate :: Vec3 GLfloat -> IO ()
+gtranslate (Vec3 x y z) = GL.translate $ GL.Vector3 x y z
+
+glScale3 :: Vec3 GLfloat -> IO ()
+glScale3 (Vec3 x y z) = GL.scale x y z
 
 glScale :: GLfloat -> IO ()
 glScale s = GL.scale s s s

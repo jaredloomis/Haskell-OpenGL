@@ -1,6 +1,8 @@
+{-# LANGUAGE RankNTypes #-}
+--{-# LANGUAGE TemplateHaskell #-}
 module Engine.Core.World (
     World(..), WorldState(..), playerAABB,
-    GameObject(..), Input(..), bindWorldUniforms,
+    GameObject(..), Input(..), setWorldUniforms,
     loadWorldTexture, getWorldTime
 ) where
 
@@ -17,6 +19,25 @@ import Engine.Graphics.Textures
 import Engine.Core.Vec
 import Engine.Model.Model
 import Engine.Model.AABB
+
+{-
+data Arc      = Arc {_degree   :: Int, _minute    :: Int, _second :: Int}
+data Location = Location {_latitude :: Arc, _longitude :: Arc}
+
+$(makeLenses ''Location)
+
+getLatitude :: Location -> Arc
+getLatitude = view latitude 
+
+setLatitude :: Arc -> Location -> Location
+setLatitude = set latitude
+
+modifyLatitude :: (Arc -> Arc) -> (Location -> Location)
+modifyLatitude f = latitude `over` f
+
+--modifyLatitude :: (Arc -> Arc) -> (Location -> Location)
+--modifyLatitude f lat = setLatitude (f $ getLatitude lat)
+-}
 
 data World t = World {
     worldPlayer :: !(GameObject t),
@@ -64,10 +85,10 @@ data Input t = Input {
     inputMouseSpeed :: !GLfloat
 }
 
--- | Bind a world's uniforms to given shader.
-bindWorldUniforms :: World t -> GLuint -> IO ()
-bindWorldUniforms world shader =
-    bindUniforms shader $ worldUniforms world
+-- | Set a world's uniforms to given shader.
+setWorldUniforms :: World t -> GLuint -> IO ()
+setWorldUniforms world shader =
+    setUniforms shader $ worldUniforms world
 
 -- | Load a texture using the WorldState to keep track of texture ID.
 loadWorldTexture :: WorldState -> FilePath -> IO GL.TextureObject
