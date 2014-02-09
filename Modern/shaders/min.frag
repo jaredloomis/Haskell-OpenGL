@@ -5,31 +5,34 @@ in vec3 vertex;
 in vec3 norm;
 in vec2 textureCoord;
 in flat int texId;
+in mat4 modelMat;
+in mat4 viewMat;
 
-layout(location = 6) uniform vec3 cameraPosition;
-layout(location = 7) uniform vec3 lightPos;
-layout(location = 8) uniform float time;
-layout(location = 9) uniform sampler2D textures[7];
+layout(location = 8) uniform vec3 cameraPosition;
+layout(location = 9) uniform vec3 lightPos;
+layout(location = 10) uniform float time;
+layout(location = 11) uniform sampler2D textures[7];
 
 layout(location = 0) out vec4 outColor;
-//out vec4 outColor;
 
 void main()
 {
+    mat4 mv = modelMat * viewMat;
     //Constants.
     const float shininess = 8.0;
     const float maxSpec = 0.8;
     const vec3 ambColor = vec3(0.01, 0.01, 0.01);
 
+    mat4 normalMatrix = transpose(inverse(mv));
+
     //Position of vertex in modelview space.
-    vec3 vertexPosition = vec3(gl_ModelViewMatrix * vec4(vertex, 1.0));
+    vec3 vertexPosition = vec3(mv * vec4(vertex, 1.0));
 
     //Surface normal of current vertex.
-    vec3 surfaceNormal = normalize(vec3(gl_NormalMatrix * norm));
-
+    vec3 surfaceNormal = normalize(vec3(normalMatrix * vec4(norm, 1.0)));
 
     //Light pos in model space.
-    vec3 lightPosTrans = vec3(gl_ModelViewMatrix * vec4(lightPos, 1.0));
+    vec3 lightPosTrans = vec3(mv * vec4(lightPos, 1.0));
 
     //Direction light has traveled to get to vertexPosition.
     vec3 lightDirection = normalize(lightPosTrans - vertexPosition);

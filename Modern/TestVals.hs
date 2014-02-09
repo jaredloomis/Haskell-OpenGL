@@ -29,7 +29,7 @@ mkWorld = do
     objb <- mkObj2
     --objc <- mkObj3
     World mkPlayer [objb]
-        [] <$> mkWorldState
+        [("lightPos", return [0.0, 40.0, 0.0])] <$> mkWorldState
 
 
 mkWorldState :: IO WorldState
@@ -86,9 +86,9 @@ mkModel3 = do
                                mainFragShader
 
 mainVertShader :: String
---mainVertShader = "shaders" </> "min.vert"
-mainVertShader = "shaders" </> "modern" </> "modern.vert"
+mainVertShader = "shaders" </> "min.vert"
+--mainVertShader = "shaders" </> "modern" </> "modern.vert"
 
 mainFragShader :: String
---mainFragShader = "shaders" </> "min.frag"
-mainFragShader = "shaders" </> "modern" </> "modern.frag"
+mainFragShader = "shaders" </> "min.frag"
+--mainFragShader = "shaders" </> "modern" </> "modern.frag"

@@ -7,7 +7,7 @@ module Engine.Matrix.Matrix where
 
 import Data.List (transpose)
 import Foreign.Marshal.Array (withArray)
---import Data.Time (utctDayTime)
+import Data.Time (utctDayTime)
 
 import qualified Graphics.Rendering.OpenGL as GL
 import Graphics.Rendering.OpenGL.Raw
@@ -82,21 +82,21 @@ renderObjectsMat world wm (object:rest) = do
 
     -- Bind buffers to variable names in shader.
     setShaderAttribs $ modelShaderVars model
-    --setWorldUniforms world mShader
-    --bindTextures (modelTextures model) mShader
+    setWorldUniforms world mShader
+    bindTextures (modelTextures model) mShader
 
     -- Set time uniform.
-    --let wState = worldState world
-    --    utcTime = stateTime wState
-    --    dayTime = realToFrac $ utctDayTime utcTime
-    --setUniforms mShader [("time", return [dayTime])]
+    let wState = worldState world
+        utcTime = stateTime wState
+        dayTime = realToFrac $ utctDayTime utcTime
+    setUniforms mShader [("time", return [dayTime])]
 
     -- Do the drawing.
     glDrawArrays gl_TRIANGLES 0 (modelVertCount model)
 
     -- TODO: Remove if not necessary.
     -- Disable textures.
-    --unBindTextures (fromIntegral . length . modelTextures $ model)
+    unBindTextures (fromIntegral . length . modelTextures $ model)
 
     -- Turn off VBO/VAO
     disableShaderAttribs $ modelShaderVars model
@@ -110,11 +110,6 @@ renderObjectsMat _ _ [] = return ()
 
 setMatrixUniforms :: GLuint -> WorldMatrices -> IO ()
 setMatrixUniforms shader wm = do
-
-    printMatrix $ toGLFormat $ matrixView wm
-    --printMatrix $ toGLFormat $ matrixModel wm
-    putStrLn "--------"
-
     modelMatrix <- quickGetUniform shader "modelMatrix"
     withArray (toGLFormat $ matrixModel wm)
         $ glUniformMatrix4fv modelMatrix 1 (fromIntegral gl_FALSE)
@@ -132,11 +127,10 @@ calculateMatricesFromPlayer p@(Player{}) =
     let Vec3 px py pz = playerPosition p
         Vec3 rx ry _ = playerRotation p
         projMat = gperspectiveMatrix 45 (800/600) 0.1 100
-        rotatedMatX = grotationMatrix rx [-1, 0, 0]
-        rotatedMatXY = rotatedMatX * grotationMatrix ry [0, -1, 0]
+        rotatedMatX = grotationMatrix (rx * (pi/180)) [-1, 0, 0]
+        rotatedMatXY = rotatedMatX * grotationMatrix (ry * (pi/180)) [0, -1, 0]
         translatedMat = gtranslationMatrix [-px, -py, -pz]
         viewMat = rotatedMatXY * translatedMat
-        --viewMat = calculatePlayerViewMatrix p
         modelMat = gidentityMatrix
     in WorldMatrices modelMat viewMat projMat
 
@@ -204,10 +198,6 @@ ginvertMatrix4x4ON m = -- orthonormal matrix inverse
         [gdotVec a t, gdotVec b t, gdotVec c t, t4 !! 3]
     ]
 
---gtranslateMatrix :: Matrix4x4 -> GVector3 -> Matrix4x4
---gtranslateMatrix mat vec =
-    
-
 -- | Creates the translation matrix that translates points by the given vector.
 gtranslationMatrix :: GVector3 -> Matrix4x4
 gtranslationMatrix [x,y,z] =
@@ -226,50 +216,6 @@ gscalingMatrix [x,y,z] =
     [0,0,z,0],
     [0,0,0,1]]
 gscalingMatrix _ = gidentityMatrix
-
-{-
--- | Creates a rotation matrix from the given angle and axis.
-grotationMatrix :: GLfloat -> GVector3 -> Matrix4x4
-grotationMatrix angle [x, y, z]
-    | abs x == 1 = grotateX angle
-    | abs y == 1 = grotateY angle
-    | abs z == 1 = grotateZ angle
-    | otherwise = []
-grotationMatrix _ _ = []
-    
-grotateX :: GLfloat -> Matrix4x4
-grotateX a =
-    let c = cos a
-        s = sin a
-    in [
-        [1, 0, 0, 0],
-        [0, c, -s, 0],
-        [0, s, c, 0],
-        [0, 0, 0, 1]
-       ]
-
-grotateY :: GLfloat -> Matrix4x4
-grotateY a =
-    let c = cos a
-        s = sin a
-    in [
-        [c, 0, s, 0],
-        [0, 1, 0, 0],
-        [-s, 0, c, 0],
-        [0, 0, 0, 1]
-       ]
-
-grotateZ :: GLfloat -> Matrix4x4
-grotateZ a =
-    let c = cos a
-        s = sin a
-    in [
-        [c, -s, 0, 0],
-        [s, c, 0, 0],
-        [0, 0, 1, 0],
-        [0, 0, 0, 1]
-       ]
--}
 
 grotationMatrix :: GLfloat -> GVector3 -> Matrix4x4
 grotationMatrix angle axis =

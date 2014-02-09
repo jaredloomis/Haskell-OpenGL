@@ -1,4 +1,3 @@
-{-# LANGUAGE RankNTypes #-}
 module Engine.Graphics.Shaders (
     ShaderAttrib, ShaderUniform, createShaderAttribs,
     loadProgram, bindTextures, unBindTextures,

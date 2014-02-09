@@ -8,7 +8,6 @@ import qualified Graphics.UI.GLFW as GLFW
 import Graphics.Rendering.OpenGL.Raw
 
 import Engine.Graphics.Graphics
-import Engine.Graphics.Shaders
 import Engine.Object.Player
 import TestVals
 import Engine.Object.GameObject
@@ -53,7 +52,7 @@ main = do
             -- Perform logic update on the world.
             newWorld <- updateStep win world
             -- Render objects in world.
-            renderStep' newWorld win
+            renderStep newWorld win
 
             -- Swap back and front buffer.
             GLFW.swapBuffers win
@@ -63,19 +62,16 @@ main = do
 
             loop win newWorld
 
-renderStep' :: World t -> GLFW.Window -> IO ()
-renderStep' world _ = renderWorldMat world
-
 renderStep :: World t -> GLFW.Window -> IO ()
-renderStep world _ = do
+renderStep world _ = renderWorldMat world
+
+renderStepOld :: World t -> GLFW.Window -> IO ()
+renderStepOld world _ = do
     -- Reset the matrix to a default state.
     glLoadIdentity
 
     -- Apply player's transformations.
     applyTransformations (worldPlayer world)
-
-    getMatrixFromGL gl_MODELVIEW_MATRIX >>= printMatrix
-    putStrLn "--------"
 
     -- Render all entities.
     renderWorld world
