@@ -1,4 +1,13 @@
 <h1>Haskell-OpenGL</h1>
+<h2>Features</h2>
+- Full support for loading .obj + .mtl files.
+- Simplex procedurally generated terrain.
+- GLSL 4+
+- Loading and displaying of textures in a variety of formats.
+- Collision detection via AABBs.
+- Gravity / basic physics.
+- Uses own matrices, according to the OpenGL 2.1+ spec.
+- Model animation.
 <h2>Screenshots</h2>
 <h4>Simplex procedurally generated terrain.</h4>
 
@@ -7,11 +16,9 @@
 <h4>Loading of models, including textures.</h4>
 
 ![](http://i.imgur.com/URxxELT.png)
-<h2>Plan</h2>
-Simple but well-written 3D (which also allows for 2D) game &| game library written in Haskell using [OpenGL](http://hackage.haskell.org/package/OpenGL) and [GLFW-b](http://hackage.haskell.org/package/GLFW-b-1.4.3). Also using [GLUtil](https://github.com/acowley/GLUtil) and [JuicyPixels](http://hackage.haskell.org/package/JuicyPixels).
 
 <h2>Performance</h2>
-Benchmark was done with a procedurally generated terrain, 50x50 vertices, with collision detection per face and a surrounding AABB to check general collision. Test was performed by walking around the terrain. Benchmarked on 1/31/14 with `ghc 7.6.3`.
+Benchmark was done with a procedurally generated terrain, 50x50 vertices, with collision detection per face and a surrounding AABB to check general collision. Test was performed by walking around the terrain. Benchmarked on 1/31/14 with `ghc 7.6.3`. <b>This benchmark was done before a few significant changes.</b>
 
 Tested on `Arch Linux 64 bit` with
 - `16GB RAM`
@@ -35,27 +42,34 @@ All commands using the `-O` or `-O2` flags performed basically the same, with a 
 
 <h2>Todo</h2>
 
-- Cleanup code again, some useless functions have piled up.
+<h4>Top</h4>
+- <b>Fix large strain on GPU since switching to client-side matrices. Probably a few mistake OpenGL calls.</b>
+- <b>Implement Window data type into code to allow for window resizing (`gperspective 45 (width/height)...` and resize viewport).</b>
+- Cleanup code again, look for efficiency increases.
+- Make walking more stable and efficient.
+
+<h4>Fixes</h4>
+- Fix normals in procedurally generated terrain (Every other face is off by a bit).
+- Better generalization of loading .obj files. Current loader is not compatible with many (most?) .obj files.
 
 <h4>Additions</h4>
 - Text / GUI
 - Physics
 - Audio support using a library
 - Relative file loading in .mtl and .obj files.
+- Save files.
 
 <h4>OpenGL</h4>
-- Bring game up to more complete OpenGL 3.3+ spec by handling matrices without OpenGL.
-    - Use [Vect](http://hackage.haskell.org/package/vect). It has an [OpenGL package](http://hackage.haskell.org/package/vect-opengl)
-    - Handle it on my own, using Vect, [Linear](http://hackage.haskell.org/package/linear), [this guy's Github](https://github.com/SonOfLilit/modern-opengl-tutorial/blob/master/Matrix.hs), and [tomtegebra Github](https://github.com/kig/tomtegebra/tree/master/Tomtegebra) as examples.
+- [Render to Texture / FBO](https://code.google.com/p/opengl-tutorial-org/source/browse/tutorial14_render_to_texture/tutorial14.cpp)
 - [Lots of stuff to add shader/graphics-wise](http://developer.download.nvidia.com/SDK/9.5/Samples/samples.html)
-- OpenGL 3.3+ [Sampler Objects](http://www.sinanc.org/blog/?p=215)
-- Shadows (This can be very complicated and hard to do without a glm-like library)
+- OpenGL 3.3+ [Sampler Objects](http://www.sinanc.org/blog/?p=215) (Pretty easy).
+- Shadows
     - [GPUGems](http://http.developer.nvidia.com/GPUGems/gpugems_ch09.html)
 
 <h4>Performance increases</h4>
+- Fix large strain on GPU since switching to client-side matrices. Probably a few mistake OpenGL calls.
 - Use Bang Patterns.
-- Use [Parallelism](http://www.haskell.org/haskellwiki/Parallel), specifically in loading .obj.
-    - Load entire string from file (into `ByteString` preferably), then use par.
+- Use [Parallelism](http://www.haskell.org/haskellwiki/Parallel) in parts of the program like loading .obj/.mtl files.
 - Analyze generated [Haskell Core](http://www.haskell.org/haskellwiki/Performance/GHC#Looking_at_the_Core) code for possible efficiency increases.
     - [Tutorial on how to read and use Core](http://alpmestan.com/2013/06/27/ghc-core-by-example-episode-1/)
 - Instead of splitting a loaded terrain, just create a function to load multiple terrains and place them next to each other.
@@ -64,18 +78,11 @@ All commands using the `-O` or `-O2` flags performed basically the same, with a 
         - Requires Raytracing
         - [Java code](https://github.com/diwi/Space_Partitioning_Octree_BVH/tree/master/SpacePartitioning/src/DwBVH), [C# code](http://www.3dmuve.com/3dmblog/?p=182), [Scholarly paper](http://www.cg.cs.tu-bs.de/media/publications/minimal-bounding-volume-hierarchy.pdf), [C++ Walkthrough/tutorial](http://www.scratchapixel.com/lessons/3d-basic-lessons/lesson-12-introduction-to-acceleration-structures/bounding-volume-hierarchy-bvh-part-1/), [C++ code](https://github.com/brandonpelfrey/Fast-BVH), [Large academic paper](http://www.sci.utah.edu/~wald/Publications/2007/FastBuild/download/fastbuild.pdf), [Stackoverflow question](http://stackoverflow.com/questions/5077243/how-to-roll-a-fast-bvh-representation-in-haskell), [Another Stackoverflow question](http://stackoverflow.com/questions/15013523/how-to-sort-and-compare-in-a-bounding-volume-hierarchy), [Academic publication](http://cg.ibds.kit.edu/publications/p2012/RBVH/RBVH.pdf)
 - Use more efficient data structures - [ByteString](http://hackage.haskell.org/package/bytestring-0.9.2.1/docs/Data-ByteString.html) insteat of String, and [Vectors](https://hackage.haskell.org/package/vector) or [Arrays](https://hackage.haskell.org/package/array) instead of lists.
-- Speed up .obj loading. Currently reads the same file multiple times, making it <b>really</b> slow.
 
 <h4>Organization</h4>
-- Split `Player` and `Entity` data types, they do not share enough in common.
-- Define classes to constrain functions, instead of forcing the use of `GameObjects`.
-- Maybe Use [Lenses](http://hackage.haskell.org/package/lens).
-- Fix normals in procedurally generated terrain (Every other face is off by a bit).
-- Check out [Vinyl](http://www.jonmsterling.com/posts/2013-04-06-vinyl-modern-records-for-haskell.html).
+- Rewrite / modify ModelLoader module, make it much more modular and customizable.
+- Maybe define classes to constrain functions, instead of forcing the use of `GameObjects`?
 - Better documentation / comments.
-- Use <i>throw </i> instead of <i>error</i>?
-- Better generalization of loading .obj files (ie. not requiring slashes if only specifying vertices).
-- Maybe FRP? <i>Use [Helm](https://github.com/switchface/helm/blob/master/src/FRP/Helm/Utilities.hs) for inspiration</i> if anything.
 
 <h2>Interesting Extensions</h2>
 - [Stackoverflow question](http://stackoverflow.com/questions/10845179/which-haskell-ghc-extensions-should-users-use-avoid/10849782#10849782)
@@ -86,6 +93,12 @@ All commands using the `-O` or `-O2` flags performed basically the same, with a 
 - [Multi-parameter type classes](http://www.haskell.org/haskellwiki/Multi-parameter_type_class)
 - [Type Families](http://www.haskell.org/haskellwiki/GHC/Type_families)
 - <b>Bang Patterns</b>
+
+<h2>Used libraries</h2>
+- [OpenGL](http://hackage.haskell.org/package/OpenGL)
+- [GLFW-b](http://hackage.haskell.org/package/GLFW-b-1.4.3)
+- [GLUtil](https://github.com/acowley/GLUtil)
+- [JuicyPixels](http://hackage.haskell.org/package/JuicyPixels)
 
 <h2>Copyright</h2>
 Haskell-OpenGL - An open source game/library written in Haskell.
