@@ -13,6 +13,7 @@ import Engine.Core.Vec
 import Engine.Core.World
 import Engine.Model.Model
 
+{-
 mkWorld :: IO (World ())
 mkWorld = do
     obja <- mkObj
@@ -20,6 +21,16 @@ mkWorld = do
     objc <- mkObj3
     World mkPlayer [obja, objb, objc]
         [("lightPos", return [0.0, 40.0, 0.0])] <$> mkWorldState
+-}
+
+mkWorld :: IO (World ())
+mkWorld = do
+    --obja <- mkObj
+    objb <- mkObj2
+    --objc <- mkObj3
+    World mkPlayer [objb]
+        [] <$> mkWorldState
+
 
 mkWorldState :: IO WorldState
 mkWorldState = do
@@ -28,19 +39,21 @@ mkWorldState = do
 
 mkWorldStateRef :: IO (IORef WorldState)
 mkWorldStateRef = mkWorldState >>= newIORef
-
+{-
 mkObj :: IO (GameObject ())
 mkObj =
     PureEntity (Vec3 10 3 10) id <$> mkModel <*> return ()
+-}
 
 mkObj2 :: IO (GameObject ())
 mkObj2 =
     PureEntity (Vec3 0 0 0) id <$> mkTerrain <*> return ()
 
+{-
 mkObj3 :: IO (GameObject ())
 mkObj3 =
     PureEntity (Vec3 0 (-20) (-20)) id <$> mkModel3 <*> return ()
-
+-}
 {-
 pureMove :: GameObject t -> GameObject t
 pureMove pe@(PureEntity{}) =
@@ -52,13 +65,13 @@ mkModel :: IO Model
 mkModel = do
     worldStateRef <- mkWorldStateRef
     loadObjModel worldStateRef ("res" </> "objects/wow/wow.obj")
-                               ("shaders" </> "min.vert")
-                               ("shaders" </> "min.frag")
+                               mainVertShader
+                               mainFragShader
 
 mkTerrain :: IO Model
 mkTerrain = genSimplexModel
-            "shaders/min.vert"
-            "shaders/min.frag"
+            mainVertShader
+            mainFragShader
             50
             1
             1
@@ -69,5 +82,13 @@ mkModel3 :: IO Model
 mkModel3 = do
     worldStateRef <- mkWorldStateRef
     loadObjModel worldStateRef ("res" </> "objects/ibanez/ibanez.obj")
-                               ("shaders" </> "min.vert")
-                               ("shaders" </> "min.frag")
+                               mainVertShader
+                               mainFragShader
+
+mainVertShader :: String
+--mainVertShader = "shaders" </> "min.vert"
+mainVertShader = "shaders" </> "modern" </> "modern.vert"
+
+mainFragShader :: String
+--mainFragShader = "shaders" </> "min.frag"
+mainFragShader = "shaders" </> "modern" </> "modern.frag"

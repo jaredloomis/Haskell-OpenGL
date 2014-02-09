@@ -3,7 +3,8 @@ module Engine.Graphics.Shaders (
     ShaderAttrib, ShaderUniform, createShaderAttribs,
     loadProgram, bindTextures, unBindTextures,
     setShaderAttribs, disableShaderAttribs, setUniforms,
-    getMatrixFromGL, quickGetUniform, getAttrLocs
+    getMatrixFromGL, quickGetUniform, getAttrLocs,
+    printMatrix
 ) where
 
 import Control.Monad (when)
@@ -178,6 +179,12 @@ getAttrLocs _ [] = return []
 -- | Get a matrix from OpenGL.
 getMatrixFromGL :: GLenum -> IO [GLfloat]
 getMatrixFromGL mat = withNewPtrArray (glGetFloatv mat) 16
+
+printMatrix :: [GLfloat] -> IO ()
+printMatrix (a:b:c:d:xs) = do
+    print [a, b, c, d]
+    printMatrix xs
+printMatrix _ = return ()
 
 -- | Utility function to get a uniform location from a shader.
 quickGetUniform :: GLuint -> String -> IO GLint

@@ -6,16 +6,16 @@ import Data.Time (diffUTCTime)
 import qualified Graphics.UI.GLFW as GLFW
 
 import Graphics.Rendering.OpenGL.Raw
-    (glClear, gl_COLOR_BUFFER_BIT, glLoadIdentity,
-     gl_DEPTH_BUFFER_BIT, GLfloat)
 
 import Engine.Graphics.Graphics
+import Engine.Graphics.Shaders
 import Engine.Object.Player
 import TestVals
 import Engine.Object.GameObject
 import Engine.Graphics.Window
 import Engine.Core.Vec
 import Engine.Core.World
+import Engine.Matrix.Matrix
 
 main :: IO ()
 main = do
@@ -53,7 +53,7 @@ main = do
             -- Perform logic update on the world.
             newWorld <- updateStep win world
             -- Render objects in world.
-            renderStep newWorld win
+            renderStep' newWorld win
 
             -- Swap back and front buffer.
             GLFW.swapBuffers win
@@ -63,6 +63,9 @@ main = do
 
             loop win newWorld
 
+renderStep' :: World t -> GLFW.Window -> IO ()
+renderStep' world _ = renderWorldMat world
+
 renderStep :: World t -> GLFW.Window -> IO ()
 renderStep world _ = do
     -- Reset the matrix to a default state.
@@ -70,6 +73,9 @@ renderStep world _ = do
 
     -- Apply player's transformations.
     applyTransformations (worldPlayer world)
+
+    getMatrixFromGL gl_MODELVIEW_MATRIX >>= printMatrix
+    putStrLn "--------"
 
     -- Render all entities.
     renderWorld world

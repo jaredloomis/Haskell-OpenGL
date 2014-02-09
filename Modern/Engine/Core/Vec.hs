@@ -6,6 +6,9 @@ data Vec4 a = Vec4 !a !a !a !a deriving (Show, Eq)
 data Vec3 a = Vec3 !a !a !a deriving (Show, Eq)
 data Vec2 a = Vec2 !a !a deriving (Show, Eq)
 
+vec3ToVec4 :: Vec3 a -> a -> Vec4 a
+vec3ToVec4 (Vec3 x y z) = Vec4 x y z
+
 normalizeVec3 :: (Floating a) => Vec3 a -> Vec3 a
 normalizeVec3 v =
     let Vec3 a b c = scaleVec3 (recip $ lengthVec3 v) v

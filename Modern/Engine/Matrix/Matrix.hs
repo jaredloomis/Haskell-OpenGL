@@ -1,20 +1,22 @@
--- | Taken from:
+-- | Taken from / based on:
 --   https://github.com/kig/tomtegebra/blob/master/Tomtegebra/Matrix.hs
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Engine.Matrix.Matrix where
 
-import Data.List
-import Foreign.Ptr
-import Engine.Core.Vec
-import Data.Time (utctDayTime)
+import Data.List (transpose)
+import Foreign.Marshal.Array (withArray)
+--import Data.Time (utctDayTime)
 
 import qualified Graphics.Rendering.OpenGL as GL
 import Graphics.Rendering.OpenGL.Raw
-import Graphics.Rendering.OpenGL (($=), GLmatrix)
 
 import Engine.Core.World
 import Engine.Graphics.Shaders
 import Engine.Object.GameObject
 import Engine.Model.Model
+import Engine.Core.Vec
 
 data WorldMatrices = WorldMatrices {
     matrixModel :: Matrix4x4,
@@ -32,39 +34,69 @@ type GVector4 = [GLfloat]
 -- | Three element GLfloat vector.
 type GVector3 = [GLfloat]
 
+instance Num Matrix4x4 where
+    a * b =
+        map (\row -> map (gdotVec row) at) b
+        where at = transpose a
+    a + b = applyToIndices2 a b (+)
+    abs = map (map abs)
+    fromInteger i =
+        [
+        [fromInteger i, 0, 0, 0],
+        [0, fromInteger i, 0, 0],
+        [0, 0, fromInteger i, 0],
+        [0, 0, 0, fromInteger i]
+        ]
+    signum = map (map signum)
+
+applyToIndices2 :: [[a]] -> [[b]] -> (a -> b -> c) -> [[c]]
+applyToIndices2 (a:as) (b:bs) f =
+    applyToIndices a b f : applyToIndices2 as bs f
+applyToIndices2 _ _ _ = []
+
+applyToIndices :: [a] -> [b] -> (a -> b -> c) -> [c]
+applyToIndices (a:as) (b:bs) f =
+    f a b : applyToIndices as bs f
+applyToIndices _ _ _ = []
+
+renderWorldMat :: World t -> IO ()
+renderWorldMat world =
+    let worldMats = calculateMatricesFromPlayer
+                        (worldPlayer world)
+    in renderObjectsMat world worldMats (worldEntities world)
+
 renderObjectsMat :: World t -> WorldMatrices -> [GameObject t] -> IO ()
 renderObjectsMat world wm (object:rest) = do
     let model = pentityModel object
         Vec3 objx objy objz = getPos object
         mShader = modelShader model
 
-        modelMat = matrixModel wm
-
         -- Move Object
-        translated = gtranslationMatrix [objx, objy, objz]
+        modelMat = gtranslationMatrix [objx, objy, objz]
 
     -- Use object's shader
     glUseProgram mShader
 
-    --glUniformMatrix4fv (fromIntegral mShader) 1 (fromIntegral gl_FALSE)
+    -- Set Matrices.
+    setMatrixUniforms mShader wm{matrixModel = modelMat}
 
     -- Bind buffers to variable names in shader.
     setShaderAttribs $ modelShaderVars model
-    setWorldUniforms world mShader
-    bindTextures (modelTextures model) mShader
+    --setWorldUniforms world mShader
+    --bindTextures (modelTextures model) mShader
 
     -- Set time uniform.
-    let wState = worldState world
-        utcTime = stateTime wState
-        dayTime = realToFrac $ utctDayTime utcTime
-    setUniforms mShader [("time", return [dayTime])]
+    --let wState = worldState world
+    --    utcTime = stateTime wState
+    --    dayTime = realToFrac $ utctDayTime utcTime
+    --setUniforms mShader [("time", return [dayTime])]
 
     -- Do the drawing.
     glDrawArrays gl_TRIANGLES 0 (modelVertCount model)
 
     -- TODO: Remove if not necessary.
     -- Disable textures.
-    unBindTextures (fromIntegral . length . modelTextures $ model)
+    --unBindTextures (fromIntegral . length . modelTextures $ model)
 
     -- Turn off VBO/VAO
     disableShaderAttribs $ modelShaderVars model
@@ -76,51 +108,60 @@ renderObjectsMat world wm (object:rest) = do
     renderObjectsMat world wm rest
 renderObjectsMat _ _ [] = return ()
 
+setMatrixUniforms :: GLuint -> WorldMatrices -> IO ()
+setMatrixUniforms shader wm = do
+
+    printMatrix $ toGLFormat $ matrixView wm
+    --printMatrix $ toGLFormat $ matrixModel wm
+    putStrLn "--------"
+
+    modelMatrix <- quickGetUniform shader "modelMatrix"
+    withArray (toGLFormat $ matrixModel wm)
+        $ glUniformMatrix4fv modelMatrix 1 (fromIntegral gl_FALSE)
+
+    projectionMatrix <- quickGetUniform shader "projectionMatrix"
+    withArray (toGLFormat $ matrixProjection wm)
+        $ glUniformMatrix4fv projectionMatrix 1 (fromIntegral gl_FALSE)
+
+    viewMatrix <- quickGetUniform shader "viewMatrix"
+    withArray (toGLFormat $ matrixView wm)
+        $ glUniformMatrix4fv viewMatrix 1 (fromIntegral gl_FALSE)
 
 calculateMatricesFromPlayer :: GameObject a -> WorldMatrices
 calculateMatricesFromPlayer p@(Player{}) =
     let Vec3 px py pz = playerPosition p
-        projMat = gperspectiveMatrix 60 (800/600) 0.1 100
-        viewMat = gtranslationMatrix [-px, -py, -pz]
+        Vec3 rx ry _ = playerRotation p
+        projMat = gperspectiveMatrix 45 (800/600) 0.1 100
+        rotatedMatX = grotationMatrix rx [-1, 0, 0]
+        rotatedMatXY = rotatedMatX * grotationMatrix ry [0, -1, 0]
+        translatedMat = gtranslationMatrix [-px, -py, -pz]
+        viewMat = rotatedMatXY * translatedMat
+        --viewMat = calculatePlayerViewMatrix p
         modelMat = gidentityMatrix
     in WorldMatrices modelMat viewMat projMat
 
-grotate :: GLfloat -> Vec3 GLfloat -> IO ()
-grotate amt (Vec3 x y z) = GL.rotate amt $ GL.Vector3 x y z
+calculatePlayerViewMatrix :: GameObject a -> Matrix4x4
+calculatePlayerViewMatrix p@(Player{}) =
+    let Vec3 px py pz = playerPosition p
+        Vec3 rx ry _ = playerRotation p
+        eye = [px, py, pz]
+        cosPitch = cos rx
+        sinPitch = sin rx
+        cosYaw = cos ry
+        sinYaw = sin ry
 
-gtranslate :: Vec3 GLfloat -> IO ()
-gtranslate (Vec3 x y z) = GL.translate $ GL.Vector3 x y z
+        xaxis = [cosYaw, -sinPitch * sinYaw, -cosPitch * sinYaw]
+        yaxis = [0, cosPitch, -sinPitch]
+        zaxis = [sinYaw, sinPitch * cosYaw, cosPitch * cosYaw]
+    in [
+        xaxis ++ [0],
+        yaxis ++ [0],
+        zaxis ++ [0],
+        [-gdotVec xaxis eye, -gdotVec yaxis eye, -gdotVec zaxis eye, 1]
+       ]
 
-glScale3 :: Vec3 GLfloat -> IO ()
-glScale3 (Vec3 x y z) = GL.scale x y z
-
-glScale :: GLfloat -> IO ()
-glScale s = GL.scale s s s
-
--- | Multiplies the current OpenGL matrix with the given 'Matrix4x4'.
-gmultMatrix :: Matrix4x4 -> IO ()
-gmultMatrix m = do
-    gm <- gnewMatrix m
-    GL.multMatrix gm
-
-gloadIdentity :: IO ()
-gloadIdentity = gloadMatrix gidentityMatrix
-
--- | Loads the given 'Matrix4x4' as the current OpenGL matrix.
-gloadMatrix :: Matrix4x4 -> IO ()
-gloadMatrix m = do
-    gm <- gnewMatrix m
-    GL.matrix Nothing $= gm
-
--- | Converts the 'Matrix4x4' into a 'GLmatrix' 'GLfloat'
-gnewMatrix :: Matrix4x4 -> IO (GLmatrix GLfloat)
-gnewMatrix m = GL.newMatrix GL.ColumnMajor $ concat m :: IO (GLmatrix GLfloat)
-
--- | 'withMatrix' wrapper for 'withMatrix4x4'
-gwithMatrix4x4 :: Matrix4x4 -> (GL.MatrixOrder -> Ptr GLfloat -> IO a) -> IO a
-gwithMatrix4x4 mat4 m = do
-    mat <- gnewMatrix mat4
-    GL.withMatrix mat m
+toGLFormat :: [[GLfloat]] -> [GLfloat]
+toGLFormat = concat
 
 -- | The 'Matrix4x4' identity matrix.
 gidentityMatrix :: Matrix4x4
@@ -163,25 +204,80 @@ ginvertMatrix4x4ON m = -- orthonormal matrix inverse
         [gdotVec a t, gdotVec b t, gdotVec c t, t4 !! 3]
     ]
 
+--gtranslateMatrix :: Matrix4x4 -> GVector3 -> Matrix4x4
+--gtranslateMatrix mat vec =
+    
+
 -- | Creates the translation matrix that translates points by the given vector.
 gtranslationMatrix :: GVector3 -> Matrix4x4
-gtranslationMatrix [x,y,z] = [[1,0,0,0], [0,1,0,0], [0,0,1,0], [x,y,z,1]]
+gtranslationMatrix [x,y,z] =
+    [[1,0,0,0],
+     [0,1,0,0],
+     [0,0,1,0],
+     [x,y,z,1]]
 gtranslationMatrix _ = gidentityMatrix
 
 -- | Creates the scaling matrix that scales points by the factors given by the
 --   vector components.
 gscalingMatrix :: GVector3 -> Matrix4x4
-gscalingMatrix [x,y,z] = [[x,0,0,0], [0,y,0,0], [0,0,z,0], [0,0,0,1]]
+gscalingMatrix [x,y,z] =
+   [[x,0,0,0],
+    [0,y,0,0],
+    [0,0,z,0],
+    [0,0,0,1]]
 gscalingMatrix _ = gidentityMatrix
 
+{-
 -- | Creates a rotation matrix from the given angle and axis.
+grotationMatrix :: GLfloat -> GVector3 -> Matrix4x4
+grotationMatrix angle [x, y, z]
+    | abs x == 1 = grotateX angle
+    | abs y == 1 = grotateY angle
+    | abs z == 1 = grotateZ angle
+    | otherwise = []
+grotationMatrix _ _ = []
+    
+grotateX :: GLfloat -> Matrix4x4
+grotateX a =
+    let c = cos a
+        s = sin a
+    in [
+        [1, 0, 0, 0],
+        [0, c, -s, 0],
+        [0, s, c, 0],
+        [0, 0, 0, 1]
+       ]
+
+grotateY :: GLfloat -> Matrix4x4
+grotateY a =
+    let c = cos a
+        s = sin a
+    in [
+        [c, 0, s, 0],
+        [0, 1, 0, 0],
+        [-s, 0, c, 0],
+        [0, 0, 0, 1]
+       ]
+
+grotateZ :: GLfloat -> Matrix4x4
+grotateZ a =
+    let c = cos a
+        s = sin a
+    in [
+        [c, -s, 0, 0],
+        [s, c, 0, 0],
+        [0, 0, 1, 0],
+        [0, 0, 0, 1]
+       ]
+-}
+
 grotationMatrix :: GLfloat -> GVector3 -> Matrix4x4
 grotationMatrix angle axis =
     let [x,y,z] = gnormalizeVec axis
         c = cos angle
-        s = sin angle in
-    let c1 = 1-c in
-    [
+        s = sin angle
+        c1 = 1-c
+    in [
       [x*x*c1+c, y*x*c1+z*s, z*x*c1-y*s, 0],
       [x*y*c1-z*s, y*y*c1+c, y*z*c1+x*s, 0],
       [x*z*c1+y*s, y*z*c1-x*s, z*z*c1+c, 0],
@@ -217,23 +313,22 @@ gfrustumMatrix left right bottom top znear zfar =
         a = (right+left)/(right-left)
         b = (top+bottom)/(top-bottom)
         c = -(zfar+znear)/(zfar-znear)
-        d = -2*zfar*znear/(zfar-znear) in
-    [
-      [x, 0, 0, 0],
-      [0, y, 0, 0],
-      [a, b, c, -1],
-      [0, 0, d, 0]
-    ]
+        d = -2*zfar*znear/(zfar-znear)
+    in
+       [[x, 0, 0, 0],
+        [0, y, 0, 0],
+        [a, b, c, -1],
+        [0, 0, d, 0]]
 
 -- | Creates a perspective projection matrix for the given field-of-view,
 --   screen aspect ratio, znear and zfar.
 gperspectiveMatrix :: GLfloat -> GLfloat -> GLfloat -> GLfloat -> Matrix4x4
 gperspectiveMatrix fovy aspect znear zfar =
-    let ymax = znear * tan (fovy * pi / 360.0) in
-    let ymin = -ymax in
-    let xmin = ymin * aspect
-        xmax = ymax * aspect in
-    gfrustumMatrix xmin xmax ymin ymax znear zfar
+    let ymax = znear * tan (fovy * pi / 360.0)
+        ymin = -ymax
+        xmin = ymin * aspect
+        xmax = ymax * aspect
+    in gfrustumMatrix xmin xmax ymin ymax znear zfar
 
 -- | Normalizes a vector to a unit vector.
 gnormalizeVec :: [GLfloat] -> [GLfloat]
