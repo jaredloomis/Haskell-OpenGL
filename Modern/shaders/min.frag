@@ -1,4 +1,4 @@
-#version 430
+#version 430 core
 
 in vec3 fragColor;
 in vec3 vertex;
@@ -8,10 +8,10 @@ in flat int texId;
 in mat4 modelMat;
 in mat4 viewMat;
 
-layout(location = 8) uniform vec3 cameraPosition;
-layout(location = 9) uniform vec3 lightPos;
-layout(location = 10) uniform float time;
-layout(location = 11) uniform sampler2D textures[7];
+layout(location = 9) uniform vec3 cameraPosition;
+layout(location = 10) uniform vec3 lightPos;
+layout(location = 11) uniform float time;
+layout(location = 12) uniform sampler2D textures[7];
 
 layout(location = 0) out vec4 outColor;
 
@@ -61,10 +61,14 @@ void main()
 
     if(texId != -1)
     {
+        /*
         vec4 textureColor = texture(textures[texId],
                 textureCoord + 0.005 *
                 vec2(sin(5 * time + 1024.0 * textureCoord.x),
-                     cos(5 * time + 768.0 * textureCoord.y))) / ((dist*dist)/1000.0);
+                     cos(5 * time + 768.0 * textureCoord.y))) /
+                        ((dist*dist)/1000.0);
+        */
+        vec4 textureColor = texture(textures[texId], textureCoord);
 
         outColor = vec4(ambColor, 1.0) + textureColor +
                    vec4(specColor, 1.0);
@@ -72,7 +76,8 @@ void main()
     else
     {
         //"Main color"(diffuse) of vertex.
-        vec3 diffColor = diffuseLightIntensity * fragColor / ((dist*dist)/1000.0);
+        vec3 diffColor = diffuseLightIntensity * fragColor /
+                            ((dist*dist)/1000.0);
 
         outColor = vec4(ambColor, 1.0) +
                    vec4(specColor, 1.0) +

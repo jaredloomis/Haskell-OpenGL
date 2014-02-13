@@ -10,5 +10,5 @@ hpc
 RTS
 ---------
 1. cd $DIRECTORY
-2. ghc -O -fforce-recomp -rtsopts Main.hs
-3. ./Main +RTS -sstderr
+2. ghc -O -fforce-recomp -rtsopts -degug -ticky Main.hs
+3. ./Main +RTS -rfile.txt

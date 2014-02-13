@@ -1,4 +1,6 @@
-module Engine.Model.Model where
+module Engine.Model.Model (
+    Model(..), createModel
+) where
 
 import Graphics.Rendering.OpenGL.Raw
 
@@ -8,7 +10,7 @@ import Engine.Model.AABB
 import Engine.Graphics.GraphicsUtils
 
 data Model = Model {
-    modelShader :: !GLuint,
+    modelShader :: !Shader,
     modelShaderVars :: ![ShaderAttrib],
     modelTextures :: ![Texture],
     modelVertCount :: !GLint,
@@ -16,45 +18,12 @@ data Model = Model {
     modelWholeAABB :: !(Maybe AABB)
 }
 
-createModelSplit ::
-    FilePath ->     -- ^ Vertex Shader.
-    FilePath ->     -- ^ Fragment Shader.
-    [String] ->     -- ^ Attribute Variable names.
-    [[GLfloat]] ->  -- ^ List containing all the lists of values.
-                    --   (vertices, normals, etc).
-    [GLuint] ->     -- ^ Size of each value.
-    Int ->          -- ^ Number of splits.
-    IO [Model]
-createModelSplit vert frag attrNames buffData valLens splits =
-    let splitUp = splitAllData (splits * 3) buffData
-
-    in do
-        print $ length buffData
-        print $ length $ head buffData
-        print $ length splitUp
-        print $ length $ head splitUp
-
-        let models = map (\dat -> createModel vert frag attrNames dat
-                valLens (fromIntegral $ length dat `div` 3)) splitUp
-
-        sequence models
-
-splitAllData :: Int -> [[GLfloat]] -> [[[GLfloat]]]
-splitAllData = map . splitData
-
-splitData :: Int -> [GLfloat] -> [[GLfloat]]
-splitData i xs
-    | length xs >= i =
-        let (cur, rest) = splitAt i xs
-        in cur : splitData i rest
-    | otherwise = []
-
 createModel ::
     FilePath ->     -- ^ Vertex Shader.
     FilePath ->     -- ^ Fragment Shader.
     [String] ->     -- ^ Attribute Variable names.
     [[GLfloat]] ->  -- ^ List containing all the lists of values.
-                    --   (vertices, normals, etc).
+                   --   (vertices, normals, etc).
     [GLuint] ->     -- ^ Size of each value.
     GLint ->        -- ^ Number of vertices.
     IO Model
@@ -64,7 +33,7 @@ createModel vert frag attrNames buffData valLens vertCount = do
     ids <- createBufferIdAll buffData
 
     let sAttribs = createShaderAttribs attribs ids valLens
-    return $ Model program sAttribs [] vertCount
+    return $ Model (Shader program []) sAttribs [] vertCount
             (Just $ aabbByFace (head buffData))
             (Just $ aabbFromPoints (head buffData))
 

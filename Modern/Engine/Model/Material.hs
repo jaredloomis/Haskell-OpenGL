@@ -1,4 +1,6 @@
-module Engine.Model.Material where
+module Engine.Model.Material (
+    Material(..), loadMtlFile, emptyMaterial
+) where
 
 import System.IO (IOMode (ReadMode), Handle,
                   openFile, hIsEOF, hGetLine, hClose)
@@ -94,7 +96,6 @@ executeCommand wStateRef command mat textureCount
     | "Ks " `isPrefixOf` command =
         return mat{matSpecularColor = Just $ readMtlLineTriplet command}
     | "map_Kd " `isPrefixOf` command = do
-        --texture <- loadGLTextureId textureCount $ head (rawMtlLine command)
         wState <- readIORef wStateRef
         texture <- loadWorldTexture wState $ head (rawMtlLine command)
         return mat{matTexture = Just texture,
@@ -113,7 +114,7 @@ rawMtlLine = tail . filter (not . null) . splitOn " "
 toTripletMtl :: [a] -> Vec3 a
 toTripletMtl xs
     | length xs == 3 = Vec3 (head xs) (xs !! 1) (xs !! 2)
-    | otherwise = error "toTripletMtl"
+    | otherwise = error "Material.toTripletMtl"
 
 emptyMaterial :: Material
 emptyMaterial = Material "" Nothing Nothing Nothing Nothing Nothing

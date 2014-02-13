@@ -1,4 +1,8 @@
-module Engine.Model.AABB where
+module Engine.Model.AABB (
+    AABB(..), anyIntersect, anyIntersectGet,
+    aabbFromPoints, aabbByFace, intersecting
+    
+) where
 
 import Graphics.Rendering.OpenGL.Raw
 

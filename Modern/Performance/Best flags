@@ -1,0 +1,25 @@
+Compile-time
+-O
+-fforce-recomp
+-funfold-threshold=16         -- Reduces some memory usage.
+-fexcess-precision            -- Reduces some memory usage.
+-rtsopts                      -- Enables main RTS options.
+-threaded                     -- Enables threaded, but seems to decrease
+                                 CPU usage.
+
+-debug                        -- Allows for some extra RTS options.
+                                 Increases CPU usage significantly.
+-keep-tmp-files -tmpdir="tmp" -- Keep assembly files.
+
+RST application execution flags
+---- usage ./Main +RTS [flags]
+
+-c - Decreases memory usage by a very large amount.
+      Increases CPU usage very slightly.
+
+
+-s       - Show info about what happened.
+-h       - Show heap info. Then use hp2ps on the hp file.
+-r[file] - Generate detailed ticky-ticky output. Compile with -debug.
+-s[file] - Basic debug and GC info.
+-S[file] - Detailed debug info, for each GC

@@ -40,18 +40,12 @@ pUpdate w =
             resolvedP{playerSpeed = origSpeed}}
     else
         let p = worldPlayer w
-            state = worldState w
-            origSpeed = playerSpeed p
-            speed = origSpeed * stateDelta state
-            newP = p{playerSpeed = speed}
-            -- Do actual update
-            modifiedW = playerKeyUpdateSafe w{worldPlayer = playerMouseUpdate newP}
-            modifiedP = worldPlayer modifiedW
-            gravityP = applyGravityVelocity w modifiedP
+            -- Do mouse update.
+            playerMouseUpdated = playerMouseUpdate p
+            -- Do key update.
+            modifiedW = playerKeyUpdateSafe w{worldPlayer = playerMouseUpdated}
 
-            resolvedP = resolveVelocity w gravityP
-        in modifiedW{worldPlayer =
-            resolvedP{playerSpeed = origSpeed}}
+        in modifiedW{worldPlayer = p}
 
 -- | Input for first person camera.
 baseInput :: Input t
@@ -60,7 +54,7 @@ baseInput =  Input
      (GLFW.Key'D, GLFW.KeyState'Repeating, GLFW.KeyState'Released, dIn),
      (GLFW.Key'W, GLFW.KeyState'Repeating, GLFW.KeyState'Released, wIn),
      (GLFW.Key'S, GLFW.KeyState'Repeating, GLFW.KeyState'Released, sIn),
-     (GLFW.Key'LeftShift, GLFW.KeyState'Repeating, GLFW.KeyState'Released, shiftIn), 
+     (GLFW.Key'LeftShift, GLFW.KeyState'Repeating, GLFW.KeyState'Released, shiftIn),
      (GLFW.Key'Space, GLFW.KeyState'Pressed, GLFW.KeyState'Released, spaceIn),
      (GLFW.Key'Escape, GLFW.KeyState'Pressed, GLFW.KeyState'Released, escIn)]
      (Vec2 0 0) (Vec2 0 0)
@@ -171,7 +165,7 @@ moveWithStep world player@(Player{}) movement@(Vec3 mx _ mz) = do
                 abMaxY = maximum abMaxYs
                 (Just (AABB (Vec3 _ pMiny _) _)) = calculateNewWholeAABB moved
                 yStep = abMaxY - pMiny
-            in if abs yStep < 2
+            in if abs yStep < 1
                     then
                     let moved2 =
                             moveObjectSlide world moved $
@@ -284,7 +278,7 @@ applyGravityVelocity world p@(Player{}) =
         then p{playerVelocity = Vec3 pvx 0 pvz}
     else
         let Vec3 vx vy vz = playerVelocity p
-            newY = max (vy - 0.01) (-1)
+            newY = max (vy - getWorldDelta world * 0.5) (-1)
         in p{playerVelocity =
             Vec3 vx newY vz}
 applyGravityVelocity _ _ =

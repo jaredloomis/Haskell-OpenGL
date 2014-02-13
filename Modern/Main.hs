@@ -19,13 +19,16 @@ import Engine.Matrix.Matrix
 main :: IO ()
 main = do
     -- Initialize GLFW, create a window, open it.
-    win <- createGLFWWindow 800 600
+    window <- openWindow defaultWindow
+    let Just win = windowInner window
+
     -- Perform some intitial OpenGL configurations.
     initGL win
 
-    -- Create default world with a Player
-    -- and one Entity.
-    world <- mkWorld
+    -- Create default world, set the window.
+    tmp <- mkWorld
+    let world = tmp{
+        worldState = (worldState tmp){stateWindow = window}}
 
     -- Register the function called whe our window is resized.
     GLFW.setFramebufferSizeCallback win (Just resizeScene)
@@ -43,26 +46,22 @@ main = do
     where
         loop :: GLFW.Window -> World t -> IO ()
         loop win world = do
-            -- Clear screen.
-            glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
-
             -- Check if any events have occured.
             GLFW.pollEvents
 
             -- Perform logic update on the world.
-            newWorld <- updateStep win world
-            -- Render objects in world.
-            renderStep newWorld win
+            newWorld <- updateStep win world >>=
+                    (`renderStep` win)
 
             -- Swap back and front buffer.
             GLFW.swapBuffers win
-            
-            -- XXX: Should I flush?
-            --glFlush
 
-            loop win newWorld
+            shouldClose <- GLFW.windowShouldClose win
+            if not shouldClose
+                then loop win newWorld
+            else return ()
 
-renderStep :: World t -> GLFW.Window -> IO ()
+renderStep :: World t -> GLFW.Window -> IO (World t)
 renderStep world _ = renderWorldMat world
 
 renderStepOld :: World t -> GLFW.Window -> IO ()

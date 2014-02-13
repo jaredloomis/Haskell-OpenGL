@@ -47,11 +47,13 @@ calculateNewAABBs :: GameObject t -> Maybe [AABB]
 calculateNewAABBs obj
     | isJust (getAABBs obj) =
         let (Just aabbs) = getAABBs obj
-            transformAll (AABB l r:xs) pos =
-                AABB (l + pos) (r + pos) : transformAll xs pos
-            transformAll [] _ = []
         in Just $ transformAll aabbs (getPos obj)
     | otherwise = Nothing
+
+transformAll :: [AABB] -> Vec3 GLfloat -> [AABB]
+transformAll (AABB l r : xs) pos =
+    AABB (l + pos) (r + pos) : transformAll xs pos
+transformAll [] _ = []
 
 -- | Check if the needle intersects with any in the
 --   haystack.

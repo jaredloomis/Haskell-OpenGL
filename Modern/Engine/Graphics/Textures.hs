@@ -1,11 +1,16 @@
 {-# LANGUAGE RankNTypes #-}
-module Engine.Graphics.Textures where
+module Engine.Graphics.Textures (
+    juicyLoadImage, FrameBuffer(..),
+    Image(..), Texture, makeFrameBuffer,
+    renderToFrameBuffer, renderFromFrameBuffer
+) where
 
 import Data.Vector.Storable (unsafeWith)
---import Data.Word (Word8)
 import Foreign
+    (Word8, alloca, peek, wordPtrToPtr,
+     withArrayLen, sizeOf, Ptr, Storable)
 import Foreign.C.String (withCString)
---import Data.Bits ((.|.))
+import Data.Bits ((.|.))
 
 import qualified Codec.Picture as Juicy
 import qualified Codec.Picture.Types as JTypes
@@ -16,14 +21,18 @@ import qualified Graphics.Rendering.OpenGL as GL
 import Graphics.Rendering.OpenGL.Raw
 import Graphics.Rendering.OpenGL (DataType(..))
 
-data Image = Image GL.Size (GL.PixelData Word8) deriving (Show)
+import Engine.Graphics.GraphicsUtils
 
-data FrameBuffer = FB{
+data Image = Image GL.Size (GL.PixelData Word8)
+    deriving (Show)
+
+data FrameBuffer = FB {
     fbufName :: GLuint,
     fbufTexture :: GLuint
 }
 
 type Texture = (GL.TextureObject, GLint)
+--type Texture = (GLuint, GLint)
 
 -- TODO: add support for all (most) colorspaces / formats.
 juicyLoadImage :: FilePath -> IO Image
@@ -37,11 +46,14 @@ juicyLoadImage file = do
             return $ Image (GL.Size (fromIntegral w) (fromIntegral h))
                             (GL.PixelData GL.RGB UnsignedByte ptr)
         Right (Juicy.ImageYCbCr8 img) ->
-            let (Juicy.Image w h dat) = JTypes.convertImage img :: Juicy.Image Juicy.PixelRGB8
+            let (Juicy.Image w h dat) =
+                    JTypes.convertImage img :: Juicy.Image Juicy.PixelRGB8
             in unsafeWith dat $ \ptr ->
                 return $ Image (GL.Size (fromIntegral w) (fromIntegral h))
                             (GL.PixelData GL.RGB UnsignedByte ptr)
-        _ -> error "Engine.Graphics.Texture.juicyLoadImage: bad image colorspace or format."
+        _ -> error $
+            "Engine.Graphics.Texture.juicyLoadImage:"
+                ++ "bad image colorspace or format."
 
 makeFrameBuffer :: IO FrameBuffer
 makeFrameBuffer = do
@@ -130,7 +142,7 @@ quadBufferData =
 
 fillNewBuffer' :: [GLfloat] -> IO GLuint
 fillNewBuffer' list = do
-    bufId <- withNewPtr2 (glGenBuffers 1)
+    bufId <- withNewPtr (glGenBuffers 1)
     glBindBuffer gl_ARRAY_BUFFER bufId
     withArrayLen list $ \len ptr ->
         glBufferData gl_ARRAY_BUFFER 
@@ -138,5 +150,5 @@ fillNewBuffer' list = do
             (ptr :: Ptr GLfloat) gl_STATIC_DRAW
     return bufId
 
-withNewPtr2 :: forall b a. Storable b => (Ptr b -> IO a) -> IO b
-withNewPtr2 f = alloca (\p -> f p >> peek p)
+--withNewPtr2 :: forall b a. Storable b => (Ptr b -> IO a) -> IO b
+--withNewPtr2 f = alloca (\p -> f p >> peek p)

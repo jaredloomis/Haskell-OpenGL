@@ -1,20 +1,22 @@
-module Engine.Graphics.Graphics where
+module Engine.Graphics.Graphics (
+    renderWorld, initGL, resizeScene,
+    cleanupObjects
+) where
 
 import Data.Time (utctDayTime)
-import Foreign.Marshal.Array (withArrayLen)
-import Data.Bits ((.|.))
+import Foreign.Marshal (withArray, with)
 
 import qualified Graphics.UI.GLFW as GLFW
 
-import qualified Graphics.Rendering.GLU.Raw as GLU
 import Graphics.Rendering.OpenGL.Raw
+import qualified Graphics.Rendering.OpenGL as GL
 
 import Engine.Core.World
 import Engine.Graphics.Shaders
 import Engine.Core.Vec
 import Engine.Object.GameObject
 import Engine.Model.Model
-import Engine.Graphics.Textures
+import Engine.Graphics.GraphicsUtils
 
 renderWorld :: World t -> IO ()
 renderWorld world = do
@@ -35,18 +37,18 @@ renderObjects world (object:rest) = do
     glTranslatef objx objy objz
 
     -- Use object's shader
-    glUseProgram mShader
+    glUseProgram $ shaderId mShader
 
     -- Bind buffers to variable names in shader.
     setShaderAttribs $ modelShaderVars model
-    setWorldUniforms world mShader
-    bindTextures (modelTextures model) mShader
+    --setWorldUniforms world $ shaderId mShader
+    bindTextures (modelTextures model) $ shaderId mShader
 
     -- Set time uniform.
     let wState = worldState world
         utcTime = stateTime wState
         dayTime = realToFrac $ utctDayTime utcTime
-    setUniforms mShader [("time", return [dayTime])]
+    setUniforms (shaderId mShader) [("time", return [dayTime])]
 
     -- Do the drawing.
     glDrawArrays gl_TRIANGLES 0 (modelVertCount model)
@@ -69,7 +71,7 @@ renderObjects world (object:rest) = do
     renderObjects world rest
 renderObjects _ [] = return ()
 
-
+{-
 renderWorldFB :: FrameBuffer -> World t -> GLuint -> IO ()
 renderWorldFB fb@(FB name _) world shader = do
     let objects = worldEntities world
@@ -78,6 +80,7 @@ renderWorldFB fb@(FB name _) world shader = do
     renderObjects world objects
     glBindFramebuffer gl_FRAMEBUFFER 0
     renderFromFrameBuffer shader fb
+-}
 
 -------------------------------
 -- UTILITY / SETUP FUNCTIONS --
@@ -86,7 +89,7 @@ renderWorldFB fb@(FB name _) world shader = do
 initGL :: GLFW.Window -> IO ()
 initGL win = do
     -- Enables smooth color shading.
-    glShadeModel gl_SMOOTH
+    --glShadeModel gl_SMOOTH
 
     -- Set "background color" to black
     glClearColor 0 0 0 0
@@ -110,13 +113,14 @@ initGL win = do
     -- Enable textures.
     glEnable gl_TEXTURE
     glTexParameteri gl_TEXTURE_2D gl_TEXTURE_MAG_FILTER
-        (fromIntegral gl_NEAREST)
+        (fromIntegral gl_LINEAR)
     glTexParameteri gl_TEXTURE_2D gl_TEXTURE_MIN_FILTER
-        (fromIntegral gl_NEAREST)
+        (fromIntegral gl_LINEAR_MIPMAP_LINEAR)
     glTexParameteri gl_TEXTURE_2D gl_TEXTURE_WRAP_S
         (fromIntegral gl_CLAMP_TO_EDGE)
     glTexParameteri gl_TEXTURE_2D gl_TEXTURE_WRAP_T
         (fromIntegral gl_CLAMP_TO_EDGE)
+    glTexParameteri gl_TEXTURE_2D gl_TEXTURE_MAX_ANISOTROPY 16
 
     -- Call resize function.
     (w,h) <- GLFW.getFramebufferSize win
@@ -125,31 +129,31 @@ initGL win = do
 resizeScene :: GLFW.WindowSizeCallback
 -- Prevent divide by 0
 resizeScene win w 0 = resizeScene win w 1
-resizeScene _ width height = do
+resizeScene _ width height =
     -- Make viewport the same size as the window.
     glViewport 0 0 (fromIntegral width) (fromIntegral height)
 
-    -- Apply projection matrix, load identity, and
-    -- apply perspective.
-    glMatrixMode gl_PROJECTION
-    glLoadIdentity
-    GLU.gluPerspective 45 (fromIntegral width/fromIntegral height) 0.1 100
-
-    -- Go back to default modelview matrix and load identity.
-    glMatrixMode gl_MODELVIEW
-    glLoadIdentity
-
 cleanupObjects :: [GameObject t] -> IO ()
 cleanupObjects (object:rest) = do
-    -- Delete shader.
-    glDeleteProgram (modelShader $ getModel object)
-
-    -- TODO: Better cleanup. I think this does nothing.
     -- Delete buffers.
-    let shaderVarBufIds = map (\(Vec3 _ bufId _) -> bufId)
+    let shaderVarAttrIds = map (\(Vec3 attrId _ _) -> attrId)
                               (modelShaderVars $ getModel object)
-    withArrayLen shaderVarBufIds $
-         glDeleteBuffers . fromIntegral
+        shaderVarBufIds = map (\(Vec3 _ bufId _) -> bufId)
+                              (modelShaderVars $ getModel object)
+    mapM_ (\x -> with x $ glDeleteBuffers 1) $ shaderVarBufIds
+
+    -- Delete shader.
+    glDeleteProgram (shaderId $ modelShader $ getModel object)
+
+    -- Delete textures.
+    let model = getModel object
+        textures = map (\(GL.TextureObject tid, _) -> tid) $ modelTextures model
+    mapM_ (\x -> with x $ glDeleteTextures 1) textures
+
+    -- Delete vertex arrays.
+    mapM_ (\x -> with x $ glDeleteVertexArrays 1) $ shaderVarAttrIds
+
+    print "cleanup"
 
     cleanupObjects rest
 cleanupObjects [] = return ()

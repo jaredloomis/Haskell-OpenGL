@@ -1,4 +1,8 @@
-module Engine.Core.Vec where
+module Engine.Core.Vec (
+    Vec2(..), Vec3(..), Vec4(..), vec3ToVec4,
+    normalizeVec3, scaleVec3, lengthVec3,
+    crossVec3, vec4GetIndex, toArray3, toArray2
+) where
 
 -- TODO: dot product, cross product, etc.
 

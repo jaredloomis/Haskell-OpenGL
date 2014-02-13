@@ -1,9 +1,7 @@
-{-# LANGUAGE RankNTypes #-}
---{-# LANGUAGE TemplateHaskell #-}
 module Engine.Core.World (
     World(..), WorldState(..), playerAABB,
     GameObject(..), Input(..), setWorldUniforms,
-    loadWorldTexture, getWorldTime
+    loadWorldTexture, getWorldTime, getWorldDelta
 ) where
 
 import Control.Monad (liftM)
@@ -19,25 +17,7 @@ import Engine.Graphics.Textures
 import Engine.Core.Vec
 import Engine.Model.Model
 import Engine.Model.AABB
-
-{-
-data Arc      = Arc {_degree   :: Int, _minute    :: Int, _second :: Int}
-data Location = Location {_latitude :: Arc, _longitude :: Arc}
-
-$(makeLenses ''Location)
-
-getLatitude :: Location -> Arc
-getLatitude = view latitude 
-
-setLatitude :: Arc -> Location -> Location
-setLatitude = set latitude
-
-modifyLatitude :: (Arc -> Arc) -> (Location -> Location)
-modifyLatitude f = latitude `over` f
-
---modifyLatitude :: (Arc -> Arc) -> (Location -> Location)
---modifyLatitude f lat = setLatitude (f $ getLatitude lat)
--}
+import Engine.Graphics.Window
 
 data World t = World {
     worldPlayer :: !(GameObject t),
@@ -50,7 +30,8 @@ data WorldState = WorldState {
     stateTextureCount :: !GLuint,
     stateTime :: !UTCTime,
     stateDelta :: !GLfloat,
-    statePaused :: !Bool
+    statePaused :: !Bool,
+    stateWindow :: Window
 }
 
 -- TODO: Make this more flexible
@@ -86,9 +67,12 @@ data Input t = Input {
 }
 
 -- | Set a world's uniforms to given shader.
-setWorldUniforms :: World t -> GLuint -> IO ()
+setWorldUniforms :: World t -> Shader -> IO Shader
 setWorldUniforms world shader =
-    setUniforms shader $ worldUniforms world
+    setUniformsAndRemember shader $ worldUniforms world
+
+getWorldDelta :: World t -> GLfloat
+getWorldDelta = stateDelta . worldState
 
 -- | Load a texture using the WorldState to keep track of texture ID.
 loadWorldTexture :: WorldState -> FilePath -> IO GL.TextureObject

@@ -1,28 +1,47 @@
-module Engine.Graphics.Window where
+module Engine.Graphics.Window (
+    defaultWindow, Window(..),
+    openWindow, shutdown
+) where
 
 import System.Exit (exitSuccess)
 
 import qualified Graphics.UI.GLFW as GLFW
 
-createGLFWWindow :: Int -> Int -> IO GLFW.Window
-createGLFWWindow width height = do
+data Window = Window {
+    windowHints :: [GLFW.WindowHint],
+    windowTitle :: String,
+    windowSize :: (Int, Int),
+    windowInner :: Maybe GLFW.Window
+}
+
+defaultWindow :: Window
+defaultWindow =
+    Window
+        [GLFW.WindowHint'RefreshRate 60]--,
+         --GLFW.WindowHint'Samples 4]
+        "GLFW Window"
+        (800, 600)
+        Nothing
+
+openWindow :: Window -> IO Window
+openWindow window =
+    let (w, h) = windowSize window 
+    in do
     _ <- GLFW.init
 
-    -- Window Hints
-    GLFW.windowHint $ GLFW.WindowHint'RefreshRate 60
-    GLFW.windowHint $ GLFW.WindowHint'Samples 16
-    --GLFW.windowHint $ GLFW.WindowHint'OpenGLDebugContext True
+    -- Apply window hints.
+    mapM_ GLFW.windowHint $ windowHints window
 
-    Just win <- GLFW.createWindow width height "GLFW + Haskell" Nothing Nothing
+    Just win <- GLFW.createWindow w h (windowTitle window) Nothing Nothing
     GLFW.setWindowPos win 100 50
     GLFW.makeContextCurrent (Just win)
-    
+
     -- Enable VSync
     GLFW.swapInterval 1
 
-    GLFW.setWindowCloseCallback win (Just shutdown)
+    --GLFW.setWindowCloseCallback win (Just shutdown)
 
-    return win
+    return $ window{windowInner = Just win}
 
 shutdown :: GLFW.WindowCloseCallback
 shutdown win = do

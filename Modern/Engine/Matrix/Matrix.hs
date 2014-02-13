@@ -1,13 +1,19 @@
--- | Taken from / based on:
+-- | Modified from / based on:
 --   https://github.com/kig/tomtegebra/blob/master/Tomtegebra/Matrix.hs
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-module Engine.Matrix.Matrix where
+module Engine.Matrix.Matrix (
+    renderWorldMat
+) where
 
 import Data.List (transpose)
+import Data.Maybe (fromJust, isJust)
 import Foreign.Marshal.Array (withArray)
 import Data.Time (utctDayTime)
+import Data.Bits ((.|.))
+
+import qualified Graphics.UI.GLFW as GLFW
 
 import qualified Graphics.Rendering.OpenGL as GL
 import Graphics.Rendering.OpenGL.Raw
@@ -17,6 +23,7 @@ import Engine.Graphics.Shaders
 import Engine.Object.GameObject
 import Engine.Model.Model
 import Engine.Core.Vec
+import Engine.Graphics.Window
 
 data WorldMatrices = WorldMatrices {
     matrixModel :: Matrix4x4,
@@ -59,13 +66,20 @@ applyToIndices (a:as) (b:bs) f =
     f a b : applyToIndices as bs f
 applyToIndices _ _ _ = []
 
-renderWorldMat :: World t -> IO ()
-renderWorldMat world =
+renderWorldMat :: World t -> IO (World t)
+renderWorldMat world = do
+    glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
+    -- Get window dimensions from GLFW
+    dimensions <- GLFW.getWindowSize
+                (fromJust $ windowInner $ stateWindow $ worldState world)
+    -- Update matrices.
     let worldMats = calculateMatricesFromPlayer
-                        (worldPlayer world)
-    in renderObjectsMat world worldMats (worldEntities world)
+                        (worldPlayer world) dimensions
+    -- Render world with matrices.
+    newEntites <- renderObjectsMat world worldMats (worldEntities world)
+    return world{worldEntities = newEntites}
 
-renderObjectsMat :: World t -> WorldMatrices -> [GameObject t] -> IO ()
+renderObjectsMat :: World t -> WorldMatrices -> [GameObject t] -> IO [GameObject t]
 renderObjectsMat world wm (object:rest) = do
     let model = pentityModel object
         Vec3 objx objy objz = getPos object
@@ -75,21 +89,22 @@ renderObjectsMat world wm (object:rest) = do
         modelMat = gtranslationMatrix [objx, objy, objz]
 
     -- Use object's shader
-    glUseProgram mShader
+    glUseProgram $ shaderId mShader
 
-    -- Set Matrices.
-    setMatrixUniforms mShader wm{matrixModel = modelMat}
+    -- Set uniforms. (World uniforms and Matrices).
+    newShader <-
+        setMatrixUniforms mShader wm{matrixModel = modelMat} >>=
+            setWorldUniforms world
 
     -- Bind buffers to variable names in shader.
     setShaderAttribs $ modelShaderVars model
-    setWorldUniforms world mShader
-    bindTextures (modelTextures model) mShader
+    bindTextures (modelTextures model) $ shaderId mShader
 
     -- Set time uniform.
     let wState = worldState world
         utcTime = stateTime wState
         dayTime = realToFrac $ utctDayTime utcTime
-    setUniforms mShader [("time", return [dayTime])]
+    setUniformsAndRemember mShader [("time", return [dayTime])]
 
     -- Do the drawing.
     glDrawArrays gl_TRIANGLES 0 (modelVertCount model)
@@ -104,55 +119,55 @@ renderObjectsMat world wm (object:rest) = do
     -- Disable the object's shader.
     glUseProgram 0
 
-    -- Continue rendering the rest of the entities in the world.
-    renderObjectsMat world wm rest
-renderObjectsMat _ _ [] = return ()
+    let newObject = case object of
+            PureEntity{} ->
+                object{pentityModel =
+                    (pentityModel object){modelShader = newShader}}
+            EffectfulEntity{} ->
+                object{eentityModel =
+                    (eentityModel object){modelShader = newShader}}
+            _ -> undefined
 
-setMatrixUniforms :: GLuint -> WorldMatrices -> IO ()
+    restObjects <- renderObjectsMat world wm rest
+
+    return $ newObject : restObjects
+renderObjectsMat _ _ [] = return []
+
+-- TODO: Make this function cause the shader to remember
+--       uniform locations.
+setMatrixUniforms :: Shader -> WorldMatrices -> IO Shader
 setMatrixUniforms shader wm = do
-    modelMatrix <- quickGetUniform shader "modelMatrix"
+    (shader', modelMatrix) <- findUniformLocationAndRemember shader "modelMatrix"
     withArray (toGLFormat $ matrixModel wm)
         $ glUniformMatrix4fv modelMatrix 1 (fromIntegral gl_FALSE)
 
-    projectionMatrix <- quickGetUniform shader "projectionMatrix"
+    (shader'', projectionMatrix) <- findUniformLocationAndRemember shader' "projectionMatrix"
     withArray (toGLFormat $ matrixProjection wm)
         $ glUniformMatrix4fv projectionMatrix 1 (fromIntegral gl_FALSE)
 
-    viewMatrix <- quickGetUniform shader "viewMatrix"
+    (shader''', viewMatrix) <- findUniformLocationAndRemember shader'' "viewMatrix"
     withArray (toGLFormat $ matrixView wm)
         $ glUniformMatrix4fv viewMatrix 1 (fromIntegral gl_FALSE)
 
-calculateMatricesFromPlayer :: GameObject a -> WorldMatrices
-calculateMatricesFromPlayer p@(Player{}) =
+    (shader'''', mvpMatrix) <- findUniformLocationAndRemember shader''' "mvpMatrix"
+    withArray
+        (toGLFormat $ matrixProjection wm * matrixView wm * matrixModel wm)
+        $ glUniformMatrix4fv mvpMatrix 1 (fromIntegral gl_FALSE)
+
+    return shader''''
+
+calculateMatricesFromPlayer :: GameObject a -> (Int, Int) -> WorldMatrices
+calculateMatricesFromPlayer p@(Player{}) (width, height) =
     let Vec3 px py pz = playerPosition p
         Vec3 rx ry _ = playerRotation p
-        projMat = gperspectiveMatrix 45 (800/600) 0.1 100
+        projMat = gperspectiveMatrix 45
+                    (fromIntegral width / fromIntegral height) 0.1 100
         rotatedMatX = grotationMatrix (rx * (pi/180)) [-1, 0, 0]
         rotatedMatXY = rotatedMatX * grotationMatrix (ry * (pi/180)) [0, -1, 0]
         translatedMat = gtranslationMatrix [-px, -py, -pz]
         viewMat = rotatedMatXY * translatedMat
         modelMat = gidentityMatrix
     in WorldMatrices modelMat viewMat projMat
-
-calculatePlayerViewMatrix :: GameObject a -> Matrix4x4
-calculatePlayerViewMatrix p@(Player{}) =
-    let Vec3 px py pz = playerPosition p
-        Vec3 rx ry _ = playerRotation p
-        eye = [px, py, pz]
-        cosPitch = cos rx
-        sinPitch = sin rx
-        cosYaw = cos ry
-        sinYaw = sin ry
-
-        xaxis = [cosYaw, -sinPitch * sinYaw, -cosPitch * sinYaw]
-        yaxis = [0, cosPitch, -sinPitch]
-        zaxis = [sinYaw, sinPitch * cosYaw, cosPitch * cosYaw]
-    in [
-        xaxis ++ [0],
-        yaxis ++ [0],
-        zaxis ++ [0],
-        [-gdotVec xaxis eye, -gdotVec yaxis eye, -gdotVec zaxis eye, 1]
-       ]
 
 toGLFormat :: [[GLfloat]] -> [GLfloat]
 toGLFormat = concat
@@ -166,12 +181,6 @@ gidentityMatrix =
         [0,0,1,0],
         [0,0,0,1]
     ]
-
--- | Multiplies two matrices together.
-gmatrixMul :: Matrix4x4 -> Matrix4x4 -> Matrix4x4
-gmatrixMul a =
-    map (\row -> map (gdotVec row) at)
-    where at = transpose a
 
 -- | Multiplies a vector by a matrix.
 gmatrixMulVec :: Matrix4x4 -> GVector4 -> GVector4
@@ -191,12 +200,12 @@ gmatrix3x3To4x4 m = m
 ginvertMatrix4x4ON :: Matrix4x4 -> Matrix4x4
 ginvertMatrix4x4ON m = -- orthonormal matrix inverse
     let [a,b,c] = transpose $ gmatrix4x4To3x3 m
-        [_,_,_,t4] = m in
-    let t = gvec4To3 t4 in
-    [
+        [_,_,_,t4] = m
+        t = gvec4To3 t4
+    in [
         gvec3To4 a 0, gvec3To4 b 0, gvec3To4 c 0,
         [gdotVec a t, gdotVec b t, gdotVec c t, t4 !! 3]
-    ]
+       ]
 
 -- | Creates the translation matrix that translates points by the given vector.
 gtranslationMatrix :: GVector3 -> Matrix4x4
@@ -228,7 +237,7 @@ grotationMatrix angle axis =
       [x*y*c1-z*s, y*y*c1+c, y*z*c1+x*s, 0],
       [x*z*c1+y*s, y*z*c1-x*s, z*z*c1+c, 0],
       [0,0,0,1]
-    ]
+       ]
 
 glookAtMatrix :: Vec3 GLfloat -> Vec3 GLfloat -> Vec3 GLfloat -> Matrix4x4
 glookAtMatrix eye center up =
@@ -241,11 +250,10 @@ vecToGVec3 (Vec3 x y z) = [x, y, z]
 --   eye is looking at and the up vector of the eye.
 glookAtMatrixG :: GVector3 -> GVector3 -> GVector3 -> Matrix4x4
 glookAtMatrixG eye center up =
-    let z = gdirectionVec eye center in
-    let x = gnormalizeVec $ gcrossVec3 up z in
-    let y = gnormalizeVec $ gcrossVec3 z x in
-    gmatrixMul
-        (gmatrix3x3To4x4 $ transpose [x,y,z])
+    let z = gdirectionVec eye center
+        x = gnormalizeVec $ gcrossVec3 up z
+        y = gnormalizeVec $ gcrossVec3 z x
+    in (gmatrix3x3To4x4 $ transpose [x,y,z]) *
         (gtranslationMatrix (gnegateVec eye))
 
 -- | Creates a frustumMatrix from the given

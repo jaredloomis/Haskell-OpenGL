@@ -1,19 +1,22 @@
 module Engine.Graphics.Shaders (
-    ShaderAttrib, ShaderUniform, createShaderAttribs,
+    ShaderAttrib, ShaderUniform, Shader(..), createShaderAttribs,
     loadProgram, bindTextures, unBindTextures,
     setShaderAttribs, disableShaderAttribs, setUniforms,
     getMatrixFromGL, quickGetUniform, getAttrLocs,
-    printMatrix
+    printMatrix, setUniform, setUniformAndRemember,
+    setUniformsAndRemember, findUniformLocation,
+    findMaybeUniformLocation, findUniformLocationAndRemember
 ) where
 
 import Control.Monad (when)
+import Data.Maybe (fromJust, isJust)
 import Control.Applicative ((<$>))
 import Foreign
     (with, nullPtr, Ptr, Storable, toBool, allocaArray0)
 import Foreign.C.String (withCString, peekCString)
 import Foreign.C.Types (CChar)
 
-import Graphics.Rendering.OpenGL as GL
+import qualified Graphics.Rendering.OpenGL as GL
 import Graphics.Rendering.OpenGL.Raw
 
 import qualified Graphics.GLUtil as GU
@@ -22,10 +25,15 @@ import Engine.Core.Vec
 import Engine.Graphics.Textures
 import Engine.Graphics.GraphicsUtils
 
+data Shader = Shader {
+    shaderId :: GLuint,
+    shaderUniforms :: [(String, GLint)]
+} deriving (Show)
+
 -- | Attrib id, Buffer id, size of attrib.
 type ShaderAttrib = Vec3 GLuint
 
--- | Name, Values
+-- | Name, Location, Values
 type ShaderUniform = (String, IO [GLfloat])
 
 -- | Simply pack the arguments together into an array of
@@ -102,16 +110,17 @@ bindTextures :: [Texture] -> GLuint -> IO ()
 bindTextures textures shader =
     bindTexturesi shader textures 0
 
+    -- TODO reduce calls to quickGetUniform.
     where
     bindTexturesi :: GLuint -> [(GL.TextureObject, GLint)] -> GLuint -> IO ()
-    bindTexturesi s ((GL.TextureObject tid, activeId):ts) i = do
+    bindTexturesi s ((GL.TextureObject tid, activeId):ts) i =
         when (activeId >= 0) $ do
             glActiveTexture $ gl_TEXTURE0 + fromIntegral activeId
             glBindTexture gl_TEXTURE_2D tid
 
-        loc <- quickGetUniform s $ "textures[" ++ show i ++ "]"
-        glUniform1i loc (fromIntegral i)
-        bindTexturesi s ts (i+1)
+            loc <- quickGetUniform s $ "textures[" ++ show i ++ "]"
+            glUniform1i loc (fromIntegral i)
+            bindTexturesi s ts (i+1)
     bindTexturesi _ [] _ = return ()
 
 -- | Clear out active textures. Call after drawing?
@@ -146,13 +155,14 @@ disableShaderAttribs (Vec3 attr _ _ : rest) = do
     disableShaderAttribs rest
 disableShaderAttribs [] = return ()
 
--- | Calls glUniformxf on all Uniforms, given the
---   shader.
-setUniforms :: GLuint -> [ShaderUniform] -> IO ()
-setUniforms shader ((name, valsIo):xs) = do
+setUniformsAndRemember :: Shader -> [ShaderUniform] -> IO Shader
+setUniformsAndRemember shader ((name, valsIo):rest) = do
     vals <- valsIo
     let len = length vals
-    loc <- withCString name $ glGetUniformLocation shader
+    let uniloc = findMaybeUniformLocation shader name
+    loc <- if isJust uniloc
+                then return $ fromJust uniloc
+            else withCString name $ glGetUniformLocation $ shaderId shader
 
     case len of
         1 -> glUniform1f loc $ head vals
@@ -162,8 +172,81 @@ setUniforms shader ((name, valsIo):xs) = do
         _ -> putStrLn $ "Bad length value in ShaderUniform " 
                         ++ name ++ ": " ++ show len
 
-    setUniforms shader xs
-setUniforms _ [] = return ()
+    if isJust uniloc
+        then
+            let newShader = shader{shaderUniforms = (name, loc) : shaderUniforms shader}
+            in setUniformsAndRemember newShader rest
+    else setUniformsAndRemember shader rest
+setUniformsAndRemember shader _ = return shader
+
+setUniformAndRemember :: Shader -> ShaderUniform -> IO Shader
+setUniformAndRemember shader (name, valsIo) = do
+    vals <- valsIo
+    let len = length vals
+    
+    loc <- let uniloc = findMaybeUniformLocation shader name
+          in if isJust uniloc
+                then return $ fromJust uniloc
+            else withCString name $ glGetUniformLocation $ shaderId shader
+
+    case len of
+        1 -> glUniform1f loc $ head vals
+        2 -> glUniform2f loc (head vals) $ vals !! 1
+        3 -> glUniform3f loc (head vals) (vals !! 1) (vals !! 2)
+        4 -> glUniform4f loc (head vals) (vals !! 1) (vals !! 2) (vals !! 3)
+        _ -> putStrLn $ "Bad length value in ShaderUniform " 
+                        ++ name ++ ": " ++ show len
+
+    return $ shader{shaderUniforms = (name, loc) : shaderUniforms shader}
+
+findUniformLocationAndRemember :: Shader -> String -> IO (Shader, GLint)
+findUniformLocationAndRemember shader name =
+    let found = findMaybeUniformLocation shader name
+    in if isJust found
+            then return $ (shader, fromJust found)
+        else do
+            loc <- quickGetUniform (shaderId shader) name
+            return (shader{
+                shaderUniforms =
+                    (name, loc) : shaderUniforms shader
+            }, loc)
+
+findUniformLocation :: Shader -> String -> IO GLint
+findUniformLocation shader name =
+    let found = findMaybeUniformLocation shader name
+    in if isJust found
+            then return $ fromJust found
+        else quickGetUniform (shaderId shader) name
+
+findMaybeUniformLocation :: Shader -> String -> Maybe GLint
+findMaybeUniformLocation shader =
+    findUniformLocation' (shaderUniforms shader)
+    where
+        findUniformLocation' ((curName, curId):rest) searchName =
+            if curName == searchName
+                then Just curId
+            else findUniformLocation' rest searchName
+        findUniformLocation' _ _ = Nothing
+
+-- | Calls glUniformxf on all Uniforms, given the
+--   shader.
+setUniforms :: GLuint -> [ShaderUniform] -> IO ()
+setUniforms shader = mapM_ $ setUniform shader
+
+setUniform :: GLuint -> ShaderUniform -> IO ()
+setUniform shader (name, valsIo) = do
+    vals <- valsIo
+    let len = length vals
+    
+    loc <- withCString name $ glGetUniformLocation shader
+
+    case len of
+        1 -> glUniform1f loc $ head vals
+        2 -> glUniform2f loc (head vals) $ vals !! 1
+        3 -> glUniform3f loc (head vals) (vals !! 1) (vals !! 2)
+        4 -> glUniform4f loc (head vals) (vals !! 1) (vals !! 2) (vals !! 3)
+        _ -> putStrLn $ "Bad length value in ShaderUniform " 
+                        ++ name ++ ": " ++ show len
 
 -- | Retrieve location of each shader attrib
 --   in the given program.

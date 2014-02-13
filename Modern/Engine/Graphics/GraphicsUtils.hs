@@ -10,9 +10,6 @@ import Foreign
      alloca, peek, peekArray)
 
 import Graphics.Rendering.OpenGL.Raw
-    (GLfloat, GLuint, glBindBuffer, gl_ARRAY_BUFFER,
-     glBufferData, glGenBuffers, gl_STATIC_DRAW,
-     glBindVertexArray, glGenVertexArrays)
 
 -- | Create an id for each buffer data.
 createBufferIdAll :: [[GLfloat]] -> IO [GLuint]
@@ -35,7 +32,7 @@ fillNewBuffer list = do
     bufId <- withNewPtr (glGenBuffers 1)
     glBindBuffer gl_ARRAY_BUFFER bufId
     withArrayLen list $ \len ptr ->
-        glBufferData gl_ARRAY_BUFFER 
+        glBufferData gl_ARRAY_BUFFER
             (fromIntegral (len * sizeOf (undefined :: GLfloat)))
             (ptr :: Ptr GLfloat) gl_STATIC_DRAW
     return bufId
