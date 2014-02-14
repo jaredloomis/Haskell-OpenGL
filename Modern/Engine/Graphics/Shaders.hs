@@ -5,7 +5,8 @@ module Engine.Graphics.Shaders (
     getMatrixFromGL, quickGetUniform, getAttrLocs,
     printMatrix, setUniform, setUniformAndRemember,
     setUniformsAndRemember, findUniformLocation,
-    findMaybeUniformLocation, findUniformLocationAndRemember
+    findMaybeUniformLocation, findUniformLocationAndRemember,
+    loadProgramWithTess
 ) where
 
 import Control.Monad (when)
@@ -53,6 +54,20 @@ loadProgram vertFP fragFP = do
     shaderIds <- mapM (uncurry loadShader)
         [(gl_VERTEX_SHADER, vertFP)
         ,(gl_FRAGMENT_SHADER, fragFP)]
+    progId <- glCreateProgram
+    mapM_ (glAttachShader progId) shaderIds
+    glLinkProgram progId
+    mapM_ glDeleteShader shaderIds
+
+    return progId
+
+loadProgramWithTess :: FilePath -> FilePath -> FilePath -> FilePath -> IO GLuint
+loadProgramWithTess vertFP fragFP tessCFP tessEFP = do
+    shaderIds <- mapM (uncurry loadShader)
+        [(gl_VERTEX_SHADER, vertFP),
+         (gl_FRAGMENT_SHADER, fragFP),
+         (gl_TESS_CONTROL_SHADER, tessCFP),
+         (gl_TESS_EVALUATION_SHADER, tessEFP)]
     progId <- glCreateProgram
     mapM_ (glAttachShader progId) shaderIds
     glLinkProgram progId

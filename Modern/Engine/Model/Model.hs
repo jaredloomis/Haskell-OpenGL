@@ -1,5 +1,5 @@
 module Engine.Model.Model (
-    Model(..), createModel
+    Model(..), createModel, createModelTess
 ) where
 
 import Graphics.Rendering.OpenGL.Raw
@@ -17,6 +17,27 @@ data Model = Model {
     modelAABBs :: !(Maybe [AABB]),
     modelWholeAABB :: !(Maybe AABB)
 }
+
+createModelTess ::
+    FilePath ->     -- ^ Vertex Shader.
+    FilePath ->     -- ^ Fragment Shader.
+    FilePath ->     -- ^ Tesselation Control Shader.
+    FilePath ->     -- ^ Tesselation Eval Shader.
+    [String] ->     -- ^ Attribute Variable names.
+    [[GLfloat]] ->  -- ^ List containing all the lists of values.
+                   --   (vertices, normals, etc).
+    [GLuint] ->     -- ^ Size of each value.
+    GLint ->        -- ^ Number of vertices.
+    IO Model
+createModelTess vert frag tessC tessE attrNames buffData valLens vertCount = do
+    program <- loadProgramWithTess vert frag tessC tessE
+    attribs <- getAttrLocs program attrNames
+    ids <- createBufferIdAll buffData
+
+    let sAttribs = createShaderAttribs attribs ids valLens
+    return $ Model (Shader program []) sAttribs [] vertCount
+            (Just $ aabbByFace (head buffData))
+            (Just $ aabbFromPoints (head buffData))
 
 createModel ::
     FilePath ->     -- ^ Vertex Shader.

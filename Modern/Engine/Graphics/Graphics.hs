@@ -1,54 +1,69 @@
 module Engine.Graphics.Graphics (
-    renderWorld, initGL, resizeScene,
-    cleanupObjects
+    initGL, resizeScene,
+    cleanupObjects, renderWorldMat,
+    renderWorldFB
 ) where
 
 import Data.Time (utctDayTime)
-import Foreign.Marshal (withArray, with)
+import Foreign.Marshal (with)
+import Foreign.C (withCString)
+import Data.Bits ((.|.))
+import Data.Maybe (fromJust)
 
 import qualified Graphics.UI.GLFW as GLFW
 
 import Graphics.Rendering.OpenGL.Raw
 import qualified Graphics.Rendering.OpenGL as GL
 
+import qualified Graphics.GLUtil as GU
+
 import Engine.Core.World
 import Engine.Graphics.Shaders
 import Engine.Core.Vec
 import Engine.Object.GameObject
 import Engine.Model.Model
-import Engine.Graphics.GraphicsUtils
+import Engine.Matrix.Matrix
+import Engine.Graphics.Window
+import Engine.Graphics.Textures
 
-renderWorld :: World t -> IO ()
-renderWorld world = do
-    let objects = worldEntities world
-    renderObjects world objects
+renderWorldMat :: World t -> IO (World t)
+renderWorldMat world = do
+    glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
+    -- Get window dimensions from GLFW
+    dimensions <- GLFW.getWindowSize
+                (fromJust $ windowInner $ stateWindow $ worldState world)
+    -- Update matrices.
+    let worldMats = calculateMatricesFromPlayer
+                        (worldPlayer world) dimensions
+    -- Render world with matrices.
+    newEntites <- renderObjectsMat world worldMats (worldEntities world)
+    return world{worldEntities = newEntites}
 
-renderObjects :: World t -> [GameObject t] -> IO ()
-renderObjects world (object:rest) = do
+renderObjectsMat :: World t -> WorldMatrices -> [GameObject t] -> IO [GameObject t]
+renderObjectsMat world wm (object:rest) = do
     let model = pentityModel object
         Vec3 objx objy objz = getPos object
         mShader = modelShader model
 
-    -- Begin a state where transformations remain in affect
-    -- only until glPopMatrix is called.
-    glPushMatrix
-
-    -- Move Object
-    glTranslatef objx objy objz
+        -- Move Object
+        modelMat = gtranslationMatrix [objx, objy, objz]
 
     -- Use object's shader
     glUseProgram $ shaderId mShader
 
-    -- Bind buffers to variable names in shader.
-    setShaderAttribs $ modelShaderVars model
-    --setWorldUniforms world $ shaderId mShader
-    bindTextures (modelTextures model) $ shaderId mShader
-
-    -- Set time uniform.
     let wState = worldState world
         utcTime = stateTime wState
         dayTime = realToFrac $ utctDayTime utcTime
-    setUniforms (shaderId mShader) [("time", return [dayTime])]
+
+    -- Set uniforms. (World uniforms and Matrices).
+    newShader <-
+        setMatrixUniforms mShader wm{matrixModel = modelMat} >>=
+            setWorldUniforms world >>=
+            (\sh -> setUniformsAndRemember sh [("time", return [dayTime])])
+
+    -- Bind buffers to variable names in shader.
+    setShaderAttribs $ modelShaderVars model
+    bindTextures (modelTextures model) $ shaderId mShader
 
     -- Do the drawing.
     glDrawArrays gl_TRIANGLES 0 (modelVertCount model)
@@ -63,24 +78,61 @@ renderObjects world (object:rest) = do
     -- Disable the object's shader.
     glUseProgram 0
 
-    -- End transformations so that later commands are not
-    -- affected.
-    glPopMatrix
+    let newObject = case object of
+            PureEntity{} ->
+                object{pentityModel =
+                    (pentityModel object){modelShader = newShader}}
+            EffectfulEntity{} ->
+                object{eentityModel =
+                    (eentityModel object){modelShader = newShader}}
+            _ -> undefined
 
-    -- Continue rendering the rest of the entities in the world.
-    renderObjects world rest
-renderObjects _ [] = return ()
+    restObjects <- renderObjectsMat world wm rest
 
-{-
-renderWorldFB :: FrameBuffer -> World t -> GLuint -> IO ()
+    return $ newObject : restObjects
+renderObjectsMat _ _ [] = return []
+
+renderWorldFB ::
+    FrameBuffer -> World t -> GLuint -> IO (World t)
 renderWorldFB fb@(FB name _) world shader = do
-    let objects = worldEntities world
+    -- Render to FB.
     glBindFramebuffer gl_FRAMEBUFFER name
-    glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
-    renderObjects world objects
+    ret <- renderWorldMat world
+
+    -- Render to screen.
     glBindFramebuffer gl_FRAMEBUFFER 0
-    renderFromFrameBuffer shader fb
--}
+    glViewport 0 0 800 600
+    renderFromFrameBuffer (worldState world) shader fb
+    return ret
+
+renderFromFrameBuffer :: WorldState -> GLuint -> FrameBuffer -> IO ()
+renderFromFrameBuffer ws shader (FB _ tex) = do
+    glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
+
+    glUseProgram shader
+
+    glActiveTexture gl_TEXTURE0
+    glBindTexture gl_TEXTURE_2D tex
+    texId <- withCString "renderedTexture" $ glGetUniformLocation shader
+    glUniform1f texId 0
+
+    let utcTime = stateTime ws
+        dayTime = realToFrac $ utctDayTime utcTime
+
+    setUniforms shader [("time", return [dayTime])]
+
+    quadVB <- fillNewBuffer' quadBufferData
+
+    -- Enable the attribute buffer.
+    glEnableVertexAttribArray 0
+    -- Give OpenGL the information.
+    glBindBuffer gl_ARRAY_BUFFER quadVB
+    -- Tell OpenGL about the info.
+    glVertexAttribPointer 0 3 gl_FLOAT 0 0 GU.offset0
+
+    glDrawArrays gl_TRIANGLES 0 6
+
+    glDisableVertexAttribArray 0
 
 -------------------------------
 -- UTILITY / SETUP FUNCTIONS --
@@ -140,7 +192,7 @@ cleanupObjects (object:rest) = do
                               (modelShaderVars $ getModel object)
         shaderVarBufIds = map (\(Vec3 _ bufId _) -> bufId)
                               (modelShaderVars $ getModel object)
-    mapM_ (\x -> with x $ glDeleteBuffers 1) $ shaderVarBufIds
+    mapM_ (\x -> with x $ glDeleteBuffers 1) shaderVarBufIds
 
     -- Delete shader.
     glDeleteProgram (shaderId $ modelShader $ getModel object)
@@ -151,7 +203,7 @@ cleanupObjects (object:rest) = do
     mapM_ (\x -> with x $ glDeleteTextures 1) textures
 
     -- Delete vertex arrays.
-    mapM_ (\x -> with x $ glDeleteVertexArrays 1) $ shaderVarAttrIds
+    mapM_ (\x -> with x $ glDeleteVertexArrays 1) shaderVarAttrIds
 
     print "cleanup"
 

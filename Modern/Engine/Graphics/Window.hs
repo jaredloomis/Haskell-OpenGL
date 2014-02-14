@@ -17,7 +17,7 @@ data Window = Window {
 defaultWindow :: Window
 defaultWindow =
     Window
-        [GLFW.WindowHint'RefreshRate 60]--,
+        [GLFW.WindowHint'RefreshRate 60] --,
          --GLFW.WindowHint'Samples 4]
         "GLFW Window"
         (800, 600)

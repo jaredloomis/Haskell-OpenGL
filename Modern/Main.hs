@@ -1,20 +1,20 @@
 module Main where
 
-import Data.Bits ((.|.))
 import Data.Time (diffUTCTime)
+import Control.Monad (unless)
 
 import qualified Graphics.UI.GLFW as GLFW
 
 import Graphics.Rendering.OpenGL.Raw
 
 import Engine.Graphics.Graphics
-import Engine.Object.Player
 import TestVals
 import Engine.Object.GameObject
 import Engine.Graphics.Window
 import Engine.Core.Vec
 import Engine.Core.World
-import Engine.Matrix.Matrix
+import Engine.Graphics.Shaders
+import Engine.Graphics.Textures
 
 main :: IO ()
 main = do
@@ -36,44 +36,37 @@ main = do
     -- Make cursor Hidden.
     GLFW.setCursorInputMode win GLFW.CursorInputMode'Disabled
 
+    qShader <- loadProgram "shaders/quad.vert" "shaders/quad.frag"
+    fb <- makeFrameBuffer
+
     -- Begin game loop.
-    loop win world
+    loop win world fb qShader
     -- Delete stuff left in OpenGL.
     cleanupObjects $ worldEntities world
     -- Shutdown when game loop is done.
     shutdown win
 
     where
-        loop :: GLFW.Window -> World t -> IO ()
-        loop win world = do
+        --loop :: GLFW.Window -> World t -> IO ()
+        loop win world fb qs = do
             -- Check if any events have occured.
             GLFW.pollEvents
 
-            -- Perform logic update on the world.
+            -- Perform logic update on the world and render.
             newWorld <- updateStep win world >>=
-                    (`renderStep` win)
+                    (\w -> renderStep w fb qs win)
 
             -- Swap back and front buffer.
             GLFW.swapBuffers win
 
             shouldClose <- GLFW.windowShouldClose win
-            if not shouldClose
-                then loop win newWorld
-            else return ()
+            unless shouldClose $
+                loop win newWorld fb qs
 
-renderStep :: World t -> GLFW.Window -> IO (World t)
-renderStep world _ = renderWorldMat world
-
-renderStepOld :: World t -> GLFW.Window -> IO ()
-renderStepOld world _ = do
-    -- Reset the matrix to a default state.
-    glLoadIdentity
-
-    -- Apply player's transformations.
-    applyTransformations (worldPlayer world)
-
-    -- Render all entities.
-    renderWorld world
+renderStep :: World t -> FrameBuffer -> GLuint -> GLFW.Window -> IO (World t)
+renderStep world fb s _ = do
+    renderWorldFB fb world s
+    --renderWorldMat world
 
 updateStep :: GLFW.Window -> World t -> IO (World t)
 updateStep win world = do

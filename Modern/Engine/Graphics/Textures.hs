@@ -2,13 +2,15 @@
 module Engine.Graphics.Textures (
     juicyLoadImage, FrameBuffer(..),
     Image(..), Texture, makeFrameBuffer,
-    renderToFrameBuffer, renderFromFrameBuffer
+    fillNewBuffer', quadBufferData
 ) where
 
+import Data.Time (getCurrentTime, utctDayTime)
 import Data.Vector.Storable (unsafeWith)
 import Foreign
     (Word8, alloca, peek, wordPtrToPtr,
-     withArrayLen, sizeOf, Ptr, Storable)
+     withArrayLen, sizeOf, Ptr, Storable,
+     with, withArray, new)
 import Foreign.C.String (withCString)
 import Data.Bits ((.|.))
 
@@ -60,15 +62,17 @@ makeFrameBuffer = do
     fbName <- alloca (\p -> glGenFramebuffers 1 p >> peek p)
     glBindFramebuffer gl_FRAMEBUFFER fbName
 
-    fbTexPtr <- alloca (\p -> glGenTextures 1 p >> return p)
+    fbTexPtr <- new 0
     glGenTextures 1 fbTexPtr
+
+    --fbTexPtr <- alloca (\p -> glGenTextures 1 p >> return p)
+    --glGenTextures 1 fbTexPtr
     
     fbTex <- peek fbTexPtr
 
     glBindTexture gl_TEXTURE_2D fbTex
-
     glTexImage2D gl_TEXTURE_2D 0 (fromIntegral gl_RGB)
-        1024 768 0 gl_RGB gl_UNSIGNED_BYTE GU.offset0
+        800 600 0 gl_RGB gl_UNSIGNED_BYTE GU.offset0
 
     glTexParameteri gl_TEXTURE_2D (fromIntegral gl_TEXTURE_MAG_FILTER)
                                   (fromIntegral gl_NEAREST)
@@ -91,7 +95,7 @@ makeFrameBuffer = do
     glFramebufferTexture gl_FRAMEBUFFER
        gl_COLOR_ATTACHMENT0 fbTex 0
 
-    glDrawBuffers 1 (wordPtrToPtr $ fromIntegral gl_COLOR_ATTACHMENT0)
+    withArray [gl_COLOR_ATTACHMENT0] $ glDrawBuffers 1
 
     glCheckFramebufferStatus gl_FRAMEBUFFER >>=
         (\x -> putStrLn $ if x == gl_FRAMEBUFFER_COMPLETE
@@ -101,35 +105,6 @@ makeFrameBuffer = do
     glBindFramebuffer gl_FRAMEBUFFER 0
 
     return $ FB fbName fbTex
-
-renderToFrameBuffer :: GLint -> GLuint -> IO ()
-renderToFrameBuffer count fbName = do
-    glBindFramebuffer gl_FRAMEBUFFER fbName
-    glViewport 0 0 800 600
-    glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
-    glDrawArrays gl_TRIANGLES 0 count
-    glBindFramebuffer gl_FRAMEBUFFER 0
-
-renderFromFrameBuffer :: GLuint -> FrameBuffer -> IO ()
-renderFromFrameBuffer shader (FB _ tex) = do
-    glUseProgram shader
-    glActiveTexture gl_TEXTURE0
-    glBindTexture gl_TEXTURE_2D tex
-    texId <- withCString "renderedTexture" $ glGetUniformLocation shader
-    glUniform1f texId 0
-
-    quadVB <- fillNewBuffer' quadBufferData
-
-    -- Enable the attribute buffer.
-    glEnableVertexAttribArray 0
-    -- Give OpenGL the information.
-    glBindBuffer gl_ARRAY_BUFFER quadVB
-    -- Tell OpenGL about the info.
-    glVertexAttribPointer 0 3 gl_FLOAT 0 0 GU.offset0
-
-    glDrawArrays gl_TRIANGLES 0 6
-
-    glDisableVertexAttribArray 0
 
 quadBufferData :: [GLfloat]
 quadBufferData =

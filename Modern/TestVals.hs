@@ -74,11 +74,13 @@ mkModel3 = do
                                mainFragShader
 
 mainVertShader :: String
---mainVertShader = "shaders" </> "toon" </> "toon.vert"
 mainVertShader = "shaders" </> "min.vert"
---mainVertShader = "shaders" </> "modern" </> "modern.vert"
 
 mainFragShader :: String
---mainFragShader = "shaders" </> "toon" </> "toon.frag"
 mainFragShader = "shaders" </> "min.frag"
---mainFragShader = "shaders" </> "modern" </> "modern.frag"
+
+mainTessCShader :: String
+mainTessCShader = "shaders" </> "tesselation" </> "test_ts.glsl"
+
+mainTessEShader :: String
+mainTessEShader = "shaders" </> "tesselation" </> "test_te.glsl"

@@ -4,26 +4,20 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Engine.Matrix.Matrix (
-    renderWorldMat
+    calculateMatricesFromPlayer,
+    WorldMatrices(..), gtranslationMatrix,
+    setMatrixUniforms
 ) where
 
 import Data.List (transpose)
-import Data.Maybe (fromJust, isJust)
 import Foreign.Marshal.Array (withArray)
-import Data.Time (utctDayTime)
-import Data.Bits ((.|.))
-
-import qualified Graphics.UI.GLFW as GLFW
 
 import qualified Graphics.Rendering.OpenGL as GL
 import Graphics.Rendering.OpenGL.Raw
 
 import Engine.Core.World
 import Engine.Graphics.Shaders
-import Engine.Object.GameObject
-import Engine.Model.Model
 import Engine.Core.Vec
-import Engine.Graphics.Window
 
 data WorldMatrices = WorldMatrices {
     matrixModel :: Matrix4x4,
@@ -66,73 +60,6 @@ applyToIndices (a:as) (b:bs) f =
     f a b : applyToIndices as bs f
 applyToIndices _ _ _ = []
 
-renderWorldMat :: World t -> IO (World t)
-renderWorldMat world = do
-    glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
-    -- Get window dimensions from GLFW
-    dimensions <- GLFW.getWindowSize
-                (fromJust $ windowInner $ stateWindow $ worldState world)
-    -- Update matrices.
-    let worldMats = calculateMatricesFromPlayer
-                        (worldPlayer world) dimensions
-    -- Render world with matrices.
-    newEntites <- renderObjectsMat world worldMats (worldEntities world)
-    return world{worldEntities = newEntites}
-
-renderObjectsMat :: World t -> WorldMatrices -> [GameObject t] -> IO [GameObject t]
-renderObjectsMat world wm (object:rest) = do
-    let model = pentityModel object
-        Vec3 objx objy objz = getPos object
-        mShader = modelShader model
-
-        -- Move Object
-        modelMat = gtranslationMatrix [objx, objy, objz]
-
-    -- Use object's shader
-    glUseProgram $ shaderId mShader
-
-    -- Set uniforms. (World uniforms and Matrices).
-    newShader <-
-        setMatrixUniforms mShader wm{matrixModel = modelMat} >>=
-            setWorldUniforms world
-
-    -- Bind buffers to variable names in shader.
-    setShaderAttribs $ modelShaderVars model
-    bindTextures (modelTextures model) $ shaderId mShader
-
-    -- Set time uniform.
-    let wState = worldState world
-        utcTime = stateTime wState
-        dayTime = realToFrac $ utctDayTime utcTime
-    setUniformsAndRemember mShader [("time", return [dayTime])]
-
-    -- Do the drawing.
-    glDrawArrays gl_TRIANGLES 0 (modelVertCount model)
-
-    -- TODO: Remove if not necessary.
-    -- Disable textures.
-    unBindTextures (fromIntegral . length . modelTextures $ model)
-
-    -- Turn off VBO/VAO
-    disableShaderAttribs $ modelShaderVars model
-
-    -- Disable the object's shader.
-    glUseProgram 0
-
-    let newObject = case object of
-            PureEntity{} ->
-                object{pentityModel =
-                    (pentityModel object){modelShader = newShader}}
-            EffectfulEntity{} ->
-                object{eentityModel =
-                    (eentityModel object){modelShader = newShader}}
-            _ -> undefined
-
-    restObjects <- renderObjectsMat world wm rest
-
-    return $ newObject : restObjects
-renderObjectsMat _ _ [] = return []
-
 -- TODO: Make this function cause the shader to remember
 --       uniform locations.
 setMatrixUniforms :: Shader -> WorldMatrices -> IO Shader
@@ -141,7 +68,8 @@ setMatrixUniforms shader wm = do
     withArray (toGLFormat $ matrixModel wm)
         $ glUniformMatrix4fv modelMatrix 1 (fromIntegral gl_FALSE)
 
-    (shader'', projectionMatrix) <- findUniformLocationAndRemember shader' "projectionMatrix"
+    (shader'', projectionMatrix) <- findUniformLocationAndRemember shader'
+                                    "projectionMatrix"
     withArray (toGLFormat $ matrixProjection wm)
         $ glUniformMatrix4fv projectionMatrix 1 (fromIntegral gl_FALSE)
 
