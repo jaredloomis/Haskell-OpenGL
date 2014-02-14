@@ -44,7 +44,8 @@ All commands using the `-O` or `-O2` flags performed basically the same, with a 
 
 <h4>Top</h4>
 - <b>Fix large strain on GPU since switching to client-side matrices. Probably a few mistake OpenGL calls.</b>
-- <b>Implement Window data type into code to allow for window resizing (`gperspective 45 (width/height)...` and resize viewport).</b>
+- <b>Make OpenGL-related code more clear (function names, etc.)</b>
+- Do alot more `{-# INLINE #-}`ing.
 - Cleanup code again, look for efficiency increases.
 - Make walking more stable and efficient.
 
@@ -53,6 +54,8 @@ All commands using the `-O` or `-O2` flags performed basically the same, with a 
 - Better generalization of loading .obj files. Current loader is not compatible with many (most?) .obj files.
 
 <h4>Additions</h4>
+- Use [FFI](http://www.haskell.org/haskellwiki/FFI_Introduction) for core functions. Maybe for Matrices?
+- Normal mapping / normal textures.
 - Text / GUI
 - Physics
 - Audio support using a library
@@ -60,6 +63,8 @@ All commands using the `-O` or `-O2` flags performed basically the same, with a 
 - Save files.
 
 <h4>OpenGL</h4>
+- LOD via [Tesselation shaders](http://prideout.net/blog/?p=48)
+- [Good resource for example shaders](https://github.com/MovingBlocks/Terasology/tree/develop/engine/src/main/resources/assets/shaders)
 - [Render to Texture / FBO](https://code.google.com/p/opengl-tutorial-org/source/browse/tutorial14_render_to_texture/tutorial14.cpp)
 - [Lots of stuff to add shader/graphics-wise](http://developer.download.nvidia.com/SDK/9.5/Samples/samples.html)
 - OpenGL 3.3+ [Sampler Objects](http://www.sinanc.org/blog/?p=215) (Pretty easy).
