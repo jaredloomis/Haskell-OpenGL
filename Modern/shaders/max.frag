@@ -1,4 +1,4 @@
-#version 430
+#version 430 core
 
 #define PI (3.14159265359)
 

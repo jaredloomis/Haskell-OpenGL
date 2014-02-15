@@ -1,18 +1,15 @@
 {-# LANGUAGE RankNTypes #-}
 module Engine.Graphics.Textures (
     juicyLoadImage, FrameBuffer(..),
-    Image(..), Texture, makeFrameBuffer,
+    Image(..), Texture, --makeFrameBuffer,
     fillNewBuffer', quadBufferData
 ) where
 
-import Data.Time (getCurrentTime, utctDayTime)
 import Data.Vector.Storable (unsafeWith)
 import Foreign
-    (Word8, alloca, peek, wordPtrToPtr,
+    (Word8, alloca, peek,
      withArrayLen, sizeOf, Ptr, Storable,
-     with, withArray, new)
-import Foreign.C.String (withCString)
-import Data.Bits ((.|.))
+     withArray, new)
 
 import qualified Codec.Picture as Juicy
 import qualified Codec.Picture.Types as JTypes
@@ -57,21 +54,21 @@ juicyLoadImage file = do
             "Engine.Graphics.Texture.juicyLoadImage:"
                 ++ "bad image colorspace or format."
 
-makeFrameBuffer :: IO FrameBuffer
-makeFrameBuffer = do
+{-
+makeFrameBuffer :: WorldState -> IO FrameBuffer
+makeFrameBuffer wState = do
+    -- Create framebuffer and bind it.
     fbName <- alloca (\p -> glGenFramebuffers 1 p >> peek p)
     glBindFramebuffer gl_FRAMEBUFFER fbName
 
+    -- Create a texture id.
     fbTexPtr <- new 0
     glGenTextures 1 fbTexPtr
-
-    --fbTexPtr <- alloca (\p -> glGenTextures 1 p >> return p)
-    --glGenTextures 1 fbTexPtr
-    
     fbTex <- peek fbTexPtr
-
     glBindTexture gl_TEXTURE_2D fbTex
-    glTexImage2D gl_TEXTURE_2D 0 (fromIntegral gl_RGB)
+
+    glTexImage2D gl_TEXTURE_2D 0
+        (fromIntegral gl_RGB)
         800 600 0 gl_RGB gl_UNSIGNED_BYTE GU.offset0
 
     glTexParameteri gl_TEXTURE_2D (fromIntegral gl_TEXTURE_MAG_FILTER)
@@ -105,6 +102,7 @@ makeFrameBuffer = do
     glBindFramebuffer gl_FRAMEBUFFER 0
 
     return $ FB fbName fbTex
+-}
 
 quadBufferData :: [GLfloat]
 quadBufferData =

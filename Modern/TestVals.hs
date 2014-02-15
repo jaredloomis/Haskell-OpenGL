@@ -1,10 +1,9 @@
 module TestVals (
-    mkWorld
+    mkWorld, mkWorldState, mkWorldFast
 ) where
 
 import Control.Applicative ((<$>), (<*>))
 import System.FilePath ((</>))
-import Data.IORef (IORef, newIORef)
 
 import Engine.Object.Player
 import Engine.Model.ModelLoader
@@ -14,34 +13,39 @@ import Engine.Core.World
 import Engine.Model.Model
 import Engine.Graphics.Window
 
-mkWorld :: IO (World ())
-mkWorld = do
-    obja <- mkObj
+mkWorldFast :: IO (World ())
+mkWorldFast = mkWorldState >>= mkWorld
+
+mkWorld :: WorldState -> IO (World ())
+mkWorld wState = do
+    (obja, wState') <- mkObj wState
     objb <- mkObj2
-    objc <- mkObj3
-    World mkPlayer [obja, objb, objc]
-        [("lightPos", return [0.0, 40.0, 0.0])] <$> mkWorldState
+    (objc, wState'') <- mkObj3 wState'
+    return $ World mkPlayer [obja, objb, objc]
+             [("lightPos", return [0.0, 40.0, 0.0])] [] wState''
 
 mkWorldState :: IO WorldState
 mkWorldState = do
     t <- getWorldTime
     return $ WorldState 0 t 0 False defaultWindow
 
-mkWorldStateRef :: IO (IORef WorldState)
-mkWorldStateRef = mkWorldState >>= newIORef
+--mkWorldStateRef :: IO (IORef WorldState)
+--mkWorldStateRef = mkWorldState >>= newIORef
 
 
-mkObj :: IO (GameObject ())
-mkObj =
-    PureEntity (Vec3 10 3 10) id <$> mkModel <*> return ()
+mkObj :: WorldState -> IO (GameObject (), WorldState)
+mkObj ws = do
+    (model, state) <- mkModel ws
+    return (PureEntity (Vec3 10 3 10) id model (), state)
 
 mkObj2 :: IO (GameObject ())
 mkObj2 =
     PureEntity (Vec3 0 0 0) id <$> mkTerrain <*> return ()
 
-mkObj3 :: IO (GameObject ())
-mkObj3 =
-    PureEntity (Vec3 0 (-20) (-20)) id <$> mkModel3 <*> return ()
+mkObj3 :: WorldState -> IO (GameObject (), WorldState)
+mkObj3 ws = do
+    (model, state) <- mkModel3 ws
+    return (PureEntity (Vec3 0 (-20) (-20)) id model (), state)
 {-
 pureMove :: GameObject t -> GameObject t
 pureMove pe@(PureEntity{}) =
@@ -49,10 +53,9 @@ pureMove pe@(PureEntity{}) =
 pureMove a = a
 -}
 
-mkModel :: IO Model
-mkModel = do
-    worldStateRef <- mkWorldStateRef
-    loadObjModel worldStateRef ("res" </> "objects/wow/wow.obj")
+mkModel :: WorldState -> IO (Model, WorldState)
+mkModel ws = do
+    loadObjModel ws ("res" </> "objects/wow/wow.obj")
                                mainVertShader
                                mainFragShader
 
@@ -66,10 +69,9 @@ mkTerrain = genSimplexModel
             20
             10
 
-mkModel3 :: IO Model
-mkModel3 = do
-    worldStateRef <- mkWorldStateRef
-    loadObjModel worldStateRef ("res" </> "objects/ibanez/ibanez.obj")
+mkModel3 :: WorldState -> IO (Model, WorldState)
+mkModel3 ws = 
+    loadObjModel ws ("res" </> "objects/ibanez/ibanez.obj")
                                mainVertShader
                                mainFragShader
 

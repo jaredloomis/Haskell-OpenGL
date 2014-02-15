@@ -23,6 +23,7 @@ data World t = World {
     worldPlayer :: !(GameObject t),
     worldEntities :: ![GameObject t],
     worldUniforms :: ![ShaderUniform],
+    worldPostShaders :: ![GLuint],
     worldState :: !WorldState
 }
 

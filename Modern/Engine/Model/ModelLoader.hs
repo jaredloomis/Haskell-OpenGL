@@ -10,8 +10,6 @@ import Data.List.Split
 import System.IO
 import Data.IORef
 
-import Criterion.Main
-
 import qualified Data.ByteString.Char8 as B
 
 import Graphics.Rendering.OpenGL.Raw (GLfloat, GLuint)
@@ -25,17 +23,17 @@ import Engine.Core.World
 --   the FilePath to the .obj, and the FilePaths to the vertex
 --   and fragment shaders.
 loadObjModelTess ::
-    IORef WorldState ->
+    WorldState ->
     FilePath ->
     FilePath ->
     FilePath ->
     FilePath ->
     FilePath ->
-    IO Model
-loadObjModelTess wStateRef objFile vert frag tessC tessE =
+    IO (Model, WorldState)
+loadObjModelTess wState objFile vert frag tessC tessE =
     let attrNames = ["position", "texCoord", "normal", "color", "textureId"]
     in do
-        -- obj <- loadObj objFile
+        wStateRef <- newIORef wState
         handle <- openFile objFile ReadMode
         fLines <- getFileLinesB handle
         let (verts, norms, texs, faces) = loadByteString fLines
@@ -56,22 +54,27 @@ loadObjModelTess wStateRef objFile vert frag tessC tessE =
             totalData
             [3, 2, 3, 3, 1]
             (fromIntegral (length $ head dat) `div` 3)
-        return tmp{modelTextures =
+
+        newState <- readIORef wStateRef
+        return (tmp{modelTextures =
             zip (map (fromJust . matTexture) lib)
-                (map (fromJust . matTexId) lib)}
+                (map (fromJust . matTexId) lib)},
+                
+                newState)
 
 -- | Completely loads a .obj file, given the current WorldState,
 --   the FilePath to the .obj, and the FilePaths to the vertex
 --   and fragment shaders.
 loadObjModel ::
-    IORef WorldState ->
+    WorldState ->
     FilePath ->
     FilePath ->
     FilePath ->
-    IO Model
-loadObjModel wStateRef objFile vert frag =
+    IO (Model, WorldState)
+loadObjModel wState objFile vert frag =
     let attrNames = ["position", "texCoord", "normal", "color", "textureId"]
     in do
+        wStateRef <- newIORef wState
         -- obj <- loadObj objFile
         handle <- openFile objFile ReadMode
         fLines <- getFileLinesB handle
@@ -93,9 +96,14 @@ loadObjModel wStateRef objFile vert frag =
             totalData
             [3, 2, 3, 3, 1]
             (fromIntegral (length $ head dat) `div` 3)
-        return tmp{modelTextures =
+
+        newState <- readIORef wStateRef
+
+        return (tmp{modelTextures =
             zip (map (fromJust . matTexture) lib)
-                (map (fromJust . matTexId) lib)}
+                (map (fromJust . matTexId) lib)},
+
+                newState)
 
 packObj ::
     [Vec3 (Maybe GLuint)] -> -- ^ Face definitions
@@ -137,12 +145,6 @@ loadByteString =
                     then (Nothing, Nothing, Nothing,
                           Just $ readFaceGroupsB (tail $ splitSpacesB line))
                 else (Nothing, Nothing, Nothing, Nothing))) ([], [], [], [])
-
-test :: IO ()
-test = defaultMain [
-    bench "fact 30" $ whnf splitSpacesB "Why be gay?",
-    bench "fact 40" $ whnf splitSpacesB "Hello, world, how are you???"
-    ]
         
 consMine :: (Maybe (Vec3 GLfloat),
             Maybe (Vec3 GLfloat),

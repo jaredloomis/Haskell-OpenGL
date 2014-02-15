@@ -20,12 +20,12 @@ echo ""
 # Do the commit.
 if [ "$commitfile" != "n" ]; then
     echo "Beginning full git commit..."
-    #git commit
+    git commit
     echo "Git commit file creation finished."
 else
     echo "Enter commit message:"
     read commitmessage
-    #git commit -m '$commitmessage'
+    git commit -m '$commitmessage'
 fi
 echo ""
 
@@ -36,7 +36,7 @@ read pushproceed
 # Call git push if necessary.
 if [ "$pushproceed" != "n" ]; then
     echo "Beginning git push..."
-    #git push origin master
+    git push origin master
     echo "Git push finished."
 else
     echo "Git push canceled."

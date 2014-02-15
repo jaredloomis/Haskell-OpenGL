@@ -26,7 +26,7 @@ main = do
     initGL win
 
     -- Create default world, set the window.
-    tmp <- mkWorld
+    tmp <- mkWorldFast
     let world = tmp{
         worldState = (worldState tmp){stateWindow = window}}
 
@@ -36,8 +36,12 @@ main = do
     -- Make cursor Hidden.
     GLFW.setCursorInputMode win GLFW.CursorInputMode'Disabled
 
-    qShader <- loadProgram "shaders/quad.vert" "shaders/quad.frag"
-    fb <- makeFrameBuffer
+    qShader <- loadProgram
+        --"shaders/postprocessing/bumpy/bumpy.vert"
+        --"shaders/postprocessing/bumpy/bumpy.frag"
+        "shaders/postprocessing/invert/invert.vert"
+        "shaders/postprocessing/invert/invert.frag"
+    fb <- makeFrameBuffer (worldState world)
 
     -- Begin game loop.
     loop win world fb qShader
@@ -64,9 +68,8 @@ main = do
                 loop win newWorld fb qs
 
 renderStep :: World t -> FrameBuffer -> GLuint -> GLFW.Window -> IO (World t)
-renderStep world fb s _ = do
+renderStep world fb s _ =
     renderWorldFB fb world s
-    --renderWorldMat world
 
 updateStep :: GLFW.Window -> World t -> IO (World t)
 updateStep win world = do

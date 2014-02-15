@@ -3,8 +3,8 @@
 #define lightAttenuation(dist) (dist * dist / 1000.0)
 #define fogColor (vec4(0.01, 0.01, 0.01, 0.075))
 #define ambColor (vec3(0.01, 0.01, 0.01))
-#define maxSpec 0.8
-#define shininess 8.0
+#define maxSpec (0.8)
+#define shininess (8.0)
 
 in vec3 vColor;
 in vec3 vVertex;
@@ -46,7 +46,6 @@ void main()
 
     //Distance from vertex to light.
     float dist = length(lightPos - vVertex);
-
 
     //"View vector".
     vec3 viewVec = normalize(-vertexPosition);

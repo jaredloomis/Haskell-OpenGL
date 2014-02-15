@@ -1,7 +1,7 @@
 module Engine.Graphics.Graphics (
     initGL, resizeScene,
     cleanupObjects, renderWorldMat,
-    renderWorldFB
+    renderWorldFB, makeFrameBuffer
 ) where
 
 import Data.Time (utctDayTime)
@@ -9,6 +9,7 @@ import Foreign.Marshal (with)
 import Foreign.C (withCString)
 import Data.Bits ((.|.))
 import Data.Maybe (fromJust)
+import Foreign (peek, alloca, new, withArray)
 
 import qualified Graphics.UI.GLFW as GLFW
 
@@ -133,6 +134,59 @@ renderFromFrameBuffer ws shader (FB _ tex) = do
     glDrawArrays gl_TRIANGLES 0 6
 
     glDisableVertexAttribArray 0
+
+makeFrameBuffer :: WorldState -> IO FrameBuffer
+makeFrameBuffer wState = do
+    let (winW, winH) = windowSize $ stateWindow wState
+    -- Create framebuffer and bind it.
+    fbName <- alloca (\p -> glGenFramebuffers 1 p >> peek p)
+    glBindFramebuffer gl_FRAMEBUFFER fbName
+
+    -- Create a texture id.
+    fbTexPtr <- new 0
+    glGenTextures 1 fbTexPtr
+    fbTex <- peek fbTexPtr
+    glBindTexture gl_TEXTURE_2D fbTex
+
+    let textureCount = fromIntegral $ stateTextureCount wState
+
+    glTexImage2D gl_TEXTURE_2D textureCount
+        --(fromIntegral gl_DEPTH_COMPONENT24)
+        (fromIntegral gl_RGB)
+        (fromIntegral winW) (fromIntegral winH) 0 gl_RGB gl_UNSIGNED_BYTE GU.offset0
+
+    glTexParameteri gl_TEXTURE_2D (fromIntegral gl_TEXTURE_MAG_FILTER)
+                                  (fromIntegral gl_NEAREST)
+    glTexParameteri gl_TEXTURE_2D (fromIntegral gl_TEXTURE_MIN_FILTER)
+                                  (fromIntegral gl_NEAREST)
+    glTexParameteri gl_TEXTURE_2D gl_TEXTURE_WRAP_S
+        $ fromIntegral gl_CLAMP_TO_EDGE
+    glTexParameteri gl_TEXTURE_2D gl_TEXTURE_WRAP_T
+        $ fromIntegral gl_CLAMP_TO_EDGE
+
+    depthRenderBuffer <- alloca (\p -> glGenRenderbuffers 1 p >> peek p)
+
+    glBindRenderbuffer gl_RENDERBUFFER depthRenderBuffer
+
+    glRenderbufferStorage gl_RENDERBUFFER gl_DEPTH_COMPONENT
+        (fromIntegral winW) (fromIntegral winH)
+
+    glFramebufferRenderbuffer gl_FRAMEBUFFER gl_DEPTH_ATTACHMENT
+        gl_RENDERBUFFER depthRenderBuffer
+
+    glFramebufferTexture gl_FRAMEBUFFER
+       gl_COLOR_ATTACHMENT0 fbTex 0
+
+    withArray [gl_COLOR_ATTACHMENT0] $ glDrawBuffers 1
+
+    glCheckFramebufferStatus gl_FRAMEBUFFER >>=
+        (\x -> putStrLn $ if x == gl_FRAMEBUFFER_COMPLETE
+            then "Framebuffer successfully created"
+            else "Framebuffer error")
+
+    glBindFramebuffer gl_FRAMEBUFFER 0
+
+    return $ FB fbName fbTex
 
 -------------------------------
 -- UTILITY / SETUP FUNCTIONS --

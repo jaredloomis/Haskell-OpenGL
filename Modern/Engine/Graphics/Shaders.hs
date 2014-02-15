@@ -1,6 +1,6 @@
 module Engine.Graphics.Shaders (
-    ShaderAttrib, ShaderUniform, Shader(..), createShaderAttribs,
-    loadProgram, bindTextures, unBindTextures,
+    ShaderAttrib, ShaderUniform, Shader(..), DrawAction(..),
+    createShaderAttribs, loadProgram, bindTextures, unBindTextures,
     setShaderAttribs, disableShaderAttribs, setUniforms,
     getMatrixFromGL, quickGetUniform, getAttrLocs,
     printMatrix, setUniform, setUniformAndRemember,
