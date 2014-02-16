@@ -45,7 +45,9 @@ All commands using the `-O` or `-O2` flags performed basically the same, with a 
 <h4>Top</h4>
 - <b>Fix large strain on GPU since switching to client-side matrices. Probably a few mistake OpenGL calls.</b>
 - <b>Make OpenGL-related code more clear (function names, etc.)</b>
-- AI / Pathfinding (A\*?)
+- Framebuffer resizing.
+- AI / Pathfinding (A\*?).
+- Chunks or other methods to allow for infinite terrain.
 - Do alot more `{-# INLINE #-}`ing.
 - Cleanup code again, look for efficiency increases.
 - Make walking more stable and efficient.

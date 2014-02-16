@@ -1,19 +1,17 @@
 module Engine.Core.World (
     World(..), WorldState(..), playerAABB,
     GameObject(..), Input(..), setWorldUniforms,
-    loadWorldTexture, getWorldTime, getWorldDelta
+    getWorldTime, getWorldDelta,
+    Framebuffer(..)
 ) where
 
-import Control.Monad (liftM)
 import Data.Time (getCurrentTime, UTCTime)
 
 import qualified Graphics.UI.GLFW as GLFW
-import qualified Graphics.Rendering.OpenGL as GL
-import Graphics.Rendering.OpenGL.Raw (GLuint, GLfloat)
-import Graphics.Rendering.OpenGL (Size(..), ($=))
+
+import Graphics.Rendering.OpenGL.Raw (GLuint, GLfloat, GLint)
 
 import Engine.Graphics.Shaders
-import Engine.Graphics.Textures
 import Engine.Core.Vec
 import Engine.Model.Model
 import Engine.Model.AABB
@@ -23,16 +21,23 @@ data World t = World {
     worldPlayer :: !(GameObject t),
     worldEntities :: ![GameObject t],
     worldUniforms :: ![ShaderUniform],
-    worldPostShaders :: ![GLuint],
+    worldFramebuffer :: !(Framebuffer, [GLuint]),
     worldState :: !WorldState
 }
 
 data WorldState = WorldState {
-    stateTextureCount :: !GLuint,
     stateTime :: !UTCTime,
     stateDelta :: !GLfloat,
     statePaused :: !Bool,
     stateWindow :: Window
+}
+
+data Framebuffer = FB {
+    fbufName :: GLuint,
+    fbufTexture :: GLuint,
+    fbufDimensions :: (GLint, GLint),
+    fbufVBO :: GLuint,
+    fbufRenderBuffer :: GLuint
 }
 
 -- TODO: Make this more flexible
@@ -53,7 +58,7 @@ data GameObject t = Player {
     pentityAttribute :: !t
 } | EffectfulEntity {
     eentityPosition :: !(Vec3 GLfloat),
-    eentityUpdate :: !(GameObject t -> World t -> World t),
+    eentityUpdate :: !(World t -> GameObject t -> GameObject t),
     eentityModel :: !Model,
     eentityAttribute :: !t
 }
@@ -76,6 +81,7 @@ getWorldDelta :: World t -> GLfloat
 getWorldDelta = stateDelta . worldState
 
 -- | Load a texture using the WorldState to keep track of texture ID.
+{-
 loadWorldTexture :: WorldState -> FilePath -> IO GL.TextureObject
 loadWorldTexture wState file = do
     (Image (Size w h) pd) <- juicyLoadImage file
@@ -83,9 +89,10 @@ loadWorldTexture wState file = do
     GL.textureBinding GL.Texture2D $= Just texName
     GL.textureFilter GL.Texture2D $= ((GL.Nearest, Nothing), GL.Nearest)
     GL.texImage2D GL.Texture2D GL.NoProxy
-        (fromIntegral $ stateTextureCount wState)
+        0
         GL.RGB' (GL.TextureSize2D w h) 0 pd
     return texName
+-}
 
 -- | Synonym for getCurrentTime.
 getWorldTime :: IO UTCTime

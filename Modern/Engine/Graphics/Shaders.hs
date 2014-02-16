@@ -1,5 +1,5 @@
 module Engine.Graphics.Shaders (
-    ShaderAttrib, ShaderUniform, Shader(..), DrawAction(..),
+    ShaderAttrib, ShaderUniform, Shader(..),
     createShaderAttribs, loadProgram, bindTextures, unBindTextures,
     setShaderAttribs, disableShaderAttribs, setUniforms,
     getMatrixFromGL, quickGetUniform, getAttrLocs,
@@ -128,9 +128,9 @@ bindTextures textures shader =
     -- TODO reduce calls to quickGetUniform.
     where
     bindTexturesi :: GLuint -> [(GL.TextureObject, GLint)] -> GLuint -> IO ()
-    bindTexturesi s ((GL.TextureObject tid, activeId):ts) i =
-        when (activeId >= 0) $ do
-            glActiveTexture $ gl_TEXTURE0 + fromIntegral activeId
+    bindTexturesi s ((GL.TextureObject tid, _):ts) i = do
+        --when (activeId >= 0) $ do
+            glActiveTexture $ gl_TEXTURE0 + i-- + fromIntegral activeId
             glBindTexture gl_TEXTURE_2D tid
 
             loc <- quickGetUniform s $ "textures[" ++ show i ++ "]"

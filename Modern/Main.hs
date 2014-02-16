@@ -13,8 +13,7 @@ import Engine.Object.GameObject
 import Engine.Graphics.Window
 import Engine.Core.Vec
 import Engine.Core.World
-import Engine.Graphics.Shaders
-import Engine.Graphics.Textures
+import Engine.Graphics.Framebuffer
 
 main :: IO ()
 main = do
@@ -30,46 +29,41 @@ main = do
     let world = tmp{
         worldState = (worldState tmp){stateWindow = window}}
 
-    -- Register the function called whe our window is resized.
+    -- Register the function called when the window is resized.
     GLFW.setFramebufferSizeCallback win (Just resizeScene)
 
     -- Make cursor Hidden.
     GLFW.setCursorInputMode win GLFW.CursorInputMode'Disabled
 
-    qShader <- loadProgram
-        --"shaders/postprocessing/bumpy/bumpy.vert"
-        --"shaders/postprocessing/bumpy/bumpy.frag"
-        "shaders/postprocessing/invert/invert.vert"
-        "shaders/postprocessing/invert/invert.frag"
-    fb <- makeFrameBuffer (worldState world)
-
     -- Begin game loop.
-    loop win world fb qShader
+    loop win world
     -- Delete stuff left in OpenGL.
+    cleanupWorld world
     cleanupObjects $ worldEntities world
     -- Shutdown when game loop is done.
     shutdown win
 
     where
-        --loop :: GLFW.Window -> World t -> IO ()
-        loop win world fb qs = do
+        loop :: GLFW.Window -> World t -> IO ()
+        loop win world = do
             -- Check if any events have occured.
             GLFW.pollEvents
 
             -- Perform logic update on the world and render.
             newWorld <- updateStep win world >>=
-                    (\w -> renderStep w fb qs win)
+                    (`renderStep` win)
 
             -- Swap back and front buffer.
             GLFW.swapBuffers win
 
             shouldClose <- GLFW.windowShouldClose win
             unless shouldClose $
-                loop win newWorld fb qs
+                loop win newWorld
 
-renderStep :: World t -> FrameBuffer -> GLuint -> GLFW.Window -> IO (World t)
-renderStep world fb s _ =
-    renderWorldFB fb world s
+renderStep :: World t -> GLFW.Window -> IO (World t)
+renderStep world _ =
+    --renderWorldFB fb world s
+    renderWorldPost world
 
 updateStep :: GLFW.Window -> World t -> IO (World t)
 updateStep win world = do

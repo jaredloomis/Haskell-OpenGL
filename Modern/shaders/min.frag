@@ -63,13 +63,6 @@ void main()
 
     if(vTextureId != -1)
     {
-        /*
-        vec4 textureColor = texture(textures[texId],
-                textureCoord + 0.005 *
-                vec2(sin(5 * time + 1024.0 * textureCoord.x),
-                     cos(5 * time + 768.0 * textureCoord.y))) /
-                        lightAttenuation(dist);
-        */
         vec4 textureColor = texture(textures[vTextureId], vTextureCoord) /
                         lightAttenuation(dist);
 

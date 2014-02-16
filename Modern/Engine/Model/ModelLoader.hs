@@ -4,11 +4,10 @@ module Engine.Model.ModelLoader (
     loadObj, loadObjModelTess
 ) where
 
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust, isJust)
 import Data.List
 import Data.List.Split
 import System.IO
-import Data.IORef
 
 import qualified Data.ByteString.Char8 as B
 
@@ -17,29 +16,25 @@ import Graphics.Rendering.OpenGL.Raw (GLfloat, GLuint)
 import Engine.Model.Material
 import Engine.Model.Model
 import Engine.Core.Vec
-import Engine.Core.World
 
--- | Completely loads a .obj file, given the current WorldState,
---   the FilePath to the .obj, and the FilePaths to the vertex
---   and fragment shaders.
+-- | Completely loads a .obj file, given the FilePath to the .obj
+--   and the FilePaths to the vertex, fragment, and tesselation shaders.
 loadObjModelTess ::
-    WorldState ->
     FilePath ->
     FilePath ->
     FilePath ->
     FilePath ->
     FilePath ->
-    IO (Model, WorldState)
-loadObjModelTess wState objFile vert frag tessC tessE =
+    IO Model
+loadObjModelTess objFile vert frag tessC tessE =
     let attrNames = ["position", "texCoord", "normal", "color", "textureId"]
     in do
-        wStateRef <- newIORef wState
         handle <- openFile objFile ReadMode
         fLines <- getFileLinesB handle
         let (verts, norms, texs, faces) = loadByteString fLines
             obj = packObj faces verts texs norms
 
-        (mats, lib) <- loadObjMaterials wStateRef objFile
+        (mats, lib) <- loadObjMaterials objFile
 
         let objClean = negateNothing3 obj
             dat = toArrays objClean
@@ -55,33 +50,29 @@ loadObjModelTess wState objFile vert frag tessC tessE =
             [3, 2, 3, 3, 1]
             (fromIntegral (length $ head dat) `div` 3)
 
-        newState <- readIORef wStateRef
-        return (tmp{modelTextures =
-            zip (map (fromJust . matTexture) lib)
-                (map (fromJust . matTexId) lib)},
-                
-                newState)
+        let mTexIds = map (fromJust . matTexId) $ filter (isJust . matTexId) lib
+            mTextures = map (fromJust . matTexture) $ filter (isJust . matTexture) lib
+        return tmp{modelTextures =
+            zip mTextures
+                mTexIds}
 
--- | Completely loads a .obj file, given the current WorldState,
---   the FilePath to the .obj, and the FilePaths to the vertex
---   and fragment shaders.
+-- | Completely loads a .obj file, given the FilePath to the .obj
+--   and the FilePaths to the vertex and fragment shaders.
 loadObjModel ::
-    WorldState ->
     FilePath ->
     FilePath ->
     FilePath ->
-    IO (Model, WorldState)
-loadObjModel wState objFile vert frag =
+    IO Model
+loadObjModel objFile vert frag =
     let attrNames = ["position", "texCoord", "normal", "color", "textureId"]
     in do
-        wStateRef <- newIORef wState
         -- obj <- loadObj objFile
         handle <- openFile objFile ReadMode
         fLines <- getFileLinesB handle
         let (verts, norms, texs, faces) = loadByteString fLines
             obj = packObj faces verts texs norms
 
-        (mats, lib) <- loadObjMaterials wStateRef objFile
+        (mats, lib) <- loadObjMaterials objFile
 
         let objClean = negateNothing3 obj
             dat = toArrays objClean
@@ -97,13 +88,11 @@ loadObjModel wState objFile vert frag =
             [3, 2, 3, 3, 1]
             (fromIntegral (length $ head dat) `div` 3)
 
-        newState <- readIORef wStateRef
-
-        return (tmp{modelTextures =
-            zip (map (fromJust . matTexture) lib)
-                (map (fromJust . matTexId) lib)},
-
-                newState)
+        let mTexIds = map (fromJust . matTexId) $ filter (isJust . matTexId) lib
+            mTextures = map (fromJust . matTexture) $ filter (isJust . matTexture) lib
+        return tmp{modelTextures =
+            zip mTextures
+                mTexIds}
 
 packObj ::
     [Vec3 (Maybe GLuint)] -> -- ^ Face definitions
@@ -258,21 +247,21 @@ loadObjVertices handle = do
             else loadObjVertices handle
     else hClose handle >> return []
 
-loadObjMaterialLib :: IORef WorldState -> Handle -> IO [Material]
-loadObjMaterialLib wStateRef handle = do
+loadObjMaterialLib :: Handle -> IO [Material]
+loadObjMaterialLib handle = do
     eof <- hIsEOF handle
     if not eof
         then do
             line <- hGetLine handle
             if "mtllib " `isPrefixOf` line
-                then loadMtlFile wStateRef . head . rawObjLine $ line
-            else loadObjMaterialLib wStateRef handle
+                then loadMtlFile . head . rawObjLine $ line
+            else loadObjMaterialLib handle
     else hClose handle >> return []
 
-loadObjMaterials :: IORef WorldState -> FilePath -> IO ([Material], [Material])
-loadObjMaterials wStateRef file = do
+loadObjMaterials :: FilePath -> IO ([Material], [Material])
+loadObjMaterials file = do
     handle1 <- openFile file ReadMode
-    library <- loadObjMaterialLib wStateRef handle1
+    library <- loadObjMaterialLib handle1
     handle2 <- openFile file ReadMode
     listRet <- listOfMats handle2 library emptyMaterial
     return (listRet, library)
