@@ -1,3 +1,5 @@
+module Engine.Model.ModelLoader where
+{-
 {-# LANGUAGE RankNTypes, OverloadedStrings #-}
 module Engine.Model.ModelLoader (
     loadObjModel,
@@ -9,10 +11,11 @@ import Data.List
 import Data.List.Split
 import System.IO
 
-import qualified Data.ByteString.Char8 as B
+import qualified Data.ByteString.Lazy.Char8 as B
 
 import Graphics.Rendering.OpenGL.Raw (GLfloat, GLuint)
 
+import qualified Engine.Model.ObjLoader as OL
 import Engine.Model.Material
 import Engine.Model.Model
 import Engine.Core.Vec
@@ -66,15 +69,15 @@ loadObjModel ::
 loadObjModel objFile vert frag =
     let attrNames = ["position", "texCoord", "normal", "color", "textureId"]
     in do
-        -- obj <- loadObj objFile
-        handle <- openFile objFile ReadMode
-        fLines <- getFileLinesB handle
-        let (verts, norms, texs, faces) = loadByteString fLines
-            obj = packObj faces verts texs norms
+        objClean <- OL.loadObjFile objFile
+        --handle <- openFile objFile ReadMode
+        --fLines <- getFileLinesB handle
+        --let (verts, norms, texs, faces) = loadByteString fLines
+        --    obj = packObj faces verts texs norms
 
         (mats, lib) <- loadObjMaterials objFile
 
-        let objClean = negateNothing3 obj
+        let --objClean = negateNothing3 obj
             dat = toArrays objClean
             
             materialDiffs = fromVec3M $ map matDiffuseColor mats
@@ -82,7 +85,7 @@ loadObjModel objFile vert frag =
 
             totalData = dat ++ [materialDiffs, materialTexIds]
 
-        tmp <- createModel vert frag 
+        tmp <- createModel vert frag
             attrNames
             totalData
             [3, 2, 3, 3, 1]
@@ -412,4 +415,5 @@ negateNothing [] _ = []
 {-
 splitSpaces :: String -> [String]
 splitSpaces = filter (not . null) . splitOn " "
+-}
 -}

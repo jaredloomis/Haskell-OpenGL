@@ -4,30 +4,38 @@ module Engine.Core.Vec (
     crossVec3, vec4GetIndex, toArray3, toArray2
 ) where
 
--- TODO: dot product, cross product, etc.
+import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
 data Vec4 a = Vec4 !a !a !a !a deriving (Show, Eq)
 data Vec3 a = Vec3 !a !a !a deriving (Show, Eq)
 data Vec2 a = Vec2 !a !a deriving (Show, Eq)
 
+{-# INLINE vec3ToVec4 #-}
 vec3ToVec4 :: Vec3 a -> a -> Vec4 a
 vec3ToVec4 (Vec3 x y z) = Vec4 x y z
 
+{-# SPECIALIZE normalizeVec3 :: Vec3 GLfloat -> Vec3 GLfloat #-}
 normalizeVec3 :: (Floating a) => Vec3 a -> Vec3 a
 normalizeVec3 v =
     let Vec3 a b c = scaleVec3 (recip $ lengthVec3 v) v
     in Vec3 a b c
 
+{-# SPECIALIZE scaleVec3 :: GLfloat -> Vec3 GLfloat -> Vec3 GLfloat #-}
+{-# INLINE scaleVec3 #-}
 scaleVec3 :: (Num a) => a -> Vec3 a -> Vec3 a
 scaleVec3 s (Vec3 a b c) = Vec3 (s*a) (s*b) (s*c)
 
+{-# SPECIALIZE lengthVec3 :: Vec3 GLfloat -> GLfloat #-}
 lengthVec3 :: (Floating a) => Vec3 a -> a
 lengthVec3 (Vec3 a b c) = sqrt (a*a + b*b + c*c)
 
+{-# SPECIALIZE crossVec3 :: Vec3 GLfloat -> Vec3 GLfloat -> Vec3 GLfloat  #-}
+{-# INLINE crossVec3 #-}
 crossVec3 :: (Num a) => Vec3 a -> Vec3 a -> Vec3 a
 crossVec3 (Vec3 u0 u1 u2) (Vec3 v0 v1 v2) = 
     Vec3 (u1*v2-u2*v1) (u2*v0-u0*v2) (u0*v1-u1*v0)
 
+{-# INLINE vec4GetIndex #-}
 vec4GetIndex :: Int -> Vec4 a -> a
 vec4GetIndex i (Vec4 x y z w)
     | i == 0 = x

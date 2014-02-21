@@ -8,7 +8,8 @@ import System.FilePath ((</>))
 import Graphics.Rendering.OpenGL.Raw
 
 import Engine.Object.Player
-import Engine.Model.ModelLoader
+--import Engine.Object.GameObject
+import Engine.Model.ObjLoader
 import Engine.Terrain.Generator
 import Engine.Core.Vec
 import Engine.Core.World
@@ -20,27 +21,29 @@ import Engine.Graphics.Framebuffer
 mkWorldFast :: IO (World ())
 mkWorldFast = do
     state <- mkWorldState
-{-
     passShader <- loadProgram
         "shaders/postprocessing/passthrough/passthrough.vert"
         "shaders/postprocessing/passthrough/passthrough.frag"
--}
+{-
     fishShader <- loadProgram
         "shaders/postprocessing/fisheye/fisheye.vert"
         "shaders/postprocessing/fisheye/fisheye.frag"
+-}
 {-
     sobelShader <- loadProgram
         "shaders/postprocessing/sobel/sobel.vert"
         "shaders/postprocessing/sobel/sobel.frag"
 -}
+{-
     posterShader <- loadProgram
         "shaders/postprocessing/poster/poster.vert"
         "shaders/postprocessing/poster/poster.frag"
-
+-}
+{-
     pixelateShader <- loadProgram
         "shaders/postprocessing/pixelate/pixelate.vert"
         "shaders/postprocessing/pixelate/pixelate.frag"
-
+-}
 {-
     invertShader <- loadProgram
         "shaders/postprocessing/invert/invert.vert"
@@ -50,7 +53,7 @@ mkWorldFast = do
     let winDimensions = windowSize $ stateWindow state
 
     fb <- makeFrameBuffer winDimensions
-    mkWorld fb [pixelateShader, fishShader]
+    mkWorld fb [passShader]
 
 mkWorld :: Framebuffer -> [GLuint] -> IO (World ())
 mkWorld fb shaders = do
@@ -59,7 +62,7 @@ mkWorld fb shaders = do
     objb <- mkObj2
     objc <- mkObj3
     return $ World mkPlayer [obja, objb, objc]
-             [("lightPos", return [0.0, 40.0, 0.0])] (fb, shaders) state
+             [("lightPos", return [0.0, 10.0, 0.0])] (fb, shaders) state
 
 mkWorldState :: IO WorldState
 mkWorldState = do
@@ -76,19 +79,18 @@ mkObj2 =
 
 mkObj3 :: IO (GameObject ())
 mkObj3 =
-    PureEntity (Vec3 (-80) (-25) (-30)) id <$> mkModel3 <*> return ()
-    --return (PureEntity (Vec3 0 5 3) id model (), state)
+    PureEntity (Vec3 0 (-20) 0) id <$> mkModel3 <*> return ()
 
 {-
-eMove :: World t -> GameObject t -> GameObject t
-eMove world ee@(EffectfulEntity{}) =
-    moveObjectSlide world ee (Vec3 0.005 0 0)
-eMove _ a = a
+eMove :: GameObject t -> GameObject t
+eMove pe@(PureEntity{}) =
+    moveObject pe (Vec3 0.005 0 0)
+eMove a = a
 -}
 
 mkModel :: IO Model
 mkModel =
-    loadObjModel ("res" </> "objects/wow/wow.obj")
+    loadObjModel ("res" </> "objects" </> "wow" </> "wow.obj")
                                mainVertShader
                                mainFragShader
 
@@ -108,11 +110,23 @@ mkModel3 =
                                mainVertShader
                                mainFragShader
 
+{-
+mkObj3 :: IO (GameObject ())
+mkObj3 =
+    PureEntity (Vec3 (-500) 0 500) id <$> mkModel3 <*> return ()
+
+mkModel3 :: IO Model
+mkModel3 = 
+    loadObjModel ("res" </> "objects/space/space.obj")
+                               mainVertShader
+                               mainFragShader
+-}
+
 mainVertShader :: String
-mainVertShader = "shaders" </> "min.vert"
+mainVertShader = "shaders" </> "correct.vert"
 
 mainFragShader :: String
-mainFragShader = "shaders" </> "min.frag"
+mainFragShader = "shaders" </> "correct.frag"
 
 {-
 mainTessCShader :: String

@@ -62,8 +62,7 @@ main = do
 
 renderStep :: World t -> GLFW.Window -> IO (World t)
 renderStep world _ =
-    --renderWorldFB fb world s
-    renderWorldPost world
+    renderWorldWithPostprocessing world
 
 updateStep :: GLFW.Window -> World t -> IO (World t)
 updateStep win world = do

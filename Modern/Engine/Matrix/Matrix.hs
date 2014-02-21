@@ -87,13 +87,18 @@ setMatrixUniforms shader wm = do
 calculateMatricesFromPlayer :: GameObject a -> (Int, Int) -> WorldMatrices
 calculateMatricesFromPlayer p@(Player{}) (width, height) =
     let Vec3 px py pz = playerPosition p
-        Vec3 rx ry _ = playerRotation p
+        Vec3 rx ry rz = playerRotation p
+
+        -- Calculate projection matrix.
         projMat = gperspectiveMatrix 45
                     (fromIntegral width / fromIntegral height) 0.1 100
+
         rotatedMatX = grotationMatrix (rx * (pi/180)) [-1, 0, 0]
         rotatedMatXY = rotatedMatX * grotationMatrix (ry * (pi/180)) [0, -1, 0]
+        rotatedMatXYZ = rotatedMatXY * grotationMatrix (rz * (pi/180)) [0, 0, -1]
         translatedMat = gtranslationMatrix [-px, -py, -pz]
-        viewMat = rotatedMatXY * translatedMat
+        --viewMat = rotatedMatXYZ * translatedMat
+        viewMat = rotatedMatXYZ * translatedMat
         modelMat = gidentityMatrix
     in WorldMatrices modelMat viewMat projMat
 

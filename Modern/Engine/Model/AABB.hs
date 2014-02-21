@@ -1,7 +1,7 @@
 module Engine.Model.AABB (
     AABB(..), anyIntersect, anyIntersectGet,
-    aabbFromPoints, aabbByFace, intersecting
-    
+    aabbFromPoints, aabbByFace, intersecting,
+    createAABB
 ) where
 
 import Graphics.Rendering.OpenGL.Raw
@@ -41,7 +41,8 @@ aabbFromPoints :: [GLfloat] -> AABB
 aabbFromPoints points@(x:y:z:_) =
     aabbFromPointsAccum points (Vec3 x y z) (Vec3 x y z)
 aabbFromPoints _ =
-    error "AABB.aabbFromPoints: given list is too short."
+    error $ "AABB.aabbFromPoints: given list is too short or " ++
+            "number of elements is not divisible by 3."
 
 -- | Called by aabbFromPoints.
 aabbFromPointsAccum :: [GLfloat] -> Vec3 GLfloat -> Vec3 GLfloat -> AABB

@@ -1,6 +1,7 @@
 <h1>Haskell-OpenGL</h1>
 <h2>Features</h2>
 - Full support for loading .obj + .mtl files.
+- Multipass postprocessing.
 - Simplex procedurally generated terrain.
 - GLSL 4+
 - Loading and displaying of textures in a variety of formats.
@@ -44,7 +45,7 @@ All commands using the `-O` or `-O2` flags performed basically the same, with a 
 
 <h4>Top</h4>
 - <b>Fix large strain on GPU since switching to client-side matrices. Probably a few mistake OpenGL calls.</b>
-- <b>Make OpenGL-related code more clear (function names, etc.)</b>
+- <b>General code cleanup, make it easier to use and clearer.</b>
 - Framebuffer resizing.
 - AI / Pathfinding (A\*?).
 - Chunks or other methods to allow for infinite terrain.
@@ -64,6 +65,7 @@ All commands using the `-O` or `-O2` flags performed basically the same, with a 
 - Audio support using a library
 - Relative file loading in .mtl and .obj files.
 - Save files.
+- A GLSL shader code generator would be cool.
 
 <h4>OpenGL</h4>
 - LOD via [Tesselation shaders](http://prideout.net/blog/?p=48)

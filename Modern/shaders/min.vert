@@ -12,6 +12,7 @@ layout(location = 5) uniform mat4 projectionMatrix;
 layout(location = 6) uniform mat4 viewMatrix;
 layout(location = 7) uniform mat4 modelMatrix;
 layout(location = 8) uniform mat4 mvpMatrix;
+layout(location = 10) uniform vec3 lightPos;
 
 out vec3 vColor;
 out vec3 vVertex;
@@ -22,8 +23,25 @@ out mat4 vModelMatrix;
 out mat4 vViewMatrix;
 out float vFogFactor;
 
+out vec3 positionWS;
+out vec3 normalCS;
+out vec3 eyeDirCS;
+out vec3 lightDirCS;
+
+out mat4 normalMatrix;
+
 void main()
 {
+    gl_Position = mvpMatrix * vec4(position, 1.0);
+    positionWS = (modelMatrix * vec4(position, 1.0)).xyz;
+    vec3 vertPosCS = ((viewMatrix * modelMatrix) * vec4(vVertex, 1.0)).xyz;
+    eyeDirCS = -vertPosCS;
+    vec3 lightPosCS = (viewMatrix * vec4(lightPos, 1.0)).xyz;
+    lightDirCS = lightPosCS + eyeDirCS;
+
+    normalMatrix = transpose(inverse(viewMatrix * modelMatrix));
+    normalCS = (normalMatrix * vec4(normal, 0.0)).xyz;
+
     vVertex = position;
     vTextureCoord = texCoord;
     vNormal = normal;
@@ -32,8 +50,6 @@ void main()
 
     vModelMatrix = modelMatrix;
     vViewMatrix = viewMatrix;
-
-    gl_Position = mvpMatrix * vec4(position, 1.0);
     
     //Set fogCoord
     float fogCoord = length(gl_Position);

@@ -1,6 +1,6 @@
 #version 430 core
 
-#define lightAttenuation(dist) (dist * dist / 1000.0)
+//#define lightAttenuation(dist) (dist * dist / 1000.0)
 #define fogColor (vec4(0.01, 0.01, 0.01, 0.075))
 #define ambColor (vec3(0.01, 0.01, 0.01))
 #define maxSpec (0.8)
@@ -15,6 +15,13 @@ in mat4 vModelMatrix;
 in mat4 vViewMatrix;
 in float vFogFactor;
 
+in vec3 positionWS;
+in vec3 normalCS;
+in vec3 eyeDirCS;
+in vec3 lightDirCS;
+
+in mat4 normalMatrix;
+
 layout(location = 9) uniform vec3 cameraPosition;
 layout(location = 10) uniform vec3 lightPos;
 layout(location = 11) uniform float time;
@@ -26,13 +33,16 @@ void main()
 {
     mat4 mv = vModelMatrix * vViewMatrix;
 
-    mat4 normalMatrix = transpose(inverse(mv));
+    //mat4 normalMatrix = transpose(inverse(mv));
+    //mat4 normalMatrix = mv;
 
     //Position of vertex in modelview space.
     vec3 vertexPosition = vec3(mv * vec4(vVertex, 1.0));
 
     //Surface normal of current vertex.
-    vec3 surfaceNormal = normalize(vec3(normalMatrix * vec4(vNormal, 1.0)));
+    //vec3 surfaceNormal = normalize(vec3(normalMatrix * vec4(vNormal, 0.0)));
+    vec3 surfaceNormal = normalize(normalCS);
+    //vec3 surfaceNormal = normalCS;
 
     //Light pos in model space.
     vec3 lightPosTrans = vec3(mv * vec4(lightPos, 1.0));
@@ -47,6 +57,8 @@ void main()
     //Distance from vertex to light.
     float dist = length(lightPos - vVertex);
 
+    float lightAttenuation = max(dist*dist / 1000.0, 1.0);
+
     //"View vector".
     vec3 viewVec = normalize(-vertexPosition);
 
@@ -57,23 +69,24 @@ void main()
     float specular = max(0.0, dot(reflectionDirection, viewVec));
 
     float totalSpec = clamp(pow(specular, shininess), 0.0, maxSpec) /
-                            lightAttenuation(dist);
+                            lightAttenuation;
 
     vec3 specColor = vec3(totalSpec, totalSpec, totalSpec);
 
     if(vTextureId != -1)
     {
-        vec4 textureColor = texture(textures[vTextureId], vTextureCoord) /
-                        lightAttenuation(dist);
+        vec4 textureColor = 3.0 * diffuseLightIntensity * texture(textures[vTextureId], vTextureCoord);// /
+                        //lightAttenuation;
 
-        outColor = vec4(ambColor, 1.0) + textureColor +
-                   vec4(specColor, 1.0);
+        outColor = vec4(ambColor, 1.0) +
+                   vec4(specColor, 1.0) +
+                   textureColor;
     }
     else
     {
         //"Main color"(diffuse) of vertex.
         vec3 diffColor = diffuseLightIntensity * vColor /
-                            lightAttenuation(dist);
+                            lightAttenuation;
 
         outColor = vec4(ambColor, 1.0) +
                    vec4(specColor, 1.0) +
