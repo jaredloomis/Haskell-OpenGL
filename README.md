@@ -44,9 +44,8 @@ All commands using the `-O` or `-O2` flags performed basically the same, with a 
 <h2>Todo</h2>
 
 <h4>Top</h4>
-- <b>Fix large strain on GPU since switching to client-side matrices. Probably a few mistake OpenGL calls.</b>
 - <b>General code cleanup, make it easier to use and clearer.</b>
-- Framebuffer resizing.
+- <b>Framebuffer resizing.</b>
 - AI / Pathfinding (A\*?).
 - Chunks or other methods to allow for infinite terrain.
 - Do alot more `{-# INLINE #-}`ing.
