@@ -1,6 +1,7 @@
 module Engine.Object.Player (
     mkPlayer, moveFromLook,
-    moveFromLookSlide, applyTransformations
+    moveFromLookSlide, applyTransformations,
+    resetPlayerInput
 ) where
 
 import Data.Maybe (isJust, fromJust)
@@ -46,6 +47,11 @@ pUpdate w =
             modifiedW = playerKeyUpdateSafe w{worldPlayer = playerMouseUpdated}
 
         in modifiedW{worldPlayer = p}
+
+resetPlayerInput :: GameObject t -> GameObject t
+resetPlayerInput p@(Player{}) =
+    p{playerInput = (playerInput p){inputMouseDelta = Vec2 0 0}}
+resetPlayerInput _ = error "Player.resetPlayerInput"
 
 -- | Input for first person camera.
 baseInput :: Input t

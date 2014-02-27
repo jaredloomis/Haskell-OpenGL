@@ -23,7 +23,8 @@ import Engine.Graphics.Graphics
 renderWorldWithPostprocessing :: World t -> IO (World t)
 renderWorldWithPostprocessing world = do
     let effects = snd $ worldFramebuffer world
-    glBindFramebuffer gl_FRAMEBUFFER $ fbufName $ fst $ worldFramebuffer world
+    glBindFramebuffer gl_FRAMEBUFFER $
+        fbufName $ fst $ worldFramebuffer world
     ret <- renderWorldMat world
 
     renderAllPasses ret effects
@@ -101,7 +102,8 @@ makeFrameBuffer (winW, winH) = do
     -- Create an image.
     glTexImage2D gl_TEXTURE_2D 0
         (fromIntegral gl_RGB)
-        (fromIntegral winW) (fromIntegral winH) 0 gl_RGB gl_UNSIGNED_BYTE GU.offset0
+        (fromIntegral winW) (fromIntegral winH)
+        0 gl_RGB gl_UNSIGNED_BYTE GU.offset0
 
     -- Give texture paramenters.
     glTexParameteri gl_TEXTURE_2D (fromIntegral gl_TEXTURE_MAG_FILTER)
@@ -137,7 +139,8 @@ makeFrameBuffer (winW, winH) = do
 
     quadVB <- fillNewBuffer quadBufferData
 
-    return $ FB fbName fbTex (fromIntegral winW, fromIntegral winH) quadVB depthRenderBuffer
+    return $ FB fbName fbTex (fromIntegral winW, fromIntegral winH)
+                quadVB depthRenderBuffer
 
 quadBufferData :: [GLfloat]
 quadBufferData =

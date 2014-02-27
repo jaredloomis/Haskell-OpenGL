@@ -2,7 +2,8 @@ module Engine.Core.World (
     World(..), WorldState(..), playerAABB,
     GameObject(..), Input(..), setWorldUniforms,
     getWorldTime, getWorldDelta,
-    Framebuffer(..)
+    Framebuffer(..), (~>), (~~),
+    (~>~), (~>~>), setWorldPlayer
 ) where
 
 import Data.Time (getCurrentTime, UTCTime)
@@ -25,19 +26,22 @@ data World t = World {
     worldState :: !WorldState
 }
 
+setWorldPlayer :: GameObject t -> World t -> World t
+setWorldPlayer player world = world{worldPlayer = player}
+
 data WorldState = WorldState {
     stateTime :: !UTCTime,
     stateDelta :: !GLfloat,
     statePaused :: !Bool,
-    stateWindow :: Window
+    stateWindow :: !Window
 }
 
 data Framebuffer = FB {
-    fbufName :: GLuint,
-    fbufTexture :: GLuint,
-    fbufDimensions :: (GLint, GLint),
-    fbufVBO :: GLuint,
-    fbufRenderBuffer :: GLuint
+    fbufName :: !GLuint,
+    fbufTexture :: !GLuint,
+    fbufDimensions :: !(GLint, GLint),
+    fbufVBO :: !GLuint,
+    fbufRenderBuffer :: !GLuint
 }
 
 -- TODO: Make this more flexible
@@ -63,6 +67,45 @@ data GameObject t = Player {
     eentityAttribute :: !t
 }
 
+actWithSeed ::
+    (a -> b -> b) ->
+    (a, b) ->
+    (a, b)
+actWithSeed func (world, obj) =
+    (world, func world obj)
+
+infixl ~>
+
+(~>) ::
+    (a, b) ->
+    (a -> b -> b) ->
+    (a, b)
+(~>) val func = actWithSeed func val
+
+infixl ~~
+
+(~~) ::
+    (a, b) ->
+    (a -> a) ->
+    (a, b)
+(~~) (applyVal, passVal) func =
+    (func applyVal, passVal)
+
+infixl ~>~
+
+(~>~) ::
+    (a, b) ->
+    (b -> a) ->
+    (a, b)
+(~>~) (_, pass) func =
+    (func pass, pass)
+
+(~>~>) ::
+    (a, b) ->
+    (a -> a, b -> b) ->
+    (a, b)
+(~>~>) (x, y) (fx, fy) = (fx x, fy y)
+
 data Input t = Input {
     -- (Key, Wanted Keystate, Current Keystate,
     --  Function to call when wanted == current)
@@ -79,20 +122,6 @@ setWorldUniforms world shader =
 
 getWorldDelta :: World t -> GLfloat
 getWorldDelta = stateDelta . worldState
-
--- | Load a texture using the WorldState to keep track of texture ID.
-{-
-loadWorldTexture :: WorldState -> FilePath -> IO GL.TextureObject
-loadWorldTexture wState file = do
-    (Image (Size w h) pd) <- juicyLoadImage file
-    texName <- liftM head (GL.genObjectNames 1)
-    GL.textureBinding GL.Texture2D $= Just texName
-    GL.textureFilter GL.Texture2D $= ((GL.Nearest, Nothing), GL.Nearest)
-    GL.texImage2D GL.Texture2D GL.NoProxy
-        0
-        GL.RGB' (GL.TextureSize2D w h) 0 pd
-    return texName
--}
 
 -- | Synonym for getCurrentTime.
 getWorldTime :: IO UTCTime

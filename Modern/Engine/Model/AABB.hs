@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-unused-binds #-}
 module Engine.Model.AABB (
     AABB(..), anyIntersect, anyIntersectGet,
     aabbFromPoints, aabbByFace, intersecting,

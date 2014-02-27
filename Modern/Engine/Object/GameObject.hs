@@ -17,6 +17,22 @@ import Engine.Core.Vec
 import Engine.Model.Model
 import Engine.Model.AABB
 
+class HasPosition p where
+    getPos :: p -> Vec3 GLfloat
+    setPos :: p -> Vec3 GLfloat -> p
+    movePos :: p -> Vec3 GLfloat -> p
+    movePos hp movement =
+        setPos hp (getPos hp + movement)
+
+instance HasPosition (GameObject t) where
+    getPos p@(Player{}) = playerPosition p
+    getPos pe@(PureEntity{}) = pentityPosition pe
+    getPos ee@(EffectfulEntity{}) = eentityPosition ee
+
+    setPos p@(Player{}) pos = p{playerPosition = pos}
+    setPos pe@(PureEntity{}) pos = pe{eentityPosition = pos}
+    setPos ee@(EffectfulEntity{}) pos = ee{eentityPosition = pos}
+
 -- | Test if two objects intersect.
 objectsIntersect :: GameObject t -> GameObject t -> Bool
 objectsIntersect l r
@@ -166,7 +182,7 @@ moveObjectSlideIntersecter world object (Vec3 dx dy dz) =
             else (objectY, abY)
 
 -- | Move an object on each axis independently, and return
---   the AABB it intersected with, if applicable.
+--   all AABBs it intersected with, if applicable.
 moveObjectSlideAllIntersecters ::
     World t -> GameObject t -> Vec3 GLfloat -> (GameObject t, Maybe [AABB])
 moveObjectSlideAllIntersecters world object (Vec3 dx dy dz) =
@@ -251,16 +267,6 @@ moveObjectSafe world object vec =
 moveObject :: GameObject t -> Vec3 GLfloat -> GameObject t
 moveObject obj deltaPos =
     setPos obj (getPos obj + deltaPos)
-
-setPos :: GameObject t -> Vec3 GLfloat -> GameObject t
-setPos p@(Player{}) pos = p{playerPosition = pos}
-setPos pe@(PureEntity{}) pos = pe{pentityPosition = pos}
-setPos ee@(EffectfulEntity{}) pos = ee{eentityPosition = pos}
-
-getPos :: GameObject t -> Vec3 GLfloat
-getPos p@(Player{}) = playerPosition p
-getPos pe@(PureEntity{}) = pentityPosition pe
-getPos ee@(EffectfulEntity{}) = eentityPosition ee
 
 getModel :: GameObject t -> Model
 getModel (Player{}) =

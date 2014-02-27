@@ -20,7 +20,6 @@ normalizeVec3 v =
     let Vec3 a b c = scaleVec3 (recip $ lengthVec3 v) v
     in Vec3 a b c
 
-{-# SPECIALIZE scaleVec3 :: GLfloat -> Vec3 GLfloat -> Vec3 GLfloat #-}
 {-# INLINE scaleVec3 #-}
 scaleVec3 :: (Num a) => a -> Vec3 a -> Vec3 a
 scaleVec3 s (Vec3 a b c) = Vec3 (s*a) (s*b) (s*c)
@@ -29,7 +28,6 @@ scaleVec3 s (Vec3 a b c) = Vec3 (s*a) (s*b) (s*c)
 lengthVec3 :: (Floating a) => Vec3 a -> a
 lengthVec3 (Vec3 a b c) = sqrt (a*a + b*b + c*c)
 
-{-# SPECIALIZE crossVec3 :: Vec3 GLfloat -> Vec3 GLfloat -> Vec3 GLfloat  #-}
 {-# INLINE crossVec3 #-}
 crossVec3 :: (Num a) => Vec3 a -> Vec3 a -> Vec3 a
 crossVec3 (Vec3 u0 u1 u2) (Vec3 v0 v1 v2) = 
@@ -42,6 +40,9 @@ vec4GetIndex i (Vec4 x y z w)
     | i == 1 = y
     | i == 2 = z
     | i == 3 = w
+vec4GetIndex _ _ =
+    error $ "Vec.vec4GetIndex: Argument must be " ++
+            "0, 1, 2, or 3."
 
 instance Functor Vec4 where
     fmap f (Vec4 x y z w) = Vec4 (f x) (f y) (f z) (f w)

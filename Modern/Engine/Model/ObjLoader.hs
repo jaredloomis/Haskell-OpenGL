@@ -1,4 +1,6 @@
-module Engine.Model.ObjLoader where
+module Engine.Model.ObjLoader (
+    loadObjModel, loadObjFile
+) where
 
 import System.IO
     (openFile, IOMode(..), hGetContents, hClose)
@@ -27,7 +29,7 @@ loadObjModel objFile vert frag =
     let attrNames = ["position", "texCoord", "normal", "color", "textureId"]
     in do
     fileContents <- openFile objFile ReadMode >>= hGetContents
-    (mats, lib) <- loadObjMaterials $ lines fileContents
+    (mats, lib) <- loadObjMaterials fileContents
     let obj = loadObj fileContents
 
         dat = toArrays obj
@@ -119,6 +121,7 @@ takeEvery3 offset (x:y:z:rest)
     | otherwise = error $ "ObjLoader.takeEvery 3: arg"
                         ++ "must be 1, 2, or 3"
 takeEvery3 _ _ = []
+{-# INLINE takeEvery3 #-}
 
 parseFaces :: String -> D.DList (Maybe Int)
 parseFaces = D.concat . map faceLineCheck . lines
@@ -128,12 +131,11 @@ parseFaces = D.concat . map faceLineCheck . lines
             then parseFaceLine line
         else D.empty
 
-{-# INLINE parseFaceLine #-}
 parseFaceLine :: String -> D.DList (Maybe Int)
 parseFaceLine =
     D.concat . map parseFaceGroup . tail . words
+{-# INLINE parseFaceLine #-}
 
-{-# INLINE parseFaceGroup #-}
 parseFaceGroup :: String -> D.DList (Maybe Int)
 parseFaceGroup =
     D.fromList . map retrieveData . splitOn "/"
@@ -142,6 +144,7 @@ parseFaceGroup =
         if null text
             then Nothing
         else Just $ read text
+{-# INLINE parseFaceGroup #-}
 
 parseVertices :: String -> D.DList GLfloat
 parseVertices = parsePrefix "v "
@@ -164,48 +167,58 @@ parsePrefix :: Read a => String -> String -> D.DList a
 parsePrefix prefix =
     D.concat . map lineCheck . lines
     where
-    {-# INLINE lineCheck #-}
     lineCheck line =
         if prefix `isPrefixOf` line
             then parseLine line
         else D.empty
+    {-# INLINE lineCheck #-}
 
-{-# INLINE parseLine #-}
 parseLine :: Read a => String -> D.DList a
 parseLine = D.map read . D.tail . D.fromList . words
+{-# INLINE parseLine #-}
 
-loadObjMaterials :: [String] -> IO ([Material], [Material])
+loadObjMaterials :: String -> IO ([Material], [Material])
 loadObjMaterials contents = do
-    --library <- loadObjMaterialLib handle1
     library <- loadObjMaterialLib contents
 
     let listRet = listOfMats contents library emptyMaterial
     return (listRet, library)
 
-loadObjMaterialLib :: [String] -> IO [Material]
-loadObjMaterialLib (line:rest) =
+loadObjMaterialLib :: String -> IO [Material]
+loadObjMaterialLib =
+    liftM concat . mapM loadMtlFile . parseMtlLibs
+{-# INLINE loadObjMaterialLib #-}
+
+parseMtlLibs :: String -> [FilePath]
+parseMtlLibs = getMaterialLibs . lines
+
+getMaterialLibs :: [String] -> [FilePath]
+getMaterialLibs (line:rest) =
     if "mtllib " `isPrefixOf` line
-        then do
-            mtl <- loadMtlFile . last . words $ line
-            others <- loadObjMaterialLib rest
-            return $ mtl ++ others
-    else loadObjMaterialLib rest
-loadObjMaterialLib _ = return []
+        then (last . words $ line) :
+                getMaterialLibs rest
+    else getMaterialLibs rest
+getMaterialLibs _ = []
+{-# INLINE getMaterialLibs #-}
 
-listOfMats :: [String] -> [Material] -> Material -> [Material]
-listOfMats (line:rest) library currentMat
-    | "usemtl " `isPrefixOf` line =
-        let mat = findMaterial (last . words $ line) library
-        in listOfMats rest library mat
-    | "f " `isPrefixOf` line =
-        replicate 3 currentMat ++
-            listOfMats rest library currentMat
-    | otherwise = listOfMats rest library currentMat
-listOfMats _ _ _ = []
+listOfMats :: String -> [Material] -> Material -> [Material]
+listOfMats contents =
+    lineAction (lines contents)
+    where
+    lineAction :: [String] -> [Material] -> Material -> [Material]
+    lineAction (line:rest) library currentMat
+        | "usemtl " `isPrefixOf` line =
+            let mat = findMaterial (last . words $ line) library
+            in lineAction rest library mat
+        | "f " `isPrefixOf` line =
+            replicate 3 currentMat ++
+                lineAction rest library currentMat
+        | otherwise = lineAction rest library currentMat
+    lineAction _ _ _ = []
 
-{-# INLINE findMaterial #-}
 findMaterial :: String -> [Material] -> Material
 findMaterial name library = head $ filter (\x -> matName x == name) library
+{-# INLINE findMaterial #-}
 
 toArrays :: Vec3 [a] -> [[a]]
 toArrays (Vec3 x y z) = [x, y, z]
@@ -216,7 +229,7 @@ fromVec3M (Just (Vec3 x y z) : xs) =
 fromVec3M [] = []
 fromVec3M (Nothing : _) = error "fromVec3M: argument contained Nothing."
 
-{-# INLINE fromJustSafe #-}
 fromJustSafe :: Num a => Maybe a -> a
 fromJustSafe (Just x) = x
 fromJustSafe Nothing = 0
+{-# INLINE fromJustSafe #-}

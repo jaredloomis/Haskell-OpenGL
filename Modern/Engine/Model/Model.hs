@@ -1,5 +1,5 @@
 module Engine.Model.Model (
-    Model(..), createModel, createModelTess
+    Model(..), createModel
 ) where
 
 import Graphics.Rendering.OpenGL.Raw
@@ -18,6 +18,7 @@ data Model = Model {
     modelWholeAABB :: !(Maybe AABB)
 }
 
+{-
 createModelTess ::
     FilePath ->     -- ^ Vertex Shader.
     FilePath ->     -- ^ Fragment Shader.
@@ -38,6 +39,7 @@ createModelTess vert frag tessC tessE attrNames buffData valLens vertCount = do
     return $ Model (Shader program []) sAttribs [] vertCount
             (Just $ aabbByFace (head buffData))
             (Just $ aabbFromPoints (head buffData))
+-}
 
 createModel ::
     FilePath ->     -- ^ Vertex Shader.
@@ -57,7 +59,3 @@ createModel vert frag attrNames buffData valLens vertCount = do
     return $ Model (Shader program []) sAttribs [] vertCount
             (Just $ aabbByFace (head buffData))
             (Just $ aabbFromPoints (head buffData))
-
--- | Length of info. Assumes triangle faces.
-lengthAll :: [[GLfloat]] -> [GLuint]
-lengthAll = map $ \x -> fromIntegral $ length x `div` 3

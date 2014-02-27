@@ -1,7 +1,7 @@
 module Engine.Graphics.Graphics (
     initGL, resizeScene,
     cleanupObjects, renderWorldMat,
-    cleanupWorld
+    cleanupWorld, renderObjectsMat
 ) where
 
 import Data.Time (utctDayTime)
@@ -109,7 +109,8 @@ initGL win = do
     -- Allow depth testing (3D)
     glEnable gl_DEPTH_TEST
     -- Tells OpenGL how to deal with overlapping shapes
-    glDepthFunc gl_LEQUAL
+    glDepthFunc gl_LESS
+    --glDepthFunc gl_LEQUAL
 
     -- Tell OpenGL to use the nicest perspective correction.
     -- The other choices are gl_FASTEST and gl_DONT_CARE.
@@ -130,7 +131,6 @@ initGL win = do
         (fromIntegral gl_CLAMP_TO_EDGE)
     glTexParameteri gl_TEXTURE_2D gl_TEXTURE_WRAP_T
         (fromIntegral gl_CLAMP_TO_EDGE)
-    glTexParameteri gl_TEXTURE_2D gl_TEXTURE_MAX_ANISOTROPY 16
 
     -- Call resize function.
     (w,h) <- GLFW.getFramebufferSize win

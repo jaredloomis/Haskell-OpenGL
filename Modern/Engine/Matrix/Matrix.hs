@@ -3,10 +3,13 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# OPTIONS_GHC -fno-warn-unused-binds #-}
 module Engine.Matrix.Matrix (
     calculateMatricesFromPlayer,
     WorldMatrices(..), gtranslationMatrix,
-    setMatrixUniforms
+    setMatrixUniforms, gfrustumMatrix,
+    gidentityMatrix, glookAtMatrix, toGLFormat,
+    Matrix4x4, gorthoMatrix
 ) where
 
 import Data.List (transpose)
@@ -101,6 +104,9 @@ calculateMatricesFromPlayer p@(Player{}) (width, height) =
         viewMat = rotatedMatXYZ * translatedMat
         modelMat = gidentityMatrix
     in WorldMatrices modelMat viewMat projMat
+calculateMatricesFromPlayer _ _ =
+    error $ "Matrix.calculateMatricesFromPlayer given a " ++
+            "non-Player GameObject."
 
 toGLFormat :: [[GLfloat]] -> [GLfloat]
 toGLFormat = concat
@@ -186,8 +192,8 @@ glookAtMatrixG eye center up =
     let z = gdirectionVec eye center
         x = gnormalizeVec $ gcrossVec3 up z
         y = gnormalizeVec $ gcrossVec3 z x
-    in (gmatrix3x3To4x4 $ transpose [x,y,z]) *
-        (gtranslationMatrix (gnegateVec eye))
+    in gmatrix3x3To4x4 (transpose [x,y,z]) *
+        gtranslationMatrix (gnegateVec eye)
 
 -- | Creates a frustumMatrix from the given
 --   left, right, bottom, top, znear and zfar
@@ -206,6 +212,21 @@ gfrustumMatrix left right bottom top znear zfar =
         [0, y, 0, 0],
         [a, b, c, -1],
         [0, 0, d, 0]]
+
+gorthoMatrix ::
+    GLfloat -> GLfloat -> GLfloat -> GLfloat -> GLfloat -> GLfloat -> Matrix4x4
+gorthoMatrix l r b t n f =
+    let ai = 2/(r-l)
+        bi = 2/(t-b)
+        ci = -2/(f-n)
+        di = -(r+l)/(r-l)
+        ei = -(t+b)/(t-b)
+        fi = -(f+n)/(f-n)
+    in
+    [[ai, 0, 0, 0],
+     [0, bi, 0, 0],
+     [0, 0, ci, 0],
+     [di, ei, fi, 1]]
 
 -- | Creates a perspective projection matrix for the given field-of-view,
 --   screen aspect ratio, znear and zfar.

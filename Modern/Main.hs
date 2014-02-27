@@ -8,13 +8,16 @@ import qualified Graphics.UI.GLFW as GLFW
 import Graphics.Rendering.OpenGL.Raw
 
 import Engine.Graphics.Graphics
-import TestVals
-import Engine.Object.GameObject
-import Engine.Graphics.Window
 import Engine.Core.Vec
+import TestVals
+import Engine.Graphics.Window
 import Engine.Core.World
 import Engine.Graphics.Framebuffer
+import Engine.Object.Player
+import Engine.Graphics.Shadows
+import Engine.Graphics.Shaders
 
+{-
 main :: IO ()
 main = do
     -- Initialize GLFW, create a window, open it.
@@ -63,6 +66,63 @@ main = do
 renderStep :: World t -> GLFW.Window -> IO (World t)
 renderStep world _ =
     renderWorldWithPostprocessing world
+-}
+
+main :: IO ()
+main = do
+    -- Initialize GLFW, create a window, open it.
+    window <- openWindow defaultWindow
+    let Just win = windowInner window
+
+    -- Perform some intitial OpenGL configurations.
+    initGL win
+
+    -- Create default world, set the window.
+    tmp <- mkWorldFast
+    let world = tmp{
+        worldState = (worldState tmp){stateWindow = window}}
+
+    -- Register the function called when the window is resized.
+    GLFW.setFramebufferSizeCallback win (Just resizeScene)
+
+    -- Make cursor Hidden.
+    GLFW.setCursorInputMode win GLFW.CursorInputMode'Disabled
+
+    ds <- depthShader
+    fb <- makeShadowFrameBuffer
+
+    -- Begin game loop.
+    loop win world fb ds
+    -- Delete stuff left in OpenGL.
+    cleanupWorld world
+    cleanupObjects $ worldEntities world
+    -- Shutdown when game loop is done.
+    shutdown win
+
+    where
+        loop :: GLFW.Window -> World t -> Framebuffer -> GLuint -> IO ()
+        loop win world fbuf shader = do
+            -- Check if any events have occured.
+            GLFW.pollEvents
+
+            -- Perform logic update on the world and render.
+            newWorld <- updateStep win world >>=
+                    (\w -> renderStep w win fbuf shader)
+
+            -- Swap back and front buffer.
+            GLFW.swapBuffers win
+
+            shouldClose <- GLFW.windowShouldClose win
+            unless shouldClose $
+                loop win newWorld fbuf shader
+
+renderStep :: World t -> GLFW.Window -> Framebuffer -> GLuint -> IO (World t)
+renderStep world _ =
+    --renderShadow world
+    renderWorldWithShadows world
+
+depthShader :: IO GLuint
+depthShader = loadProgram "shaders/shadow/shadow.vert" "shaders/shadow/shadow.frag"
 
 updateStep :: GLFW.Window -> World t -> IO (World t)
 updateStep win world = do
@@ -81,17 +141,10 @@ updateStep win world = do
     -- Update player input
     player <- updatePlayerInput win $ worldPlayer world
 
-    -- Update player
-    let newWorld = playerUpdate player
-                world{worldPlayer = player, worldState = newState}
-        tmpPlayer = worldPlayer newWorld
-        -- Set mouse delta movement to 0.
-        pin = (playerInput tmpPlayer){inputMouseDelta = Vec2 0 0}
-        newPlayer = tmpPlayer{playerInput = pin}
-
-    return $ (updateWorld newWorld){
-        worldPlayer = newPlayer
-    }
+    let newW = world{worldPlayer = player, worldState = newState}
+        nw = snd $ (player, newW) ~>
+            playerUpdate ~>~ worldPlayer ~~ resetPlayerInput ~> setWorldPlayer
+    return nw
 
 updatePlayerInput :: GLFW.Window -> GameObject t -> IO (GameObject t)
 updatePlayerInput win player@(Player{}) = do

@@ -8,7 +8,6 @@ import System.FilePath ((</>))
 import Graphics.Rendering.OpenGL.Raw
 
 import Engine.Object.Player
---import Engine.Object.GameObject
 import Engine.Model.ObjLoader
 import Engine.Terrain.Generator
 import Engine.Core.Vec
@@ -52,7 +51,8 @@ mkWorldFast = do
 
     let winDimensions = windowSize $ stateWindow state
 
-    fb <- makeFrameBuffer winDimensions
+    --fb <- makeFrameBuffer winDimensions
+    let fb = FB 0 0 (0, 0) 0 0
     mkWorld fb [passShader]
 
 mkWorld :: Framebuffer -> [GLuint] -> IO (World ())
@@ -79,7 +79,8 @@ mkObj2 =
 
 mkObj3 :: IO (GameObject ())
 mkObj3 =
-    PureEntity (Vec3 0 (-20) 0) id <$> mkModel3 <*> return ()
+    --PureEntity (Vec3 0 (-20) 0) id <$> mkModel3 <*> return ()
+    PureEntity (Vec3 0 0 50) id <$> mkModel3 <*> return ()
 
 {-
 eMove :: GameObject t -> GameObject t
@@ -106,32 +107,14 @@ mkTerrain = genSimplexModel
 
 mkModel3 :: IO Model
 mkModel3 = 
-    loadObjModel ("res" </> "objects/ibanez/ibanez.obj")
+    loadObjModel ("res" </> "objects" </> "isengard" </> "isengard.obj")
                                mainVertShader
                                mainFragShader
-
-{-
-mkObj3 :: IO (GameObject ())
-mkObj3 =
-    PureEntity (Vec3 (-500) 0 500) id <$> mkModel3 <*> return ()
-
-mkModel3 :: IO Model
-mkModel3 = 
-    loadObjModel ("res" </> "objects/space/space.obj")
-                               mainVertShader
-                               mainFragShader
--}
 
 mainVertShader :: String
-mainVertShader = "shaders" </> "correct.vert"
+--mainVertShader = "shaders" </> "correct.vert"
+mainVertShader = "shaders" </> "shadow" </> "shadow2.vert"
 
 mainFragShader :: String
-mainFragShader = "shaders" </> "correct.frag"
-
-{-
-mainTessCShader :: String
-mainTessCShader = "shaders" </> "tesselation" </> "test_ts.glsl"
-
-mainTessEShader :: String
-mainTessEShader = "shaders" </> "tesselation" </> "test_te.glsl"
--}
+--mainFragShader = "shaders" </> "correct.frag"
+mainFragShader = "shaders" </> "shadow" </> "shadow2.frag"

@@ -3,12 +3,11 @@
 - Full support for loading .obj + .mtl files.
 - Multipass postprocessing.
 - Simplex procedurally generated terrain.
-- GLSL 4+
+- GLSL 4+.
 - Loading and displaying of textures in a variety of formats.
 - Collision detection via AABBs.
 - Gravity / basic physics.
 - Uses own matrices, according to the OpenGL 2.1+ spec.
-- Model animation.
 <h2>Screenshots</h2>
 <h4>Simplex procedurally generated terrain.</h4>
 
@@ -39,7 +38,7 @@ Performance by GHC/GHCI command:
     - CPU: `1-4%`
     - RAM: `52 MiB`
 
-All commands using the `-O` or `-O2` flags performed basically the same, with a decrease of `~1%` CPU usage from `-fllvm`, well within the margin of error. The version of llvm used was 3.4, which is "untested", so performance could be increased with the correct version. Adding the `-funfolding-use-threshold=16` flag decresed memory usage by 1 MiB, without affecting CPU usage.
+All commands using the `-O` or `-O2` flags performed basically the same, with a decrease of `<1%` CPU usage from `-fllvm`, well within the margin of error. The version of llvm used was 3.4, which is "untested", so performance could be increased with the correct version. Adding the `-funfolding-use-threshold=16` flag decresed memory usage by 1 MiB, without affecting CPU usage.
 
 <h2>Todo</h2>
 
@@ -76,20 +75,18 @@ All commands using the `-O` or `-O2` flags performed basically the same, with a 
     - [GPUGems](http://http.developer.nvidia.com/GPUGems/gpugems_ch09.html)
 
 <h4>Performance increases</h4>
-- Fix large strain on GPU since switching to client-side matrices. Probably a few mistake OpenGL calls.
 - Use Bang Patterns.
 - Use [Parallelism](http://www.haskell.org/haskellwiki/Parallel) in parts of the program like loading .obj/.mtl files.
 - Analyze generated [Haskell Core](http://www.haskell.org/haskellwiki/Performance/GHC#Looking_at_the_Core) code for possible efficiency increases.
     - [Tutorial on how to read and use Core](http://alpmestan.com/2013/06/27/ghc-core-by-example-episode-1/)
 - Instead of splitting a loaded terrain, just create a function to load multiple terrains and place them next to each other.
-- Octree or some kind of grouping of vertices to speed up collision detection. <i>Actually, collision detection is not that slow when using ghc (not ghci), but this should still be implemented at some point.</i>
+- Octree or some kind of grouping of vertices to speed up collision detection. Actually, collision detection is not that slow, but this should still be implemented at some point.
     - Bounding Volume Hierarchy seems to be the best choice.
         - Requires Raytracing
         - [Java code](https://github.com/diwi/Space_Partitioning_Octree_BVH/tree/master/SpacePartitioning/src/DwBVH), [C# code](http://www.3dmuve.com/3dmblog/?p=182), [Scholarly paper](http://www.cg.cs.tu-bs.de/media/publications/minimal-bounding-volume-hierarchy.pdf), [C++ Walkthrough/tutorial](http://www.scratchapixel.com/lessons/3d-basic-lessons/lesson-12-introduction-to-acceleration-structures/bounding-volume-hierarchy-bvh-part-1/), [C++ code](https://github.com/brandonpelfrey/Fast-BVH), [Large academic paper](http://www.sci.utah.edu/~wald/Publications/2007/FastBuild/download/fastbuild.pdf), [Stackoverflow question](http://stackoverflow.com/questions/5077243/how-to-roll-a-fast-bvh-representation-in-haskell), [Another Stackoverflow question](http://stackoverflow.com/questions/15013523/how-to-sort-and-compare-in-a-bounding-volume-hierarchy), [Academic publication](http://cg.ibds.kit.edu/publications/p2012/RBVH/RBVH.pdf)
 - Use more efficient data structures - [ByteString](http://hackage.haskell.org/package/bytestring-0.9.2.1/docs/Data-ByteString.html) insteat of String, and [Vectors](https://hackage.haskell.org/package/vector) or [Arrays](https://hackage.haskell.org/package/array) instead of lists.
 
 <h4>Organization</h4>
-- Rewrite / modify ModelLoader module, make it much more modular and customizable.
 - Maybe define classes to constrain functions, instead of forcing the use of `GameObjects`?
 - Better documentation / comments.
 
