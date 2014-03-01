@@ -9,14 +9,23 @@ import Graphics.Rendering.OpenGL.Raw
 
 import Engine.Core.Vec
 
+data Octree a = Octree {
+    octCorners :: (Vec3 GLfloat, Vec3 GLfloat),
+    octCenter :: Vec3 GLfloat,
+    octValues :: [a],
+    octNumValues :: Int,
+    octDepth :: Int,
+    octChildren :: [Octree a]
+}
+
 -- | AABB (min corner) (max corner)
 data AABB = AABB (Vec3 GLfloat) (Vec3 GLfloat) deriving (Show)
 
 -- | Takes a Vec3 containing the length, height, and width
 --   and returns a Vec3 with those dimensions.
-{-# INLINE createAABB #-}
 createAABB :: Vec3 GLfloat -> AABB
 createAABB = AABB (Vec3 0 0 0)
+{-# INLINE createAABB #-}
 
 -- | Creates an aabb for every n faces.
 aabbsFromPointsGrouped :: [GLfloat] -> Int -> [AABB]
@@ -66,15 +75,15 @@ aabbByFace _ =
 
 -- | Move an AABB by adding given Vec3 to the min
 --   and max points.
-{-# INLINE moveAABB #-}
 moveAABB :: AABB -> Vec3 GLfloat -> AABB
 moveAABB (AABB origMin origMax) deltaMovement =
     AABB (origMin + deltaMovement) (origMax + deltaMovement)
+{-# INLINE moveAABB #-}
 
 -- | Calculate the width, height and length of an AABB.
-{-# INLINE aabbDimensions #-}
 aabbDimensions :: AABB -> Vec3 GLfloat
 aabbDimensions (AABB left right) = right - left
+{-# INLINE aabbDimensions #-}
 
 -- | Check if two Maybe AABB's are intersecting.
 --   if either are Nothing, it is False.
@@ -99,7 +108,6 @@ anyIntersectGet l (r:rs) =
 anyIntersectGet _ _ = Nothing
 
 -- | Check if 2 AABB's are intersecting.
-{-# INLINE intersecting #-}
 intersecting :: AABB -> AABB -> Bool
 intersecting (AABB (Vec3 min1x min1y min1z) (Vec3 max1x max1y max1z))
              (AABB (Vec3 min2x min2y min2z) (Vec3 max2x max2y max2z)) =
@@ -109,6 +117,7 @@ intersecting (AABB (Vec3 min1x min1y min1z) (Vec3 max1x max1y max1z))
     min1y < max2y &&
     max1z > min2z &&
     min1z < max2z
+{-# INLINE intersecting #-}
 
 getXs :: [a] -> [a]
 getXs (x:_:_:rest) =
@@ -125,10 +134,10 @@ getZs (_:_:z:rest) =
     z : getZs rest
 getZs _ = []
 
-{-# INLINE min3 #-}
 min3 :: Ord a => a -> a -> a -> a
 min3 a b c = min c $ min a b
+{-# INLINE min3 #-}
 
-{-# INLINE max3 #-}
 max3 :: Ord a => a -> a -> a -> a
 max3 a b c = max c $ max a b
+{-# INLINE max3 #-}

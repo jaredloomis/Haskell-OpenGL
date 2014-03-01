@@ -22,7 +22,8 @@ data World t = World {
     worldPlayer :: !(GameObject t),
     worldEntities :: ![GameObject t],
     worldUniforms :: ![ShaderUniform],
-    worldFramebuffer :: !(Framebuffer, [GLuint]),
+    worldPostProcessors :: !(Framebuffer, [GLuint]),
+    worldShadowInfo :: !(Framebuffer, GLuint),
     worldState :: !WorldState
 }
 
@@ -99,6 +100,8 @@ infixl ~>~
     (a, b)
 (~>~) (_, pass) func =
     (func pass, pass)
+
+infixl ~>~>
 
 (~>~>) ::
     (a, b) ->

@@ -16,18 +16,26 @@ import Engine.Model.Model
 import Engine.Graphics.Window
 import Engine.Graphics.Shaders
 import Engine.Graphics.Framebuffer
+import Engine.Object.GameObject
+import Engine.Graphics.Shadows
 
 mkWorldFast :: IO (World ())
 mkWorldFast = do
     state <- mkWorldState
+{-
     passShader <- loadProgram
         "shaders/postprocessing/passthrough/passthrough.vert"
         "shaders/postprocessing/passthrough/passthrough.frag"
-{-
     fishShader <- loadProgram
         "shaders/postprocessing/fisheye/fisheye.vert"
         "shaders/postprocessing/fisheye/fisheye.frag"
 -}
+    dofShader <- loadProgram
+        ("shaders" </> "postprocessing" </> "dof" </> "dof.vert")
+        ("shaders" </> "postprocessing" </> "dof" </> "dof.frag")
+    fxaaShader <- loadProgram
+        "shaders/postprocessing/fxaa/fxaa.vert"
+        "shaders/postprocessing/fxaa/fxaa.frag"
 {-
     sobelShader <- loadProgram
         "shaders/postprocessing/sobel/sobel.vert"
@@ -50,19 +58,25 @@ mkWorldFast = do
 -}
 
     let winDimensions = windowSize $ stateWindow state
+    fb <- makeFrameBuffer winDimensions
 
-    --fb <- makeFrameBuffer winDimensions
-    let fb = FB 0 0 (0, 0) 0 0
-    mkWorld fb [passShader]
+    sfb <- makeShadowFrameBuffer
 
-mkWorld :: Framebuffer -> [GLuint] -> IO (World ())
-mkWorld fb shaders = do
+    shadowShader <- loadProgram
+            "shaders/shadow/shadow.vert"
+            "shaders/shadow/shadow.frag"
+
+    mkWorld fb sfb shadowShader [dofShader, fxaaShader]
+
+mkWorld :: Framebuffer -> Framebuffer -> GLuint -> [GLuint] -> IO (World ())
+mkWorld fb shadowFb shadowShader shaders = do
     state <- mkWorldState
     obja <- mkObj
     objb <- mkObj2
     objc <- mkObj3
     return $ World mkPlayer [obja, objb, objc]
-             [("lightPos", return [0.0, 10.0, 0.0])] (fb, shaders) state
+             [("lightPos", return [0.0, 10.0, 0.0])] (fb, shaders)
+             (shadowFb, shadowShader) state
 
 mkWorldState :: IO WorldState
 mkWorldState = do
@@ -71,7 +85,7 @@ mkWorldState = do
 
 mkObj :: IO (GameObject ())
 mkObj =
-    PureEntity (Vec3 10 3 10) id <$> mkModel <*> return ()
+    PureEntity (Vec3 10 3 10) eMove <$> mkModel <*> return ()
 
 mkObj2 :: IO (GameObject ())
 mkObj2 =
@@ -79,15 +93,15 @@ mkObj2 =
 
 mkObj3 :: IO (GameObject ())
 mkObj3 =
-    --PureEntity (Vec3 0 (-20) 0) id <$> mkModel3 <*> return ()
     PureEntity (Vec3 0 0 50) id <$> mkModel3 <*> return ()
+    --PureEntity (Vec3 (-700) (-480) 1016) id <$> mkModel3 <*> return ()
 
-{-
+
 eMove :: GameObject t -> GameObject t
 eMove pe@(PureEntity{}) =
     moveObject pe (Vec3 0.005 0 0)
 eMove a = a
--}
+
 
 mkModel :: IO Model
 mkModel =
@@ -104,7 +118,14 @@ mkTerrain = genSimplexModel
             1
             20
             10
-
+            (Just "res/textures/grass.jpg")
+{-
+mkModel3 :: IO Model
+mkModel3 = 
+    loadObjModel ("res" </> "objects" </> "space" </> "space.obj")
+                               mainVertShader
+                               mainFragShader
+-}
 mkModel3 :: IO Model
 mkModel3 = 
     loadObjModel ("res" </> "objects" </> "isengard" </> "isengard.obj")

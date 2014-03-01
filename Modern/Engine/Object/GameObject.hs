@@ -30,7 +30,7 @@ instance HasPosition (GameObject t) where
     getPos ee@(EffectfulEntity{}) = eentityPosition ee
 
     setPos p@(Player{}) pos = p{playerPosition = pos}
-    setPos pe@(PureEntity{}) pos = pe{eentityPosition = pos}
+    setPos pe@(PureEntity{}) pos = pe{pentityPosition = pos}
     setPos ee@(EffectfulEntity{}) pos = ee{eentityPosition = pos}
 
 -- | Test if two objects intersect.

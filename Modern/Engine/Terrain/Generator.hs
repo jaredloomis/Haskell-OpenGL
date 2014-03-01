@@ -1,9 +1,11 @@
 module Engine.Terrain.Generator where
 
+import Data.Maybe (isJust, fromJust)
 import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
 import Engine.Model.Model
 import Engine.Terrain.Noise
+import Engine.Graphics.Textures
 
 genHeightsSplit ::
     (Int, Int) -> (Int, Int) -> Int -> Int -> GLfloat -> GLfloat -> IO [[[GLfloat]]]
@@ -17,24 +19,39 @@ genHeightsSplit (width, height) (startx, starty) splits octaves wavelength inten
     
 
 genSimplexModel :: FilePath -> FilePath ->
-    GLfloat ->  -- ^ Width
-    GLfloat ->  -- ^ Spacing
-    Int ->      -- ^ Octaves
-    GLfloat ->  -- ^ Wavelength
-    GLfloat ->  -- ^ Waveheight / intensity
+    GLfloat ->          -- ^ Width
+    GLfloat ->          -- ^ Spacing
+    Int ->              -- ^ Octaves
+    GLfloat ->          -- ^ Wavelength
+    GLfloat ->          -- ^ Waveheight / intensity
+    Maybe FilePath ->   -- ^ The texture (Maybe)
     IO Model
-genSimplexModel vert frag w spacing octaves wavelength intensity = do
+genSimplexModel vert frag w spacing octaves wavelength intensity texture = do
     heights <- simplexNoise (floor w) spacing octaves wavelength intensity
     let hCoords = heightsToCoords heights 0 spacing
         flat = createFlat spacing w
         vertices = applyHeights flat hCoords
         normals = calculateNormals vertices
+        lengthVertices = length vertices
 
-    createModel vert frag ["position", "normal", "color", "texCoord", "textureId"]
-                    [vertices, normals, take (length vertices * 3) (cycle [0, 1, 0]),
-                    replicate (length vertices * 2) (-1),
-                    replicate (length vertices) (-1)] [3, 3, 3, 2, 1]
+    if isJust texture
+        then do
+            loadedModel <- createModel vert frag ["position", "normal", "color", "texCoord", "textureId"]
+                    [vertices, normals, take (lengthVertices * 3) (cycle [0, 1, 0]),
+                    take (lengthVertices * 3) $ cycle [0, 0, 1, 0, 0, 1],
+                    replicate lengthVertices 0]
+                    [3, 3, 3, 2, 1]
                     (fromIntegral $ length vertices `div` 3)
+            textureData <- juicyLoadTexture $ fromJust texture
+            return $ loadedModel{modelTextures = [(textureData, 1)]}
+    else
+        createModel vert frag ["position", "normal", "color", "texCoord", "textureId"]
+                    [vertices, normals, take (lengthVertices * 3) (cycle [0, 1, 0]),
+                    replicate (lengthVertices * 3) 0,
+                    replicate lengthVertices (-1)]
+                    [3, 3, 3, 2, 1]
+                    (fromIntegral $ length vertices `div` 3)
+
 
 createFlat :: GLfloat -> GLfloat -> [GLfloat]
 createFlat spacing width =

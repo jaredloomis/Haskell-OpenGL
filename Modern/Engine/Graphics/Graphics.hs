@@ -60,7 +60,6 @@ renderObjectsMat world wm (object:rest) = do
             setWorldUniforms world >>=
             (\sh -> setUniformsAndRemember sh [("time", return [dayTime])])
 
-
     -- Bind buffers to variable names in shader.
     setShaderAttribs $ modelShaderVars model
     bindTextures (modelTextures model) $ shaderId newShader
@@ -145,8 +144,8 @@ resizeScene _ width height =
 
 cleanupWorld :: World t -> IO ()
 cleanupWorld world = do
-    let fb = fst $ worldFramebuffer world
-        shaders = snd $ worldFramebuffer world
+    let fb = fst $ worldPostProcessors world
+        shaders = snd $ worldPostProcessors world
     with (fbufName fb) $ glDeleteFramebuffers 1
     with (fbufTexture fb) $ glDeleteTextures 1
     with (fbufVBO fb) $ glDeleteVertexArrays 1

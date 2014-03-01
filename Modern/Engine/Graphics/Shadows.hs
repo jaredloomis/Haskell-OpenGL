@@ -1,13 +1,11 @@
 module Engine.Graphics.Shadows where
 
 import Data.Bits ((.|.))
-import Data.Maybe (fromJust)
 
 import Graphics.Rendering.OpenGL.Raw
 import Foreign (alloca, peek, withArray)
 
 import qualified Graphics.GLUtil as GU
-import qualified Graphics.UI.GLFW as GLFW
 
 import Engine.Matrix.Matrix
 import Engine.Core.Vec
@@ -15,7 +13,7 @@ import Engine.Object.GameObject
 import Engine.Model.Model
 import Engine.Core.World
 import Engine.Graphics.Shaders
-import Engine.Graphics.Window
+import Engine.Graphics.Framebuffer
 
 makeShadowFrameBuffer :: IO Framebuffer
 makeShadowFrameBuffer = do
@@ -27,7 +25,7 @@ makeShadowFrameBuffer = do
 
     glTexImage2D gl_TEXTURE_2D 0
         (fromIntegral gl_DEPTH_COMPONENT16)
-        800 800
+        800 600
         0 gl_DEPTH_COMPONENT gl_FLOAT GU.offset0
 
     -- Give texture paramenters.
@@ -54,18 +52,20 @@ makeShadowFrameBuffer = do
             else "Framebuffer error")
 
     return $ FB fbName depthTexture
-            (800, 800)
+            (800, 600)
             (-1)
             (-1)
 
-renderWorldWithShadows :: World t -> Framebuffer -> GLuint -> IO (World t)
-renderWorldWithShadows world fbuf depthShader = do
-    let (w, h) = fbufDimensions fbuf
+renderWorldWithShadows :: World t -> IO (World t)
+renderWorldWithShadows world = do
+    let fbuf = fst $ worldShadowInfo world
+        depthShader = snd $ worldShadowInfo world
+        (w, h) = fbufDimensions fbuf
     glBindFramebuffer gl_FRAMEBUFFER $ fbufName fbuf
     glViewport 0 0 w h
 
     glEnable gl_CULL_FACE
-    glCullFace gl_BACK
+    glCullFace gl_FRONT
 
     glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
 
@@ -80,18 +80,14 @@ renderWorldWithShadows world fbuf depthShader = do
             WorldMatrices depthModelMat depthViewMat depthProjMat
 
     mvpMatrix <- quickGetUniform depthShader "mvpMatrix"
-{-
-    withArray
-        (toGLFormat $ depthProjMat * depthViewMat * depthModelMat)
-        $ glUniformMatrix4fv mvpMatrix 1 (fromIntegral gl_FALSE)
--}
+
     let depthMVP = depthProjMat * depthViewMat * depthModelMat
 
     renderInitialShadows (worldEntities world)
         worldMats
         mvpMatrix
 
-    glBindFramebuffer gl_FRAMEBUFFER 0
+    glBindFramebuffer gl_FRAMEBUFFER (fbufName . fst . worldPostProcessors $ world)
     glViewport 0 0 800 600
 
     glEnable gl_CULL_FACE
@@ -99,16 +95,21 @@ renderWorldWithShadows world fbuf depthShader = do
 
     glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
 
-    renderObjectsWithShadows
+    renderObjectsWithShadows world
         (calculateMatricesFromPlayer (worldPlayer world) (800, 600))
         depthMVP
         fbuf
         (worldEntities world)
 
+    let newDepthUniform = ("depthTexture", return [20])
+        newWorldUniforms =  newDepthUniform : worldUniforms world
+    renderAllPasses world{worldUniforms = newWorldUniforms} (snd $ worldPostProcessors world)
+
+
     return world
 
-renderObjectsWithShadows :: WorldMatrices -> Matrix4x4 -> Framebuffer -> [GameObject t] -> IO ()
-renderObjectsWithShadows wm depthMVP fbuf (cur : rest) = do
+renderObjectsWithShadows :: World t -> WorldMatrices -> Matrix4x4 -> Framebuffer -> [GameObject t] -> IO ()
+renderObjectsWithShadows world wm depthMVP fbuf (cur : rest) = do
     let curModel = getModel cur
         mShader = modelShader curModel
         Vec3 ox oy oz = getPos cur
@@ -117,16 +118,21 @@ renderObjectsWithShadows wm depthMVP fbuf (cur : rest) = do
 
     setMatrixUniformsBias mShader wm{matrixModel = modelMat} depthMVP
 
-    glActiveTexture gl_TEXTURE1
+    setWorldUniforms world mShader
+
+    bindTextures (modelTextures curModel) $ shaderId mShader
+    
+    let textureOffset = 20
+    glActiveTexture $ gl_TEXTURE0 + textureOffset
     glBindTexture gl_TEXTURE_2D $ fbufTexture fbuf
     quickGetUniform (shaderId mShader) "shadowMap" >>=
-        (`glUniform1i` 1)
+        (`glUniform1i` fromIntegral textureOffset)
 
     setShaderAttribs $ modelShaderVars curModel
     glDrawArrays gl_TRIANGLES 0 (modelVertCount curModel)
 
-    renderObjectsWithShadows wm depthMVP fbuf rest
-renderObjectsWithShadows _ _ _ _ = return ()
+    renderObjectsWithShadows world wm depthMVP fbuf rest
+renderObjectsWithShadows _ _ _ _ _ = return ()
 
 renderInitialShadows :: [GameObject t] -> WorldMatrices -> GLint -> IO ()
 renderInitialShadows (cur : rest) wm mvpUniform = do

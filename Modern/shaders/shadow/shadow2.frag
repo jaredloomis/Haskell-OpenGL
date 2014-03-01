@@ -1,17 +1,29 @@
-#version 330 core
+#version 430 core
 
-// Interpolated values from the vertex shaders
-//in vec2 UV;
+#define AMBIENT_LIGHT (vec3(0.01, 0.01, 0.01))
+#define FOG_COLOR (vec4(0.01, 0.01, 0.01, 0.075))
+#define SHININESS (40.0)
+#define MIN_SPEC (0.01)
+#define MAX_SPEC (0.8)
+
+in vec3 positionCS;
+in vec3 positionMS;
+in vec3 normalCS;
+in vec3 fragColor;
+in vec2 textureCoord;
+in flat int texId;
+in float fogFactor;
 in vec4 shadowCoord;
 
-// Ouput data
-layout(location = 0) out vec4 color;
+layout(location = 5) uniform mat4 viewMatrix;
+layout(location = 9) uniform vec3 lightPos;
+layout(location = 10) uniform sampler2D textures[7];
+layout(location = 17) uniform sampler2DShadow shadowMap;
+layout(location = 18) uniform float time;
 
-// Values that stay constant for the whole mesh.
-//uniform sampler2D myTextureSampler;
-uniform sampler2DShadow shadowMap;
+layout(location = 0) out vec4 outColor;
 
-vec2 poissonDisk[16] = vec2[]( 
+const vec2 poissonDisk[16] = vec2[]( 
    vec2( -0.94201624, -0.39906216 ), 
    vec2( 0.94558609, -0.76890725 ), 
    vec2( -0.094184101, -0.92938870 ), 
@@ -32,32 +44,66 @@ vec2 poissonDisk[16] = vec2[](
 
 void main()
 {
+    //Normalize per fragment to make it smooth.
+    vec3 realNormCS = normalize(normalCS);
+
+    //Calculate light position in camera space. Model matrix
+    //is ommited because it is identity.
+    vec3 lightPosCS = (viewMatrix * vec4(lightPos, 1.0)).xyz;
+    //Calculate the direction the light travels
+    //to get to fragment.
+    vec3 lightDir = normalize(lightPosCS - positionCS);
+
+    //Calculate the reflection direction.
+    vec3 reflectionDirection = normalize(reflect(-lightDir, realNormCS));
+
+    //Distance from light to fragment.
+    float lightDist = length(lightPos - positionMS);
+    float attenuation = 1;//1.0 / max(lightDist * lightDist * 0.001, 1.0);
+
+    //Calculate the intensity of diffuse light.
+    float diffuse = max(0.0, dot(realNormCS, lightDir));
+
+    //Calculate intensity of specular light.
+    vec3 eyeDir = normalize(-positionCS);
+    float rawSpec = max(0.0, dot(reflectionDirection, eyeDir));
+    float specular = pow(rawSpec, SHININESS);
+    //Make specular have a minimum val.
+    specular = specular < MIN_SPEC ? 0 : specular;
+
+    //Calculate "scattered" light (basically diffuse).
+    vec3 scatteredLight = AMBIENT_LIGHT + diffuse * attenuation;
+
+    //Specular value.
+    vec3 reflectedLight = vec3(specular) * attenuation;
+
+    vec3 rgb;
+    if(texId == -1)
+        rgb = min(fragColor * scatteredLight + reflectedLight, vec3(1.0));
+    else
+        rgb = min(
+            texture(textures[texId], textureCoord).rgb *
+                scatteredLight + reflectedLight,
+            vec3(1.0));
+
     // Light emission properties
     vec3 lightColor = vec3(1.0, 1.0, 1.0);
-    
-    // Material properties
-    //vec3 MaterialDiffuseColor = texture(myTextureSampler, UV).rgb;
-    //vec3 diffuseColor = vec3(0.0, 0.0, 1.0);
-    vec3 diffuseColor = vec3(0,0,1.0);
-
-    //float visibility = texture(shadowMap, vec3(shadowCoord.xy, (shadowCoord.z)/shadowCoord.w));
-    //float bias = 0.005;
 
     float visibility=1.0;
 
-    // Fixed bias, or...
-    float bias = 0.005;
-
-    // ...variable bias
-    // float bias = 0.005*tan(acos(cosTheta));
-    // bias = clamp(bias, 0,0.01);
+    //Variable bias.
+    float bias = 0.005 * tan(acos(diffuse));
+    bias = clamp(bias, 0.0, 0.01);
 
     // Sample the shadow map 4 times
-    for (int index=0;index<4;index++)
+    for (int index=0;index<10;index++)
+    {
+        //int realIndex = genRandom(index);
         visibility -= 0.2*(1.0 -
             texture(shadowMap,
                 vec3(shadowCoord.xy + poissonDisk[index]/700.0,
                     (shadowCoord.z-bias)/shadowCoord.w)));
+    }
 
-    color = vec4(visibility * diffuseColor * lightColor, 1.0);
+    outColor = vec4(visibility * rgb * lightColor, 1.0);
 }

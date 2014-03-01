@@ -1,6 +1,7 @@
 #version 430 core
 
-#define AMBIENT_LIGHT (vec3(0.01, 0.01, 0.01))
+//#define AMBIENT_LIGHT (vec3(0.01, 0.01, 0.01))
+#define AMBIENT_LIGHT (vec3(0.4, 0.4, 0.4))
 #define FOG_COLOR (vec4(0.01, 0.01, 0.01, 0.075))
 #define SHININESS (20.0)
 

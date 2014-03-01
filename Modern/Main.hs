@@ -12,10 +12,11 @@ import Engine.Core.Vec
 import TestVals
 import Engine.Graphics.Window
 import Engine.Core.World
-import Engine.Graphics.Framebuffer
+--import Engine.Graphics.Framebuffer
 import Engine.Object.Player
 import Engine.Graphics.Shadows
 import Engine.Graphics.Shaders
+import Engine.Object.GameObject
 
 {-
 main :: IO ()
@@ -117,7 +118,7 @@ main = do
                 loop win newWorld fbuf shader
 
 renderStep :: World t -> GLFW.Window -> Framebuffer -> GLuint -> IO (World t)
-renderStep world _ =
+renderStep world _ _ _=
     --renderShadow world
     renderWorldWithShadows world
 
@@ -144,7 +145,7 @@ updateStep win world = do
     let newW = world{worldPlayer = player, worldState = newState}
         nw = snd $ (player, newW) ~>
             playerUpdate ~>~ worldPlayer ~~ resetPlayerInput ~> setWorldPlayer
-    return nw
+    return $ updateWorld nw
 
 updatePlayerInput :: GLFW.Window -> GameObject t -> IO (GameObject t)
 updatePlayerInput win player@(Player{}) = do

@@ -6,6 +6,6 @@ out vec2 textureCoord;
 
 void main()
 {
-    gl_Position = vec4(position, 1);
+    gl_Position = vec4(position, 1.0);
     textureCoord = (position.xy+vec2(1,1))/2.0;
 }
