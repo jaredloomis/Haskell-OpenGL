@@ -1,7 +1,7 @@
 #version 430 core
 
-#define BIAS (0.025)
-#define BLUR_CLAMP (0.3)
+#define BIAS (0.02)
+#define BLUR_CLAMP (0.2)
 
 in vec2 textureCoord;
 

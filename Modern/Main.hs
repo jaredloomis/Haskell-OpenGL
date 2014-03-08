@@ -18,7 +18,6 @@ import Engine.Graphics.Shadows
 import Engine.Graphics.Shaders
 import Engine.Object.GameObject
 
-{-
 main :: IO ()
 main = do
     -- Initialize GLFW, create a window, open it.
@@ -38,6 +37,9 @@ main = do
 
     -- Make cursor Hidden.
     GLFW.setCursorInputMode win GLFW.CursorInputMode'Disabled
+
+    --ds <- depthShader
+    --fb <- makeShadowFrameBuffer
 
     -- Begin game loop.
     loop win world
@@ -66,59 +68,6 @@ main = do
 
 renderStep :: World t -> GLFW.Window -> IO (World t)
 renderStep world _ =
-    renderWorldWithPostprocessing world
--}
-
-main :: IO ()
-main = do
-    -- Initialize GLFW, create a window, open it.
-    window <- openWindow defaultWindow
-    let Just win = windowInner window
-
-    -- Perform some intitial OpenGL configurations.
-    initGL win
-
-    -- Create default world, set the window.
-    tmp <- mkWorldFast
-    let world = tmp{
-        worldState = (worldState tmp){stateWindow = window}}
-
-    -- Register the function called when the window is resized.
-    GLFW.setFramebufferSizeCallback win (Just resizeScene)
-
-    -- Make cursor Hidden.
-    GLFW.setCursorInputMode win GLFW.CursorInputMode'Disabled
-
-    ds <- depthShader
-    fb <- makeShadowFrameBuffer
-
-    -- Begin game loop.
-    loop win world fb ds
-    -- Delete stuff left in OpenGL.
-    cleanupWorld world
-    cleanupObjects $ worldEntities world
-    -- Shutdown when game loop is done.
-    shutdown win
-
-    where
-        loop :: GLFW.Window -> World t -> Framebuffer -> GLuint -> IO ()
-        loop win world fbuf shader = do
-            -- Check if any events have occured.
-            GLFW.pollEvents
-
-            -- Perform logic update on the world and render.
-            newWorld <- updateStep win world >>=
-                    (\w -> renderStep w win fbuf shader)
-
-            -- Swap back and front buffer.
-            GLFW.swapBuffers win
-
-            shouldClose <- GLFW.windowShouldClose win
-            unless shouldClose $
-                loop win newWorld fbuf shader
-
-renderStep :: World t -> GLFW.Window -> Framebuffer -> GLuint -> IO (World t)
-renderStep world _ _ _=
     --renderShadow world
     renderWorldWithShadows world
 

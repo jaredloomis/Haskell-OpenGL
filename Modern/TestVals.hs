@@ -93,7 +93,7 @@ mkObj2 =
 
 mkObj3 :: IO (GameObject ())
 mkObj3 =
-    PureEntity (Vec3 0 0 50) id <$> mkModel3 <*> return ()
+    PureEntity (Vec3 0 (-20) 0) id <$> mkModel3 <*> return ()
     --PureEntity (Vec3 (-700) (-480) 1016) id <$> mkModel3 <*> return ()
 
 
@@ -128,7 +128,7 @@ mkModel3 =
 -}
 mkModel3 :: IO Model
 mkModel3 = 
-    loadObjModel ("res" </> "objects" </> "isengard" </> "isengard.obj")
+    loadObjModel ("res" </> "objects" </> "space" </> "space.obj")
                                mainVertShader
                                mainFragShader
 

@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 module Engine.Model.ObjLoader (
     loadObjModel, loadObjFile
 ) where
@@ -8,17 +9,20 @@ import Data.List (isPrefixOf)
 import Data.List.Split (splitOn)
 import Data.Maybe (isJust, fromJust)
 import Control.Monad (liftM)
+import System.Directory (doesFileExist)
 
 import qualified Data.Vector.Storable as V
 import qualified Data.DList as D
 
-import Graphics.Rendering.OpenGL.Raw (GLfloat)
+import Graphics.Rendering.OpenGL.Raw (GLfloat, GLint)
 
 import Engine.Model.Material
-    (Material(..), emptyMaterial, loadMtlFile)
+    (Material(..), emptyMaterial, loadMtlFile, allImagesInFile)
 import Engine.Model.Model
     (Model(..), createModel)
 import Engine.Core.Vec (Vec3(..))
+import Engine.Model.DatLoader
+import Engine.Graphics.Textures (juicyLoadTexture)
 
 loadObjModel ::
     FilePath ->
@@ -28,6 +32,8 @@ loadObjModel ::
 loadObjModel objFile vert frag =
     let attrNames = ["position", "texCoord", "normal", "color", "textureId"]
     in do
+    hasDatFile <- doesFileExist $ objFile ++ ".dat"
+{-
     fileContents <- openFile objFile ReadMode >>= hGetContents
     (mats, lib) <- loadObjMaterials fileContents
     let obj = loadObj fileContents
@@ -36,16 +42,40 @@ loadObjModel objFile vert frag =
         materialDiffs = fromVec3M $ map matDiffuseColor mats
         materialTexIds = map (fromIntegral . fromJustSafe . matTexId) mats
 
-        totalData = dat ++ [materialDiffs, materialTexIds]
+        --totalData = dat ++ [materialDiffs, materialTexIds]
+-}
+    (totalData, mTextures) <-
+        if hasDatFile
+            then do
+                (totalDat, images) <- loadData (objFile ++ ".dat")
+                textures <- mapM juicyLoadTexture images
+                return (totalDat, textures)
+        else do
+            fileContents <- openFile objFile ReadMode >>= hGetContents
+            (mats, lib) <- loadObjMaterials fileContents
+            let obj = loadObj fileContents
+
+                dat = toArrays obj
+                materialDiffs = fromVec3M $ map matDiffuseColor mats
+                materialTexIds = map (fromIntegral . fromJustSafe . matTexId) mats
+                total = dat ++ [materialDiffs, materialTexIds]
+
+            images <- liftM concat $
+                mapM (\f -> liftM allImagesInFile (openFile f ReadMode >>= hGetContents)) $ allMtlsInObj fileContents
+
+            writeDataToFile (objFile ++ ".dat") total images
+
+            return (total, map (fromJust . matTexture) $ filter (isJust . matTexture) lib)
 
     tmp <- createModel vert frag
         attrNames
         totalData
         [3, 2, 3, 3, 1]
-        (fromIntegral (length $ head dat) `div` 3)
+        (fromIntegral (length . head $ totalData) `div` 3)
 
-    let mTexIds = map (fromJust . matTexId) $ filter (isJust . matTexId) lib
-        mTextures = map (fromJust . matTexture) $ filter (isJust . matTexture) lib
+    let mTexIds = replicate (length mTextures) 0 :: [GLint] --undefined --map (fromJust . matTexId) $ filter (isJust . matTexId) lib
+    --    mTextures = map (fromJust . matTexture) $ filter (isJust . matTexture) lib
+    --print mTextures
     return tmp{modelTextures =
         zip mTextures
             mTexIds}
@@ -215,6 +245,10 @@ listOfMats contents =
                 lineAction rest library currentMat
         | otherwise = lineAction rest library currentMat
     lineAction _ _ _ = []
+
+allMtlsInObj :: String -> [FilePath]
+allMtlsInObj =
+    map (last . filter (not . null) . splitOn " ") . filter (isPrefixOf "mtllib ") . lines
 
 findMaterial :: String -> [Material] -> Material
 findMaterial name library = head $ filter (\x -> matName x == name) library

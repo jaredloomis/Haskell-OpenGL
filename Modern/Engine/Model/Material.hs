@@ -1,5 +1,6 @@
 module Engine.Model.Material (
-    Material(..), loadMtlFile, emptyMaterial
+    Material(..), loadMtlFile, emptyMaterial,
+    allImagesInFile
 ) where
 
 import System.IO (IOMode (ReadMode), Handle,
@@ -99,6 +100,10 @@ executeCommand command mat textureCount
         return mat{matTexture = Just texture,
                    matTexId = Just $ fromIntegral textureCount}
     | otherwise = return mat
+
+allImagesInFile :: String -> [FilePath]
+allImagesInFile =
+    map (last . filter (not . null) . splitOn " ") . filter (isPrefixOf "map_Kd ") . lines
 
 readMtlLineTriplet :: String -> Vec3 GLfloat
 readMtlLineTriplet = toTripletMtl . readMtlLine
