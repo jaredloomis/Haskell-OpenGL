@@ -6,7 +6,8 @@ module Engine.Graphics.Shaders (
     printMatrix, setUniform, setUniformAndRemember,
     setUniformsAndRemember, findUniformLocation,
     findMaybeUniformLocation, findUniformLocationAndRemember,
-    loadProgramWithTess
+    loadShadersProgram, loadProgramComplete, emptyShader,
+    wrapShader
 ) where
 
 import Control.Monad (when)
@@ -31,6 +32,12 @@ data Shader = Shader {
     shaderUniforms :: [(String, GLint)]
 } deriving (Show)
 
+emptyShader :: Shader
+emptyShader = Shader (-1) []
+
+wrapShader :: GLuint -> Shader
+wrapShader program = Shader program []
+
 -- | Attrib id, Buffer id, size of attrib.
 type ShaderAttrib = Vec3 GLuint
 
@@ -50,29 +57,28 @@ createShaderAttribs _ _ _ =
 -- | Loads a pair of vertex and fragment shaders
 --   given the two FilePaths.
 loadProgram :: FilePath -> FilePath -> IO GLuint
-loadProgram vertFP fragFP = do
-    shaderIds <- mapM (uncurry loadShader)
-        [(gl_VERTEX_SHADER, vertFP)
-        ,(gl_FRAGMENT_SHADER, fragFP)]
-    progId <- glCreateProgram
-    mapM_ (glAttachShader progId) shaderIds
-    glLinkProgram progId
-    mapM_ glDeleteShader shaderIds
+loadProgram vertFP fragFP =
+    loadShadersProgram
+        [(gl_VERTEX_SHADER,   vertFP),
+         (gl_FRAGMENT_SHADER, fragFP)]
 
-    return progId
-
-loadProgramWithTess :: FilePath -> FilePath -> FilePath -> FilePath -> IO GLuint
-loadProgramWithTess vertFP fragFP tessCFP tessEFP = do
-    shaderIds <- mapM (uncurry loadShader)
+loadProgramComplete ::
+    FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> IO GLuint
+loadProgramComplete vertFP fragFP tessCFP tessEFP geomFP =
+    loadShadersProgram
         [(gl_VERTEX_SHADER, vertFP),
          (gl_FRAGMENT_SHADER, fragFP),
          (gl_TESS_CONTROL_SHADER, tessCFP),
-         (gl_TESS_EVALUATION_SHADER, tessEFP)]
+         (gl_TESS_EVALUATION_SHADER, tessEFP),
+         (gl_GEOMETRY_SHADER, geomFP)]
+
+loadShadersProgram :: [(GLuint, FilePath)] -> IO GLuint
+loadShadersProgram shaders = do
+    shaderIds <- mapM (uncurry loadShader) shaders
     progId <- glCreateProgram
     mapM_ (glAttachShader progId) shaderIds
     glLinkProgram progId
     mapM_ glDeleteShader shaderIds
-
     return progId
 
 -- | Loads a single shader of given type,
@@ -175,9 +181,7 @@ setUniformsAndRemember shader ((name, valsIo):rest) = do
     vals <- valsIo
     let len = length vals
     let uniloc = findMaybeUniformLocation shader name
-    loc <- if isJust uniloc
-                then return $ fromJust uniloc
-            else withCString name $ glGetUniformLocation $ shaderId shader
+    loc <- maybe (withCString name $ glGetUniformLocation $ shaderId shader) return uniloc
 
     case len of
         1 -> glUniform1f loc $ head vals
@@ -189,7 +193,8 @@ setUniformsAndRemember shader ((name, valsIo):rest) = do
 
     if isJust uniloc
         then
-            let newShader = shader{shaderUniforms = (name, loc) : shaderUniforms shader}
+            let newShader = shader{shaderUniforms =
+                    (name, loc) : shaderUniforms shader}
             in setUniformsAndRemember newShader rest
     else setUniformsAndRemember shader rest
 setUniformsAndRemember shader _ = return shader
@@ -200,9 +205,13 @@ setUniformAndRemember shader (name, valsIo) = do
     let len = length vals
     
     loc <- let uniloc = findMaybeUniformLocation shader name
+          in maybe (withCString name $ glGetUniformLocation $ shaderId shader)
+                    return uniloc
+{-
           in if isJust uniloc
                 then return $ fromJust uniloc
             else withCString name $ glGetUniformLocation $ shaderId shader
+-}
 
     case len of
         1 -> glUniform1f loc $ head vals
@@ -218,7 +227,7 @@ findUniformLocationAndRemember :: Shader -> String -> IO (Shader, GLint)
 findUniformLocationAndRemember shader name =
     let found = findMaybeUniformLocation shader name
     in if isJust found
-            then return $ (shader, fromJust found)
+            then return (shader, fromJust found)
         else do
             loc <- quickGetUniform (shaderId shader) name
             return (shader{
@@ -229,9 +238,7 @@ findUniformLocationAndRemember shader name =
 findUniformLocation :: Shader -> String -> IO GLint
 findUniformLocation shader name =
     let found = findMaybeUniformLocation shader name
-    in if isJust found
-            then return $ fromJust found
-        else quickGetUniform (shaderId shader) name
+    in maybe (quickGetUniform (shaderId shader) name) return found
 
 findMaybeUniformLocation :: Shader -> String -> Maybe GLint
 findMaybeUniformLocation shader =

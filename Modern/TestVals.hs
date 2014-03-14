@@ -36,6 +36,7 @@ mkWorldFast = do
     fxaaShader <- loadProgram
         "shaders/postprocessing/fxaa/fxaa.vert"
         "shaders/postprocessing/fxaa/fxaa.frag"
+
 {-
     sobelShader <- loadProgram
         "shaders/postprocessing/sobel/sobel.vert"
@@ -56,7 +57,6 @@ mkWorldFast = do
         "shaders/postprocessing/invert/invert.vert"
         "shaders/postprocessing/invert/invert.frag"
 -}
-
     let winDimensions = windowSize $ stateWindow state
     fb <- makeFrameBuffer winDimensions
 
@@ -66,6 +66,7 @@ mkWorldFast = do
             "shaders/shadow/shadow.vert"
             "shaders/shadow/shadow.frag"
 
+    --mkWorld undefined undefined 0 []
     mkWorld fb sfb shadowShader [dofShader, fxaaShader]
 
 mkWorld :: Framebuffer -> Framebuffer -> GLuint -> [GLuint] -> IO (World ())
@@ -111,8 +112,11 @@ mkModel =
 
 mkTerrain :: IO Model
 mkTerrain = genSimplexModel
-            mainVertShader
-            mainFragShader
+            "shaders/tesselation/pass.vert"
+            "shaders/tesselation/pass.frag"
+            "shaders/tesselation/test_ts.glsl"
+            "shaders/tesselation/test_te.glsl"
+            "shaders/tesselation/test_gs.glsl"
             50
             1
             1
@@ -128,14 +132,14 @@ mkModel3 =
 -}
 mkModel3 :: IO Model
 mkModel3 = 
-    loadObjModel ("res" </> "objects" </> "space" </> "space.obj")
+    loadObjModel ("res" </> "objects" </> "ibanez" </> "ibanez.obj")
                                mainVertShader
                                mainFragShader
 
 mainVertShader :: String
---mainVertShader = "shaders" </> "correct.vert"
-mainVertShader = "shaders" </> "shadow" </> "shadow2.vert"
+mainVertShader = "shaders" </> "correct.vert"
+--mainVertShader = "shaders" </> "shadow" </> "shadow2.vert"
 
 mainFragShader :: String
---mainFragShader = "shaders" </> "correct.frag"
-mainFragShader = "shaders" </> "shadow" </> "shadow2.frag"
+mainFragShader = "shaders" </> "correct.frag"
+--mainFragShader = "shaders" </> "shadow" </> "shadow2.frag"

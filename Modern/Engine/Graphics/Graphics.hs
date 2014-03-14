@@ -50,6 +50,57 @@ renderObjectsMat world wm (object:rest) = do
     -- Use object's shader
     glUseProgram $ shaderId mShader
 
+    -- Set uniforms. (World uniforms and Matrices).
+    newShader <-
+        setMatrixUniforms mShader wm{matrixModel = modelMat}
+
+    -- Bind buffers to variable names in shader.
+    setShaderAttribs $ modelShaderVars model
+    bindTextures (modelTextures model) $ shaderId newShader
+
+--    glPatchParameteri gl_PATCH_VERTICES 3
+--    glDrawArrays gl_PATCHES 0 (modelVertCount model)
+
+    -- Do the drawing.
+    glDrawArrays gl_TRIANGLES 0 (modelVertCount model)
+
+    -- TODO: Remove if not necessary.
+    -- Disable textures.
+    --unBindTextures (fromIntegral . length . modelTextures $ model)
+
+    -- Turn off VBO/VAO
+    disableShaderAttribs $ modelShaderVars model
+
+    -- Disable the object's shader.
+    glUseProgram 0
+
+    let newObject = case object of
+            PureEntity{} ->
+                object{pentityModel =
+                    (pentityModel object){modelShader = newShader}}
+            EffectfulEntity{} ->
+                object{eentityModel =
+                    (eentityModel object){modelShader = newShader}}
+            _ -> undefined
+
+    restObjects <- renderObjectsMat world wm rest
+
+    return $ newObject : restObjects
+renderObjectsMat _ _ [] = return []
+
+{-
+renderObjectsMat :: World t -> WorldMatrices -> [GameObject t] -> IO [GameObject t]
+renderObjectsMat world wm (object:rest) = do
+    let model = getModel object
+        Vec3 objx objy objz = getPos object
+        mShader = modelShader model
+
+        -- Move Object
+        modelMat = gtranslationMatrix [objx, objy, objz]
+
+    -- Use object's shader
+    glUseProgram $ shaderId mShader
+
     let wState = worldState world
         utcTime = stateTime wState
         dayTime = realToFrac $ utctDayTime utcTime
@@ -90,6 +141,7 @@ renderObjectsMat world wm (object:rest) = do
 
     return $ newObject : restObjects
 renderObjectsMat _ _ [] = return []
+-}
 
 -------------------------------
 -- UTILITY / SETUP FUNCTIONS --

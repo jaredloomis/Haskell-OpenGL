@@ -1,15 +1,15 @@
 #version 430 core
 
 #define tessLevelInner 3
-#define tessLevelOuter 2
+#define tessLevelOuter 3
 
 layout(vertices = 3) out;
-in vec3 vVertex[];
-out vec3 tcVertex[];
+in vec3 vPosition[];
+out vec3 tcPosition[];
 
 void main()
 {
-    tcVertex[gl_InvocationID] = vVertex[gl_InvocationID];
+    tcPosition[gl_InvocationID] = vPosition[gl_InvocationID];
     if (gl_InvocationID == 0)
     {
         gl_TessLevelInner[0] = tessLevelInner;

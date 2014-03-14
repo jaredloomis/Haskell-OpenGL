@@ -17,6 +17,7 @@ import Engine.Object.Player
 import Engine.Graphics.Shadows
 import Engine.Graphics.Shaders
 import Engine.Object.GameObject
+import Engine.Graphics.NewGraphics
 
 main :: IO ()
 main = do
@@ -38,9 +39,6 @@ main = do
     -- Make cursor Hidden.
     GLFW.setCursorInputMode win GLFW.CursorInputMode'Disabled
 
-    --ds <- depthShader
-    --fb <- makeShadowFrameBuffer
-
     -- Begin game loop.
     loop win world
     -- Delete stuff left in OpenGL.
@@ -59,6 +57,9 @@ main = do
             newWorld <- updateStep win world >>=
                     (`renderStep` win)
 
+            --glGetError >>= \err ->
+            --  if err /= gl_NO_ERROR then print err else return ()
+
             -- Swap back and front buffer.
             GLFW.swapBuffers win
 
@@ -67,9 +68,12 @@ main = do
                 loop win newWorld
 
 renderStep :: World t -> GLFW.Window -> IO (World t)
-renderStep world _ =
-    --renderShadow world
-    renderWorldWithShadows world
+renderStep world win = do
+    (screenW, screenH) <- GLFW.getFramebufferSize win
+
+    renderWorldNew world
+    --renderWorldMat world
+    --renderWorldWithShadows world
 
 depthShader :: IO GLuint
 depthShader = loadProgram "shaders/shadow/shadow.vert" "shaders/shadow/shadow.frag"

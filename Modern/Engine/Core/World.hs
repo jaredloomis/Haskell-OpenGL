@@ -1,12 +1,15 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Engine.Core.World (
     World(..), WorldState(..), playerAABB,
     GameObject(..), Input(..), setWorldUniforms,
     getWorldTime, getWorldDelta,
     Framebuffer(..), (~>), (~~),
-    (~>~), (~>~>), setWorldPlayer
+    (~>~), (~>~>), setWorldPlayer, HasPosition(..)
 ) where
 
 import Data.Time (getCurrentTime, UTCTime)
+
+import Control.Lens
 
 import qualified Graphics.UI.GLFW as GLFW
 
@@ -48,6 +51,25 @@ data Framebuffer = FB {
 -- TODO: Make this more flexible
 playerAABB :: AABB
 playerAABB = AABB (Vec3 (-0.5) (-2) (-0.5)) (Vec3 0.5 1 0.5)
+
+class HasPosition p where
+    getPos :: p -> Vec3 GLfloat
+    setPos :: p -> Vec3 GLfloat -> p
+    movePos :: p -> Vec3 GLfloat -> p
+    movePos hp movement =
+        setPos hp (getPos hp + movement)
+
+instance HasPosition (GameObject t) where
+    getPos p@(Player{}) = playerPosition p
+    getPos pe@(PureEntity{}) = pentityPosition pe
+    getPos ee@(EffectfulEntity{}) = eentityPosition ee
+
+    setPos p@(Player{}) pos = p{playerPosition = pos}
+    setPos pe@(PureEntity{}) pos = pe{pentityPosition = pos}
+    setPos ee@(EffectfulEntity{}) pos = ee{eentityPosition = pos}
+
+--class HasPosition t => GameObject t where
+--    objectUpdate :: t -> t
 
 data GameObject t = Player {
     playerPosition :: !(Vec3 GLfloat),
@@ -129,3 +151,5 @@ getWorldDelta = stateDelta . worldState
 -- | Synonym for getCurrentTime.
 getWorldTime :: IO UTCTime
 getWorldTime = getCurrentTime
+
+$(makeLenses ''GameObject)

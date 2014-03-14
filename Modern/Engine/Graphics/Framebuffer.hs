@@ -53,7 +53,6 @@ renderAllPasses world (shader:[]) =
         uncurry (glViewport 0 0) $ fbufDimensions fb
         glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
         renderPostPass fb (worldState world) shader
-        --renderFromFrameBuffer (worldState world) shader fb
 renderAllPasses _ [] = return ()
 
 renderPostPass :: Framebuffer -> WorldState -> GLuint -> IO ()

@@ -14,6 +14,7 @@ import Engine.Model.Model
 import Engine.Core.World
 import Engine.Graphics.Shaders
 import Engine.Graphics.Framebuffer
+import Engine.Graphics.Graphics
 
 makeShadowFrameBuffer :: IO Framebuffer
 makeShadowFrameBuffer = do
@@ -87,7 +88,8 @@ renderWorldWithShadows world = do
         worldMats
         mvpMatrix
 
-    glBindFramebuffer gl_FRAMEBUFFER (fbufName . fst . worldPostProcessors $ world)
+    glBindFramebuffer gl_FRAMEBUFFER
+        (fbufName . fst . worldPostProcessors $ world)
     glViewport 0 0 800 600
 
     glEnable gl_CULL_FACE
@@ -103,12 +105,15 @@ renderWorldWithShadows world = do
 
     let newDepthUniform = ("depthTexture", return [20])
         newWorldUniforms =  newDepthUniform : worldUniforms world
-    renderAllPasses world{worldUniforms = newWorldUniforms} (snd $ worldPostProcessors world)
+    renderAllPasses world{worldUniforms = newWorldUniforms}
+            (snd $ worldPostProcessors world)
 
 
     return world
 
-renderObjectsWithShadows :: World t -> WorldMatrices -> Matrix4x4 -> Framebuffer -> [GameObject t] -> IO ()
+renderObjectsWithShadows ::
+    World t -> WorldMatrices -> Matrix4x4 ->
+    Framebuffer -> [GameObject t] -> IO ()
 renderObjectsWithShadows world wm depthMVP fbuf (cur : rest) = do
     let curModel = getModel cur
         mShader = modelShader curModel
@@ -166,11 +171,13 @@ setMatrixUniformsBias shader wm depthMVP = do
     withArray (toGLFormat $ matrixProjection wm)
         $ glUniformMatrix4fv projectionMatrix 1 (fromIntegral gl_FALSE)
 
-    (shader''', viewMatrix) <- findUniformLocationAndRemember shader'' "viewMatrix"
+    (shader''', viewMatrix) <- findUniformLocationAndRemember
+                                shader'' "viewMatrix"
     withArray (toGLFormat $ matrixView wm)
         $ glUniformMatrix4fv viewMatrix 1 (fromIntegral gl_FALSE)
 
-    (shader'''', mvpMatrix) <- findUniformLocationAndRemember shader''' "mvpMatrix"
+    (shader'''', mvpMatrix) <- findUniformLocationAndRemember
+                                shader''' "mvpMatrix"
     withArray
         (toGLFormat $ matrixProjection wm * matrixView wm * matrixModel wm)
         $ glUniformMatrix4fv mvpMatrix 1 (fromIntegral gl_FALSE)
@@ -180,7 +187,8 @@ setMatrixUniformsBias shader wm depthMVP = do
                       [0.0, 0.0, 0.5, 0.0],
                       [0.5, 0.5, 0.5, 1.0]] :: Matrix4x4
 
-    (shader''''', mvpBiasMatrix) <- findUniformLocationAndRemember shader'''' "mvpBiasMatrix"
+    (shader''''', mvpBiasMatrix) <- findUniformLocationAndRemember
+                                shader'''' "mvpBiasMatrix"
     withArray
         (toGLFormat $ biasMatrix * depthMVP)
         $ glUniformMatrix4fv mvpBiasMatrix 1 (fromIntegral gl_FALSE)

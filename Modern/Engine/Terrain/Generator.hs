@@ -6,6 +6,7 @@ import Graphics.Rendering.OpenGL.Raw (GLfloat)
 import Engine.Model.Model
 import Engine.Terrain.Noise
 import Engine.Graphics.Textures
+import Engine.Graphics.Shaders
 
 genHeightsSplit ::
     (Int, Int) -> (Int, Int) -> Int -> Int -> GLfloat -> GLfloat -> IO [[[GLfloat]]]
@@ -17,7 +18,7 @@ genHeightsSplit (width, height) (startx, starty) splits octaves wavelength inten
         return $ cur : rest
     | otherwise = return []
     
-
+{-
 genSimplexModel :: FilePath -> FilePath ->
     GLfloat ->          -- ^ Width
     GLfloat ->          -- ^ Spacing
@@ -50,6 +51,38 @@ genSimplexModel vert frag w spacing octaves wavelength intensity texture = do
                     replicate (lengthVertices * 3) 0,
                     replicate lengthVertices (-1)]
                     [3, 3, 3, 2, 1]
+                    (fromIntegral $ length vertices `div` 3)
+-}
+
+genSimplexModel :: FilePath -> FilePath -> FilePath -> FilePath -> FilePath ->
+    GLfloat ->          -- ^ Width
+    GLfloat ->          -- ^ Spacing
+    Int ->              -- ^ Octaves
+    GLfloat ->          -- ^ Wavelength
+    GLfloat ->          -- ^ Waveheight / intensity
+    Maybe FilePath ->   -- ^ The texture (Maybe)
+    IO Model
+genSimplexModel vert frag tessC tessE geom w spacing octaves wavelength intensity texture = do
+    program <- loadProgramComplete vert frag tessC tessE geom
+    heights <- simplexNoise (floor w) spacing octaves wavelength intensity
+    let hCoords = heightsToCoords heights 0 spacing
+        flat = createFlat spacing w
+        vertices = applyHeights flat hCoords
+        --normals = calculateNormals vertices
+        --lengthVertices = length vertices
+
+    if isJust texture
+        then
+            createModelWithProgram program ["position"]
+                    [vertices]
+                    [3]
+                    (fromIntegral $ length vertices `div` 3)
+            --textureData <- juicyLoadTexture $ fromJust texture
+            --return $ loadedModel{modelTextures = [(textureData, 1)]}
+    else
+        createModelWithProgram program ["position"]
+                    [vertices]
+                    [3]
                     (fromIntegral $ length vertices `div` 3)
 
 

@@ -9,7 +9,7 @@ module Engine.Matrix.Matrix (
     WorldMatrices(..), gtranslationMatrix,
     setMatrixUniforms, gfrustumMatrix,
     gidentityMatrix, glookAtMatrix, toGLFormat,
-    Matrix4x4, gorthoMatrix
+    Matrix4x4, gorthoMatrix, emptyMatrices
 ) where
 
 import Data.List (transpose)
@@ -28,15 +28,18 @@ data WorldMatrices = WorldMatrices {
     matrixProjection :: Matrix4x4
 }
 
+emptyMatrices :: WorldMatrices
+emptyMatrices = WorldMatrices 1 1 1
+
 -- | 4x4 Matrix in the OpenGL orientation:
 --   translation column is the last 4 elements.
 type Matrix4x4 = [[GLfloat]]
 -- | 3x3 Matrix in the OpenGL orientation.
 type Matrix3x3 = [[GLfloat]]
 -- | Four element GLfloat vector.
-type GVector4 = [GLfloat]
+type Vector4 = [GLfloat]
 -- | Three element GLfloat vector.
-type GVector3 = [GLfloat]
+type Vector3 = [GLfloat]
 
 instance Num Matrix4x4 where
     a * b =
@@ -51,7 +54,8 @@ instance Num Matrix4x4 where
         [0, 0, fromInteger i, 0],
         [0, 0, 0, fromInteger i]
         ]
-    signum = map (map signum)
+    signum = map $ map signum
+    negate = map $ map negate
 
 applyToIndices2 :: [[a]] -> [[b]] -> (a -> b -> c) -> [[c]]
 applyToIndices2 (a:as) (b:bs) f =
@@ -63,8 +67,6 @@ applyToIndices (a:as) (b:bs) f =
     f a b : applyToIndices as bs f
 applyToIndices _ _ _ = []
 
--- TODO: Make this function cause the shader to remember
---       uniform locations.
 setMatrixUniforms :: Shader -> WorldMatrices -> IO Shader
 setMatrixUniforms shader wm = do
     (shader', modelMatrix) <- findUniformLocationAndRemember shader "modelMatrix"
@@ -122,7 +124,7 @@ gidentityMatrix =
     ]
 
 -- | Multiplies a vector by a matrix.
-gmatrixMulVec :: Matrix4x4 -> GVector4 -> GVector4
+gmatrixMulVec :: Matrix4x4 -> Vector4 -> Vector4
 gmatrixMulVec m v = map (gdotVec v) (transpose m)
 
 -- | Returns the upper-left 3x3 matrix of a 4x4 matrix.
@@ -147,7 +149,7 @@ ginvertMatrix4x4ON m = -- orthonormal matrix inverse
        ]
 
 -- | Creates the translation matrix that translates points by the given vector.
-gtranslationMatrix :: GVector3 -> Matrix4x4
+gtranslationMatrix :: Vector3 -> Matrix4x4
 gtranslationMatrix [x,y,z] =
     [[1,0,0,0],
      [0,1,0,0],
@@ -157,7 +159,7 @@ gtranslationMatrix _ = gidentityMatrix
 
 -- | Creates the scaling matrix that scales points by the factors given by the
 --   vector components.
-gscalingMatrix :: GVector3 -> Matrix4x4
+gscalingMatrix :: Vector3 -> Matrix4x4
 gscalingMatrix [x,y,z] =
    [[x,0,0,0],
     [0,y,0,0],
@@ -165,7 +167,7 @@ gscalingMatrix [x,y,z] =
     [0,0,0,1]]
 gscalingMatrix _ = gidentityMatrix
 
-grotationMatrix :: GLfloat -> GVector3 -> Matrix4x4
+grotationMatrix :: GLfloat -> Vector3 -> Matrix4x4
 grotationMatrix angle axis =
     let [x,y,z] = gnormalizeVec axis
         c = cos angle
@@ -182,12 +184,12 @@ glookAtMatrix :: Vec3 GLfloat -> Vec3 GLfloat -> Vec3 GLfloat -> Matrix4x4
 glookAtMatrix eye center up =
     glookAtMatrixG (vecToGVec3 eye) (vecToGVec3 center) (vecToGVec3 up)
 
-vecToGVec3 :: Vec3 GLfloat -> GVector3
+vecToGVec3 :: Vec3 GLfloat -> Vector3
 vecToGVec3 (Vec3 x y z) = [x, y, z]
 
 -- | Creates a lookAt matrix from three vectors: the eye position, the point the
 --   eye is looking at and the up vector of the eye.
-glookAtMatrixG :: GVector3 -> GVector3 -> GVector3 -> Matrix4x4
+glookAtMatrixG :: Vector3 -> Vector3 -> Vector3 -> Matrix4x4
 glookAtMatrixG eye center up =
     let z = gdirectionVec eye center
         x = gnormalizeVec $ gcrossVec3 up z
@@ -291,11 +293,11 @@ glengthV3 :: (Floating a) => GL.Vertex3 a -> a
 glengthV3 (GL.Vertex3 a b c) = sqrt (a*a + b*b + c*c)
 
 -- | Converts a 4-vector into a 3-vector by dropping the fourth element.
-gvec4To3 :: GVector4 -> GVector3
+gvec4To3 :: Vector4 -> Vector3
 gvec4To3 = take 3
 
 -- | Converts a 3-vector into a 4-vector by appending the given value to it.
-gvec3To4 :: GVector3 -> GLfloat -> GVector4
+gvec3To4 :: Vector3 -> GLfloat -> Vector4
 gvec3To4 v i = v ++ [i]
 
 -- | Multiplies a GLfloat by itself.
