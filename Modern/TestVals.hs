@@ -7,12 +7,12 @@ import System.FilePath ((</>))
 
 import Graphics.Rendering.OpenGL.Raw
 
+import Engine.Core.Types
 import Engine.Object.Player
 import Engine.Model.ObjLoader
 import Engine.Terrain.Generator
 import Engine.Core.Vec
 import Engine.Core.World
-import Engine.Model.Model
 import Engine.Graphics.Window
 import Engine.Graphics.Shaders
 import Engine.Graphics.Framebuffer

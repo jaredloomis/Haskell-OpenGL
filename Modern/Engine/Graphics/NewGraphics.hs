@@ -4,13 +4,14 @@ import Data.Bits ((.|.))
 
 import Graphics.Rendering.OpenGL.Raw
 
+import Engine.Core.Types
 import Engine.Core.World
 import Engine.Core.Vec
 import Engine.Graphics.Shaders
-import Engine.Model.Model
 import Engine.Object.GameObject
 import Engine.Matrix.Matrix
 import Engine.Graphics.Window
+import Engine.Graphics.Framebuffer
 
 data RenderInfo = RenderInfo {
     renderInfoShader :: Shader,
@@ -123,6 +124,28 @@ renderWorldNew world = do
     glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
     renderAllWithGlobal (screenFramebuffer (800, 600)) world (worldEntities world)
     return world
+
+renderWorldNewWithFramebuffer :: World t -> Framebuffer -> IO (World t)
+renderWorldNewWithFramebuffer world fbuf = do
+    glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
+    renderAllWithGlobal fbuf world (worldEntities world)
+    return world
+    
+
+-- | Render world with all postprocessing shaders defined by
+--   worldFramebuffer.
+renderWorldNewPost :: World t -> IO (World t)
+renderWorldNewPost world = do
+    let effects = snd $ worldPostProcessors world
+        fb = fst $ worldPostProcessors world
+    glBindFramebuffer gl_FRAMEBUFFER $
+        fbufName fb
+    ret <- renderWorldNewWithFramebuffer world fb
+    bindFrameBuffer fb
+
+    renderAllPasses ret effects
+    return ret
+
 
 screenFramebuffer :: (GLint, GLint) -> Framebuffer
 screenFramebuffer dimensions =

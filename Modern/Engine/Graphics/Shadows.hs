@@ -7,15 +7,15 @@ import Foreign (alloca, peek, withArray)
 
 import qualified Graphics.GLUtil as GU
 
+import Engine.Core.Types
 import Engine.Matrix.Matrix
 import Engine.Core.Vec
 import Engine.Object.GameObject
-import Engine.Model.Model
 import Engine.Core.World
 import Engine.Graphics.Shaders
 import Engine.Graphics.Framebuffer
-import Engine.Graphics.Graphics
 
+-- | Create a Framebuffer.
 makeShadowFrameBuffer :: IO Framebuffer
 makeShadowFrameBuffer = do
     fbName <- alloca (\p -> glGenFramebuffers 1 p >> peek p)
@@ -57,6 +57,7 @@ makeShadowFrameBuffer = do
             (-1)
             (-1)
 
+-- | Render the world, with shadows!
 renderWorldWithShadows :: World t -> IO (World t)
 renderWorldWithShadows world = do
     let fbuf = fst $ worldShadowInfo world
@@ -107,7 +108,6 @@ renderWorldWithShadows world = do
         newWorldUniforms =  newDepthUniform : worldUniforms world
     renderAllPasses world{worldUniforms = newWorldUniforms}
             (snd $ worldPostProcessors world)
-
 
     return world
 

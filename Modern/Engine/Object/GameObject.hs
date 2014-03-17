@@ -13,8 +13,9 @@ import Data.Maybe (isJust, fromJust)
 import Graphics.Rendering.OpenGL.Raw
 
 import Engine.Core.World
+import Engine.Core.Types
 import Engine.Core.Vec
-import Engine.Model.Model
+--import Engine.Model.Model
 import Engine.Model.AABB
 
 -- | Test if two objects intersect.

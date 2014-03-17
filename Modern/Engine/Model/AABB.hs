@@ -8,7 +8,9 @@ module Engine.Model.AABB (
 import Graphics.Rendering.OpenGL.Raw
 
 import Engine.Core.Vec
+import Engine.Core.Types
 
+-- TODO TODO TODO TODO (or a BVH)
 data Octree a = Octree {
     octCorners :: (Vec3 GLfloat, Vec3 GLfloat),
     octCenter :: Vec3 GLfloat,
@@ -17,9 +19,6 @@ data Octree a = Octree {
     octDepth :: Int,
     octChildren :: [Octree a]
 }
-
--- | AABB (min corner) (max corner)
-data AABB = AABB (Vec3 GLfloat) (Vec3 GLfloat) deriving (Show)
 
 -- | Takes a Vec3 containing the length, height, and width
 --   and returns a Vec3 with those dimensions.

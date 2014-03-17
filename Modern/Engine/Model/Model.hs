@@ -4,19 +4,10 @@ module Engine.Model.Model (
 
 import Graphics.Rendering.OpenGL.Raw
 
+import Engine.Core.Types
 import Engine.Graphics.Shaders
-import Engine.Graphics.Textures
 import Engine.Model.AABB
 import Engine.Graphics.GraphicsUtils
-
-data Model = Model {
-    modelShader :: !Shader,
-    modelShaderVars :: ![ShaderAttrib],
-    modelTextures :: ![Texture],
-    modelVertCount :: !GLint,
-    modelAABBs :: !(Maybe [AABB]),
-    modelWholeAABB :: !(Maybe AABB)
-}
 
 createModel ::
     FilePath ->     -- ^ Vertex Shader.

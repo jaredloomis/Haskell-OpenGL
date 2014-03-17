@@ -9,11 +9,12 @@ import Data.Maybe (isJust, fromJust)
 import qualified Graphics.UI.GLFW as GLFW
 import Graphics.Rendering.OpenGL.Raw
 
+import Engine.Core.Types
 import Engine.Core.Util
 import Engine.Core.Vec
 import Engine.Core.World
 import Engine.Object.GameObject
-import Engine.Model.AABB
+--import Engine.Model.AABB
 
 mkPlayer :: GameObject t
 mkPlayer = Player   (Vec3 0 20 0) (Vec3 0 0 0)

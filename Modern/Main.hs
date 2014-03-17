@@ -7,17 +7,17 @@ import qualified Graphics.UI.GLFW as GLFW
 
 import Graphics.Rendering.OpenGL.Raw
 
+import Engine.Core.Types
+import Engine.Graphics.Framebuffer
 import Engine.Graphics.Graphics
 import Engine.Core.Vec
-import TestVals
 import Engine.Graphics.Window
 import Engine.Core.World
---import Engine.Graphics.Framebuffer
 import Engine.Object.Player
-import Engine.Graphics.Shadows
 import Engine.Graphics.Shaders
 import Engine.Object.GameObject
 import Engine.Graphics.NewGraphics
+import TestVals
 
 main :: IO ()
 main = do
@@ -68,15 +68,16 @@ main = do
                 loop win newWorld
 
 renderStep :: World t -> GLFW.Window -> IO (World t)
-renderStep world win = do
-    (screenW, screenH) <- GLFW.getFramebufferSize win
-
-    renderWorldNew world
+renderStep world _ =
+    renderWorldNewPost world
+    --renderWorldWithPostprocessing world
+    --renderWorldNew world
     --renderWorldMat world
     --renderWorldWithShadows world
 
 depthShader :: IO GLuint
-depthShader = loadProgram "shaders/shadow/shadow.vert" "shaders/shadow/shadow.frag"
+depthShader = loadProgram "shaders/shadow/shadow.vert"
+                          "shaders/shadow/shadow.frag"
 
 updateStep :: GLFW.Window -> World t -> IO (World t)
 updateStep win world = do

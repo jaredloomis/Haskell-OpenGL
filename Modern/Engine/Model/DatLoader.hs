@@ -129,9 +129,11 @@ parseBsFloat' bs
     | otherwise =
         let Just (val, rest) = B.readInt bs
         in (fromIntegral val, rest)
+{-# INLINE parseBsFloat' #-}
 
 takeFirst :: (a -> Bool) -> [a] -> a
 takeFirst func (x:xs)
     | func x = x
     | otherwise = takeFirst func xs
 takeFirst _ _ = error "DatLoader.takeFirst: pattern not matched."
+{-# INLINE takeFirst #-}

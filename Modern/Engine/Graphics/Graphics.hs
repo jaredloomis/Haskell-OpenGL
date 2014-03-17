@@ -4,7 +4,7 @@ module Engine.Graphics.Graphics (
     cleanupWorld, renderObjectsMat
 ) where
 
-import Data.Time (utctDayTime)
+--import Data.Time (utctDayTime)
 import Foreign.Marshal (with)
 import Data.Bits ((.|.))
 import Data.Maybe (fromJust)
@@ -14,11 +14,12 @@ import qualified Graphics.UI.GLFW as GLFW
 import Graphics.Rendering.OpenGL.Raw
 import qualified Graphics.Rendering.OpenGL as GL
 
-import Engine.Core.World
+import Engine.Core.Types
+--import Engine.Core.World
 import Engine.Graphics.Shaders
 import Engine.Core.Vec
 import Engine.Object.GameObject
-import Engine.Model.Model
+--import Engine.Model.Model
 import Engine.Matrix.Matrix
 import Engine.Graphics.Window
 

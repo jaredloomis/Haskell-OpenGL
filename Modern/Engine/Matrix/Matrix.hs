@@ -18,7 +18,7 @@ import Foreign.Marshal.Array (withArray)
 import qualified Graphics.Rendering.OpenGL as GL
 import Graphics.Rendering.OpenGL.Raw
 
-import Engine.Core.World
+import Engine.Core.Types
 import Engine.Graphics.Shaders
 import Engine.Core.Vec
 

@@ -23,14 +23,17 @@ import Graphics.Rendering.OpenGL.Raw
 
 import qualified Graphics.GLUtil as GU
 
+import Engine.Core.Types
 import Engine.Core.Vec
-import Engine.Graphics.Textures
+--import Engine.Graphics.Textures
 import Engine.Graphics.GraphicsUtils
 
+{-
 data Shader = Shader {
     shaderId :: GLuint,
     shaderUniforms :: [(String, GLint)]
 } deriving (Show)
+-}
 
 emptyShader :: Shader
 emptyShader = Shader (-1) []
@@ -39,10 +42,10 @@ wrapShader :: GLuint -> Shader
 wrapShader program = Shader program []
 
 -- | Attrib id, Buffer id, size of attrib.
-type ShaderAttrib = Vec3 GLuint
+--type ShaderAttrib = Vec3 GLuint
 
 -- | Name, Location, Values
-type ShaderUniform = (String, IO [GLfloat])
+--type ShaderUniform = (String, IO [GLfloat])
 
 -- | Simply pack the arguments together into an array of
 --   ShaderAttribs.

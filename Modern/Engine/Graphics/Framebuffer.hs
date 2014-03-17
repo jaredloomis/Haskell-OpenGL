@@ -13,7 +13,7 @@ import Graphics.Rendering.OpenGL.Raw
 
 import qualified Graphics.GLUtil as GU
 
-import Engine.Core.World
+import Engine.Core.Types
 import Engine.Graphics.Shaders
 import Engine.Graphics.GraphicsUtils
 import Engine.Graphics.Graphics
@@ -82,8 +82,6 @@ renderPostPass fb wState shader = do
     glDrawArrays gl_TRIANGLES 0 6
 
     glDisableVertexAttribArray 0
-
-    return ()
 
 makeFrameBuffer :: (Int, Int) -> IO Framebuffer
 makeFrameBuffer (winW, winH) = do

@@ -5,20 +5,24 @@ module Engine.Graphics.Textures (
 
 import Control.Monad (liftM)
 import Data.Vector.Storable (unsafeWith)
-import Foreign (Word8)
+--import Foreign (Word8)
 
 import qualified Codec.Picture as Juicy
 import qualified Codec.Picture.Types as JTypes
 
 import qualified Graphics.Rendering.OpenGL as GL
-import Graphics.Rendering.OpenGL.Raw
+--import Graphics.Rendering.OpenGL.Raw
 import Graphics.Rendering.OpenGL
     (DataType(..), ($=), Size(..))
 
+import Engine.Core.Types
+
+{-
 data Image = Image GL.Size (GL.PixelData Word8)
     deriving (Show)
 
 type Texture = (GL.TextureObject, GLint)
+-}
 
 -- | Load an image and turn it into something OpenGL can use.
 juicyLoadTexture :: FilePath -> IO GL.TextureObject
