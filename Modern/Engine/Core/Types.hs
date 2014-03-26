@@ -85,16 +85,11 @@ data GameObject t = Player {
     playerSpeed :: !GLfloat,
     playerUpdate :: !(World t -> World t),
     playerInput :: !(Input t)
-} | PureEntity {
-    pentityPosition :: !(Vec3 GLfloat),
-    pentityUpdate :: !(GameObject t -> GameObject t),
-    pentityModel :: !Model,
-    pentityAttribute :: !t
-} | EffectfulEntity {
-    eentityPosition :: !(Vec3 GLfloat),
-    eentityUpdate :: !(World t -> GameObject t -> GameObject t),
-    eentityModel :: !Model,
-    eentityAttribute :: !t
+} | Entity {
+    entityPosition :: !(Vec3 GLfloat),
+    entityUpdate :: Update (GameObject t) (World t),
+    entityModel :: !Model,
+    entityAttribute :: !t
 }
 
 -- TODO: Make this more flexible
@@ -103,35 +98,26 @@ playerAABB = AABB (Vec3 (-0.5) (-2) (-0.5)) (Vec3 0.5 1 0.5)
 
 instance HasPosition (GameObject t) where
     getPos p@(Player{}) = playerPosition p
-    getPos pe@(PureEntity{}) = pentityPosition pe
-    getPos ee@(EffectfulEntity{}) = eentityPosition ee
+    getPos pe@(Entity{}) = entityPosition pe
 
     setPos p@(Player{}) pos = p{playerPosition = pos}
-    setPos pe@(PureEntity{}) pos = pe{pentityPosition = pos}
-    setPos ee@(EffectfulEntity{}) pos = ee{eentityPosition = pos}
+    setPos pe@(Entity{}) pos = pe{entityPosition = pos}
 
 instance HasAABB (GameObject t) where
     getAABBs (Player{}) = [playerAABB]
-    getAABBs pe@(PureEntity{}) =
-        let aabbs = modelAABBs $ pentityModel pe
-        in fromMaybe [] aabbs
-    getAABBs ee@(EffectfulEntity{}) =
-        let aabbs = modelAABBs $ eentityModel ee
+    getAABBs pe@(Entity{}) =
+        let aabbs = modelAABBs $ entityModel pe
         in fromMaybe [] aabbs
 
     getWholeAABB (Player{}) = Just playerAABB
-    getWholeAABB pe@(PureEntity{}) =
-        modelWholeAABB $ pentityModel pe
-    getWholeAABB ee@(EffectfulEntity{}) =
-        modelWholeAABB $ eentityModel ee
+    getWholeAABB pe@(Entity{}) =
+        modelWholeAABB $ entityModel pe
 
 instance HasUpdate (GameObject t) (World t) where
     updateStep (Player{}) =
         Effectful $ flip playerUpdate
-    updateStep pe@(PureEntity{}) =
-        Pure $ pentityUpdate pe
-    updateStep ee@(EffectfulEntity{}) =
-        Seed $ eentityUpdate ee
+    updateStep pe@(Entity{}) =
+        entityUpdate pe
 
 data Model = Model {
     modelShader :: !Shader,

@@ -116,6 +116,8 @@ escIn w =
             }
         }
 
+
+
 -- | Calculate delta movement from Player and eaw input movement.
 calculateLookMovement :: GameObject t -> Vec3 GLfloat -> Vec3 GLfloat
 calculateLookMovement p@(Player{}) (Vec3 idx idy idz) =

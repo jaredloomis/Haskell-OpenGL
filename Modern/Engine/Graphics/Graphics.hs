@@ -75,14 +75,9 @@ renderObjectsMat world wm (object:rest) = do
     -- Disable the object's shader.
     glUseProgram 0
 
-    let newObject = case object of
-            PureEntity{} ->
-                object{pentityModel =
-                    (pentityModel object){modelShader = newShader}}
-            EffectfulEntity{} ->
-                object{eentityModel =
-                    (eentityModel object){modelShader = newShader}}
-            _ -> undefined
+    -- Update the object's shader
+    let newObject = object{entityModel =
+                    (entityModel object){modelShader = newShader}}
 
     restObjects <- renderObjectsMat world wm rest
 

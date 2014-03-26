@@ -151,5 +151,4 @@ moveObject obj deltaPos =
 getModel :: GameObject t -> Model
 getModel (Player{}) =
     error "GameObject.getModel called on Player"
-getModel pe@(PureEntity{}) = pentityModel pe
-getModel ee@(EffectfulEntity{}) = eentityModel ee
+getModel pe@(Entity{}) = entityModel pe

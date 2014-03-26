@@ -86,22 +86,24 @@ mkWorldState = do
 
 mkObj :: IO (GameObject ())
 mkObj =
-    PureEntity (Vec3 10 3 10) eMove <$> mkModel <*> return ()
+    Entity (Vec3 10 3 10) eMove <$> mkModel <*> return ()
 
 mkObj2 :: IO (GameObject ())
 mkObj2 =
-    PureEntity (Vec3 0 0 0) id <$> mkTerrain <*> return ()
+    Entity (Vec3 0 0 0) idUpdate <$> mkTerrain <*> return ()
 
 mkObj3 :: IO (GameObject ())
 mkObj3 =
-    PureEntity (Vec3 0 (-20) 0) id <$> mkModel3 <*> return ()
+    Entity (Vec3 0 (-20) 0) idUpdate <$> mkModel3 <*> return ()
     --PureEntity (Vec3 (-700) (-480) 1016) id <$> mkModel3 <*> return ()
 
 
-eMove :: GameObject t -> GameObject t
-eMove pe@(PureEntity{}) =
-    moveObject pe (Vec3 0.005 0 0)
-eMove a = a
+eMove :: Update (GameObject t) (World t)
+eMove =
+    Pure $ \pe -> moveObject pe (Vec3 0.005 0 0)
+
+idUpdate :: Update t g
+idUpdate = Pure id
 
 
 mkModel :: IO Model

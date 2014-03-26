@@ -1,3 +1,5 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes #-}
 module Engine.Graphics.NewGraphics where
 
 import Data.Bits ((.|.))
@@ -34,15 +36,16 @@ emptyInfo = RenderInfo emptyShader emptyMatrices
 --          no need to bind your own.
 --      Cleanup:
 --          Any cleanup necessary.
-class Renderable a where
-    renderBind :: a -> RenderInfo -> IO RenderInfo
+class Renderable t g where
+    renderBind :: t -> g -> IO g
     renderBind _ = return
-    renderDraw :: a -> RenderInfo -> IO RenderInfo
+    renderDraw :: t -> g -> IO g
     renderDraw _ = return
-    renderCleanup :: a -> RenderInfo -> IO RenderInfo
+    renderCleanup :: t -> g -> IO g
     renderCleanup _ = return
+    defaultGlobal :: t -> g
 
-instance Renderable (GameObject t) where
+instance Renderable (GameObject t) RenderInfo where
     renderBind obj info =
         let shader = modelShader $ getModel obj
         in do
@@ -76,9 +79,10 @@ instance Renderable (GameObject t) where
         disableShaderAttribs $ modelShaderVars model
         -- Disable the object's shader.
         glUseProgram 0
-        return emptyInfo --info
+        return emptyInfo
+    defaultGlobal _ = emptyInfo
 
-instance Renderable (World t) where
+instance Renderable (World t) RenderInfo where
     renderBind world info = do
         let (winW, winH) = windowSize $ stateWindow $ worldState world
             worldMats = calculateMatricesFromPlayer
@@ -87,35 +91,36 @@ instance Renderable (World t) where
             setWorldUniforms world (renderInfoShader info)
         return info{renderInfoShader = newShader,
                     renderInfoMatrices = worldMats}
+    defaultGlobal _ = emptyInfo
         
 
-totalRender :: Renderable a => a -> RenderInfo -> IO RenderInfo
+totalRender :: Renderable t g => t -> g -> IO g
 totalRender r s =
     renderBind r s >>=
     renderDraw r >>=
     renderCleanup r
 
 
-renderToFramebuffer :: Renderable a => Framebuffer -> a -> IO RenderInfo
+renderToFramebuffer :: forall t g. Renderable t g => Framebuffer -> t -> IO g
 renderToFramebuffer fbuf rend =
-    withFramebuffer fbuf $ totalRender rend emptyInfo
+    withFramebuffer fbuf $ totalRender rend (defaultGlobal rend)
 
-renderAllToFramebuffer :: Renderable a => Framebuffer -> [a] -> IO RenderInfo
+renderAllToFramebuffer :: forall t g. Renderable t g => Framebuffer -> [t] -> IO g
 renderAllToFramebuffer fbuf xs =
     withFramebuffer fbuf $
-        renderAll xs emptyInfo
+        renderAll xs (defaultGlobal $ head xs)
     where
-        renderAll :: Renderable a => [a] -> RenderInfo -> IO RenderInfo
+        renderAll :: Renderable t g => [t] -> g -> IO g
         renderAll (x:xs') info =
             totalRender x info >>= renderAll xs'
 
-renderAllWithGlobal :: (Renderable a, Renderable b) =>
-                        Framebuffer -> a -> [b] -> IO RenderInfo
-renderAllWithGlobal =
-    renderAllWithGlobal' emptyInfo
+renderAllWithGlobal :: (Renderable t1 g, Renderable t2 g) =>
+                        Framebuffer -> t1 -> [t2] -> IO g
+renderAllWithGlobal fbuf g rs =
+    renderAllWithGlobal' (defaultGlobal g) fbuf g rs
 
-renderAllWithGlobal' :: (Renderable a, Renderable b) =>
-                      RenderInfo -> Framebuffer -> a -> [b] -> IO RenderInfo
+renderAllWithGlobal' :: (Renderable t1 g, Renderable t2 g) =>
+                        g -> Framebuffer -> t1 -> [t2] -> IO g
 renderAllWithGlobal' info fbuf global (x:xs) = do
     bindFrameBuffer fbuf
 
@@ -132,16 +137,17 @@ renderAllWithGlobal' info fbuf global (x:xs) = do
     renderAllWithGlobal' newinfo fbuf global xs
 renderAllWithGlobal' info _ _ _ = return info
 
+
 renderWorldNew :: World t -> IO (World t)
 renderWorldNew world = do
     glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
-    renderAllWithGlobal (screenFramebuffer (800, 600)) world (worldEntities world)
+    renderAllWithGlobal (screenFramebuffer (800, 600)) world (worldEntities world) :: IO RenderInfo
     return world
 
 renderWorldNewWithFramebuffer :: World t -> Framebuffer -> IO (World t)
 renderWorldNewWithFramebuffer world fbuf = do
     glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
-    renderAllWithGlobal fbuf world (worldEntities world)
+    renderAllWithGlobal fbuf world (worldEntities world) :: IO RenderInfo 
     return world
     
 
