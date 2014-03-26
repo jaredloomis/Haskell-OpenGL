@@ -2,8 +2,11 @@
 module Engine.Model.AABB (
     AABB(..), anyIntersect, anyIntersectGet,
     aabbFromPoints, aabbByFace, intersecting,
-    createAABB
+    createAABB, getObjectIntersecter, isIntersectingAny,
+    calculateNewWholeAABB
 ) where
+
+import Data.Maybe (isJust)
 
 import Graphics.Rendering.OpenGL.Raw
 
@@ -19,6 +22,82 @@ data Octree a = Octree {
     octDepth :: Int,
     octChildren :: [Octree a]
 }
+
+-- | Test if two objects intersect.
+objectsIntersect :: HasAABB a => a -> a -> Bool
+objectsIntersect l r
+    | isJust (getWholeAABB l) &&
+      isJust (getWholeAABB r) =
+        let Just wholeabl = calculateNewWholeAABB l
+            Just wholeabr = calculateNewWholeAABB r
+        in intersecting wholeabl wholeabr &&
+            (null (getAABBs l) && (not . null) (getAABBs r) ||
+                let newl = calculateNewAABBs l
+                    newr = calculateNewAABBs r
+                in anyIntersect (head newl) newr)
+    | otherwise = False
+
+-- | Using the object's current AABB and position,
+--   create a new AABB.
+calculateNewWholeAABB :: HasAABB a => a -> Maybe AABB
+calculateNewWholeAABB obj
+    | isJust (getWholeAABB obj) =
+        let (Just (AABB l r)) = getWholeAABB obj
+            pos = getPos obj
+        in Just $ AABB (l + pos) (r + pos)
+    | otherwise = Nothing
+
+-- | Using the object's current AABBs and position,
+--   create a new AABB.
+calculateNewAABBs :: HasAABB a => a -> [AABB]
+calculateNewAABBs obj
+    | (not . null) (getAABBs obj) =
+        let aabbs = getAABBs obj
+        in transformAll aabbs (getPos obj)
+    | otherwise = []
+
+transformAll :: [AABB] -> Vec3 GLfloat -> [AABB]
+transformAll (AABB l r : xs) pos =
+    AABB (l + pos) (r + pos) : transformAll xs pos
+transformAll [] _ = []
+
+-- | Check if the needle intersects with any in the
+--   haystack.
+isIntersectingAny :: HasAABB a => a -> [a] -> Bool
+isIntersectingAny collider (collidee:xs) =
+    objectsIntersect collider collidee ||
+        isIntersectingAny collider xs
+isIntersectingAny _ [] = False
+
+-- | Check if the needle intersects with any in the haystack,
+--   if it does, the intersected AABB is returned.
+getObjectIntersecter :: HasAABB a => a -> [a] -> Maybe AABB
+getObjectIntersecter collider (collidee:xs) =
+    let intersecter = getIntersecter collider collidee
+    in if isJust intersecter
+        then intersecter
+    else getObjectIntersecter collider xs
+getObjectIntersecter _ [] = Nothing
+
+-- | Test if two objects intersect, yeilding the
+--   offending AABB if they do.
+getIntersecter :: HasAABB a => a -> a -> Maybe AABB
+getIntersecter l r
+    | isJust (getWholeAABB l) &&
+      isJust (getWholeAABB r) =
+        let Just wholeabl = calculateNewWholeAABB l
+            Just wholeabr = calculateNewWholeAABB r
+        in
+            if intersecting wholeabl wholeabr
+                then if null (getAABBs l) && (not . null) (getAABBs r)
+                    then Just wholeabr
+                else
+                    let newl = calculateNewAABBs l
+                        newr = calculateNewAABBs r
+                    in anyIntersectGet (head newl) newr
+            else Nothing
+    | otherwise = Nothing
+
 
 -- | Takes a Vec3 containing the length, height, and width
 --   and returns a Vec3 with those dimensions.

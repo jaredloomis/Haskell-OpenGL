@@ -8,7 +8,6 @@ import qualified Graphics.UI.GLFW as GLFW
 import Graphics.Rendering.OpenGL.Raw
 
 import Engine.Core.Types
-import Engine.Graphics.Framebuffer
 import Engine.Graphics.Graphics
 import Engine.Core.Vec
 import Engine.Graphics.Window
@@ -54,7 +53,7 @@ main = do
             GLFW.pollEvents
 
             -- Perform logic update on the world and render.
-            newWorld <- updateStep win world >>=
+            newWorld <- updateStepComplete win world >>=
                     (`renderStep` win)
 
             --glGetError >>= \err ->
@@ -79,10 +78,11 @@ depthShader :: IO GLuint
 depthShader = loadProgram "shaders/shadow/shadow.vert"
                           "shaders/shadow/shadow.frag"
 
-updateStep :: GLFW.Window -> World t -> IO (World t)
-updateStep win world = do
+updateStepComplete :: GLFW.Window -> World t -> IO (World t)
+updateStepComplete win world = do
     let wState = worldState world
 
+    -- Set cursor as hidden or visible.
     GLFW.setCursorInputMode win $ if statePaused wState
         then GLFW.CursorInputMode'Normal
     else GLFW.CursorInputMode'Disabled
@@ -91,14 +91,17 @@ updateStep win world = do
     worldTime <- getWorldTime
     let delta = realToFrac $ diffUTCTime worldTime (stateTime wState)
         newState = wState{
-        stateTime = worldTime, stateDelta = delta}
+            stateTime = worldTime, stateDelta = delta}
 
-    -- Update player input
+    -- Update player input.
     player <- updatePlayerInput win $ worldPlayer world
 
+    -- Update player
     let newW = world{worldPlayer = player, worldState = newState}
         nw = snd $ (player, newW) ~>
             playerUpdate ~>~ worldPlayer ~~ resetPlayerInput ~> setWorldPlayer
+
+    -- Update the rest of the world.
     return $ updateWorld nw
 
 updatePlayerInput :: GLFW.Window -> GameObject t -> IO (GameObject t)
@@ -114,7 +117,6 @@ updatePlayerInput _ _ =
 
 updateInput :: GLFW.Window -> Input t -> IO (Input t)
 updateInput win input = do
-    --checkForEsc win
     let mousePos = inputLastMousePos input
     newKeys <- loopThrough win $ inputKeys input
     newMousePos <- mouseUpdate win

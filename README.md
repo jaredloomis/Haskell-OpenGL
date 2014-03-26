@@ -45,6 +45,7 @@ All commands using the `-O` or `-O2` flags performed basically the same, with a 
 <h4>Top</h4>
 - <b>General code cleanup, make it easier to use and clearer.</b>
 - <b>Framebuffer resizing.</b>
+- Create a FRP module, making it optional. (Elerea)
 - AI / Pathfinding (A\*?).
 - Chunks or other methods to allow for infinite terrain.
 - Do alot more `{-# INLINE #-}`ing.

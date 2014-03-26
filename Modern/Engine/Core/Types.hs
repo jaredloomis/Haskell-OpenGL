@@ -1,7 +1,9 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
 module Engine.Core.Types where
 
 import Data.Time (UTCTime)
 import Foreign (Word8)
+import Data.Maybe (fromMaybe)
 
 import qualified Graphics.Rendering.OpenGL as GL
 import Graphics.Rendering.OpenGL.Raw (GLuint, GLfloat, GLint)
@@ -18,8 +20,37 @@ class HasPosition p where
         setPos hp (getPos hp + movement)
 
 class HasPosition a => HasAABB a where
-    getAABB :: a -> AABB
-    getTransformedAABB :: a -> AABB
+    getAABBs :: a -> [AABB]
+    getWholeAABB :: a -> Maybe AABB
+
+class Container g t where
+    getContents :: g -> [t]
+    setContents :: g -> [t] -> g
+
+class Container g t => HasUpdate t g where
+    updateStep :: t -> Update t g
+    performUpdateAll :: g -> [t] -> g
+    performUpdateAll g list =
+        let nonEff = updateNonEff list g
+            newGlobal = updateEff list g
+        in setContents newGlobal nonEff
+        where
+        updateEff :: HasUpdate t g => [t] -> g -> g
+        updateEff (x : xs) global =
+            let upStep = updateStep x
+            in case upStep of
+                Effectful f -> updateEff xs (f global x)
+                _ -> updateEff xs global
+        updateEff _ global = global
+
+        updateNonEff :: HasUpdate t g => [t] -> g -> [t]
+        updateNonEff (x : xs) global =
+            let upStep = updateStep x
+            in case upStep of
+                Pure f -> f x : updateNonEff xs global
+                Seed f -> f global x : updateNonEff xs global
+                _ -> updateNonEff xs global
+        updateNonEff _ _ = []
 
 
 data World t = World {
@@ -31,6 +62,10 @@ data World t = World {
     worldState :: !WorldState
 }
 
+instance Container (World t) (GameObject t) where
+    getContents = worldEntities
+    setContents world xs = world{worldEntities = xs}
+
 data WorldState = WorldState {
     stateTime :: !UTCTime,
     stateDelta :: !GLfloat,
@@ -38,6 +73,10 @@ data WorldState = WorldState {
     stateWindow :: !Window
 }
 
+data Update t g =
+      Pure (t -> t)
+    | Effectful (g -> t -> g)
+    | Seed (g -> t -> t)
 
 data GameObject t = Player {
     playerPosition :: !(Vec3 GLfloat),
@@ -58,6 +97,10 @@ data GameObject t = Player {
     eentityAttribute :: !t
 }
 
+-- TODO: Make this more flexible
+playerAABB :: AABB
+playerAABB = AABB (Vec3 (-0.5) (-2) (-0.5)) (Vec3 0.5 1 0.5)
+
 instance HasPosition (GameObject t) where
     getPos p@(Player{}) = playerPosition p
     getPos pe@(PureEntity{}) = pentityPosition pe
@@ -66,6 +109,29 @@ instance HasPosition (GameObject t) where
     setPos p@(Player{}) pos = p{playerPosition = pos}
     setPos pe@(PureEntity{}) pos = pe{pentityPosition = pos}
     setPos ee@(EffectfulEntity{}) pos = ee{eentityPosition = pos}
+
+instance HasAABB (GameObject t) where
+    getAABBs (Player{}) = [playerAABB]
+    getAABBs pe@(PureEntity{}) =
+        let aabbs = modelAABBs $ pentityModel pe
+        in fromMaybe [] aabbs
+    getAABBs ee@(EffectfulEntity{}) =
+        let aabbs = modelAABBs $ eentityModel ee
+        in fromMaybe [] aabbs
+
+    getWholeAABB (Player{}) = Just playerAABB
+    getWholeAABB pe@(PureEntity{}) =
+        modelWholeAABB $ pentityModel pe
+    getWholeAABB ee@(EffectfulEntity{}) =
+        modelWholeAABB $ eentityModel ee
+
+instance HasUpdate (GameObject t) (World t) where
+    updateStep (Player{}) =
+        Effectful $ flip playerUpdate
+    updateStep pe@(PureEntity{}) =
+        Pure $ pentityUpdate pe
+    updateStep ee@(EffectfulEntity{}) =
+        Seed $ eentityUpdate ee
 
 data Model = Model {
     modelShader :: !Shader,

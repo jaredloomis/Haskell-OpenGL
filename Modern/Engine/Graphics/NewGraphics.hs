@@ -21,6 +21,19 @@ data RenderInfo = RenderInfo {
 emptyInfo :: RenderInfo
 emptyInfo = RenderInfo emptyShader emptyMatrices
 
+-- | A class for things that can be rendered to
+--   the screen &| Framebuffers.
+--   Contains 3 functions:
+--      Bind:
+--          This is usually where shaders are set,
+--          or the currently bound shader is
+--          modified.
+--      Draw:
+--          This is the draw action. A Framebuffer
+--          is bound before calling this, so there is
+--          no need to bind your own.
+--      Cleanup:
+--          Any cleanup necessary.
 class Renderable a where
     renderBind :: a -> RenderInfo -> IO RenderInfo
     renderBind _ = return

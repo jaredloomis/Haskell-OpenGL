@@ -15,10 +15,6 @@ import Engine.Core.Vec
 setWorldPlayer :: GameObject t -> World t -> World t
 setWorldPlayer player world = world{worldPlayer = player}
 
--- TODO: Make this more flexible
-playerAABB :: AABB
-playerAABB = AABB (Vec3 (-0.5) (-2) (-0.5)) (Vec3 0.5 1 0.5)
-
 actWithSeed ::
     (a -> b -> b) ->
     (a, b) ->
