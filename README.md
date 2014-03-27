@@ -43,7 +43,7 @@ All commands using the `-O` or `-O2` flags performed basically the same, with a 
 <h2>Todo</h2>
 
 <h4>Top</h4>
-- <b>!!!!!!!!!!! I Realized most of the type classes I have been making are simply doing badly what a StateT monad would do well. (ie. `GameIO t a = StateT (World t) IO a`) !!!!!!!!!!!</b>
+- <b>I Realized most of the type classes I have been making are simply doing badly what a StateT monad would do well. (ie. `GameIO t a = StateT (World t) IO a`)</b>
 - <b>General code cleanup, make it easier to use and clearer.</b>
 - <b>Framebuffer resizing.</b>
 - <b>Octrees or BVH.</b>
