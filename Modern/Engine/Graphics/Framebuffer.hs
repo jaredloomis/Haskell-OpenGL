@@ -22,9 +22,9 @@ import Engine.Graphics.Graphics
 --   worldFramebuffer.
 renderWorldWithPostprocessing :: World t -> IO (World t)
 renderWorldWithPostprocessing world = do
-    let effects = snd $ worldPostProcessors world
+    let effects = snd $ graphicsPostProcessors $ worldGraphics world 
     glBindFramebuffer gl_FRAMEBUFFER $
-        fbufName $ fst $ worldPostProcessors world
+        fbufName $ fst $ graphicsPostProcessors $ worldGraphics world 
     ret <- renderWorldMat world
 
     renderAllPasses ret effects
@@ -33,7 +33,8 @@ renderWorldWithPostprocessing world = do
 renderAllPasses :: World t -> [GLuint] -> IO ()
 renderAllPasses world (shader:otherShader:rest) = do
     -- Render to FB.
-    renderPostPass (fst $ worldPostProcessors world) (worldState world) shader
+    renderPostPass (fst $ graphicsPostProcessors $ worldGraphics world)
+                   (worldState world) shader
 
     -- Make framebuffer use the new rendered image.
     glTexParameteri gl_TEXTURE_2D (fromIntegral gl_TEXTURE_MAG_FILTER)
@@ -45,7 +46,7 @@ renderAllPasses world (shader:otherShader:rest) = do
     renderAllPasses world $ otherShader:rest
 
 renderAllPasses world (shader:[]) =
-    let fb = fst $ worldPostProcessors world
+    let fb = fst $ graphicsPostProcessors $ worldGraphics world 
     -- If this is the last postprocessing shader,
     -- render it to the screen.
     in do

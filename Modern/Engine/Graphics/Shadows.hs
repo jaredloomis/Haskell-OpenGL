@@ -60,8 +60,8 @@ makeShadowFrameBuffer = do
 -- | Render the world, with shadows!
 renderWorldWithShadows :: World t -> IO (World t)
 renderWorldWithShadows world = do
-    let fbuf = fst $ worldShadowInfo world
-        depthShader = snd $ worldShadowInfo world
+    let fbuf = fst $ graphicsShadowInfo $ worldGraphics world
+        depthShader = snd $ graphicsShadowInfo $ worldGraphics world 
         (w, h) = fbufDimensions fbuf
     glBindFramebuffer gl_FRAMEBUFFER $ fbufName fbuf
     glViewport 0 0 w h
@@ -90,7 +90,7 @@ renderWorldWithShadows world = do
         mvpMatrix
 
     glBindFramebuffer gl_FRAMEBUFFER
-        (fbufName . fst . worldPostProcessors $ world)
+        (fbufName . fst . graphicsPostProcessors . worldGraphics $ world)
     glViewport 0 0 800 600
 
     glEnable gl_CULL_FACE
@@ -105,9 +105,13 @@ renderWorldWithShadows world = do
         (worldEntities world)
 
     let newDepthUniform = ("depthTexture", return [20])
-        newWorldUniforms =  newDepthUniform : worldUniforms world
-    renderAllPasses world{worldUniforms = newWorldUniforms}
-            (snd $ worldPostProcessors world)
+        newWorldUniforms =  newDepthUniform :
+                            graphicsUniforms (worldGraphics world)
+
+        newWorldGraphics = (worldGraphics world){
+                        graphicsUniforms = newWorldUniforms}
+    renderAllPasses world{worldGraphics = newWorldGraphics}
+            (snd $ graphicsPostProcessors $ worldGraphics world)
 
     return world
 

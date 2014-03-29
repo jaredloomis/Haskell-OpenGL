@@ -4,7 +4,6 @@ module Engine.Graphics.Graphics (
     cleanupWorld, renderObjectsMat
 ) where
 
---import Data.Time (utctDayTime)
 import Foreign.Marshal (with)
 import Data.Bits ((.|.))
 import Data.Maybe (fromJust)
@@ -15,11 +14,9 @@ import Graphics.Rendering.OpenGL.Raw
 import qualified Graphics.Rendering.OpenGL as GL
 
 import Engine.Core.Types
---import Engine.Core.World
 import Engine.Graphics.Shaders
 import Engine.Core.Vec
 import Engine.Object.GameObject
---import Engine.Model.Model
 import Engine.Matrix.Matrix
 import Engine.Graphics.Window
 
@@ -43,10 +40,12 @@ renderObjectsMat :: World t -> WorldMatrices -> [GameObject t] -> IO [GameObject
 renderObjectsMat world wm (object:rest) = do
     let model = getModel object
         Vec3 objx objy objz = getPos object
+        Vec3 objrx objry objrz = getRot object
         mShader = modelShader model
 
         -- Move Object
-        modelMat = gtranslationMatrix [objx, objy, objz]
+        modelMat = gtranslationMatrix [objx, objy, objz] *
+                   grotationMatrix [objrx, objry, objrz]
 
     -- Use object's shader
     glUseProgram $ shaderId mShader
@@ -58,9 +57,6 @@ renderObjectsMat world wm (object:rest) = do
     -- Bind buffers to variable names in shader.
     setShaderAttribs $ modelShaderVars model
     bindTextures (modelTextures model) $ shaderId newShader
-
---    glPatchParameteri gl_PATCH_VERTICES 3
---    glDrawArrays gl_PATCHES 0 (modelVertCount model)
 
     -- Do the drawing.
     glDrawArrays gl_TRIANGLES 0 (modelVertCount model)
@@ -83,61 +79,6 @@ renderObjectsMat world wm (object:rest) = do
 
     return $ newObject : restObjects
 renderObjectsMat _ _ [] = return []
-
-{-
-renderObjectsMat :: World t -> WorldMatrices -> [GameObject t] -> IO [GameObject t]
-renderObjectsMat world wm (object:rest) = do
-    let model = getModel object
-        Vec3 objx objy objz = getPos object
-        mShader = modelShader model
-
-        -- Move Object
-        modelMat = gtranslationMatrix [objx, objy, objz]
-
-    -- Use object's shader
-    glUseProgram $ shaderId mShader
-
-    let wState = worldState world
-        utcTime = stateTime wState
-        dayTime = realToFrac $ utctDayTime utcTime
-
-    -- Set uniforms. (World uniforms and Matrices).
-    newShader <-
-        setMatrixUniforms mShader wm{matrixModel = modelMat} >>=
-            setWorldUniforms world >>=
-            (\sh -> setUniformsAndRemember sh [("time", return [dayTime])])
-
-    -- Bind buffers to variable names in shader.
-    setShaderAttribs $ modelShaderVars model
-    bindTextures (modelTextures model) $ shaderId newShader
-
-    -- Do the drawing.
-    glDrawArrays gl_TRIANGLES 0 (modelVertCount model)
-
-    -- TODO: Remove if not necessary.
-    -- Disable textures.
-    unBindTextures (fromIntegral . length . modelTextures $ model)
-
-    -- Turn off VBO/VAO
-    disableShaderAttribs $ modelShaderVars model
-
-    -- Disable the object's shader.
-    glUseProgram 0
-
-    let newObject = case object of
-            PureEntity{} ->
-                object{pentityModel =
-                    (pentityModel object){modelShader = newShader}}
-            EffectfulEntity{} ->
-                object{eentityModel =
-                    (eentityModel object){modelShader = newShader}}
-            _ -> undefined
-
-    restObjects <- renderObjectsMat world wm rest
-
-    return $ newObject : restObjects
-renderObjectsMat _ _ [] = return []
--}
 
 -------------------------------
 -- UTILITY / SETUP FUNCTIONS --
@@ -192,8 +133,8 @@ resizeScene _ width height =
 
 cleanupWorld :: World t -> IO ()
 cleanupWorld world = do
-    let fb = fst $ worldPostProcessors world
-        shaders = snd $ worldPostProcessors world
+    let fb = fst $ graphicsPostProcessors $ worldGraphics world
+        shaders = snd $ graphicsPostProcessors $ worldGraphics world
     with (fbufName fb) $ glDeleteFramebuffers 1
     with (fbufTexture fb) $ glDeleteTextures 1
     with (fbufVBO fb) $ glDeleteVertexArrays 1

@@ -55,10 +55,12 @@ instance Renderable (GameObject t) RenderInfo where
     renderDraw object info = do
         let model = getModel object
             Vec3 objx objy objz = getPos object
+            Vec3 objrx objry objrz = getRot object
             mShader = renderInfoShader info
 
             -- Move Object
-            modelMat = gtranslationMatrix [objx, objy, objz]
+            modelMat = gtranslationMatrix [objx, objy, objz] *
+                       grotationMatrix [objrx, objry, objrz]
 
             newMatrices = (renderInfoMatrices info){matrixModel = modelMat}
         -- Set uniforms. (World uniforms and Matrices).
@@ -116,8 +118,8 @@ renderAllToFramebuffer fbuf xs =
 
 renderAllWithGlobal :: (Renderable t1 g, Renderable t2 g) =>
                         Framebuffer -> t1 -> [t2] -> IO g
-renderAllWithGlobal fbuf g rs =
-    renderAllWithGlobal' (defaultGlobal g) fbuf g rs
+renderAllWithGlobal fbuf g =
+    renderAllWithGlobal' (defaultGlobal g) fbuf g
 
 renderAllWithGlobal' :: (Renderable t1 g, Renderable t2 g) =>
                         g -> Framebuffer -> t1 -> [t2] -> IO g
@@ -147,7 +149,7 @@ renderWorldNew world = do
 renderWorldNewWithFramebuffer :: World t -> Framebuffer -> IO (World t)
 renderWorldNewWithFramebuffer world fbuf = do
     glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
-    renderAllWithGlobal fbuf world (worldEntities world) :: IO RenderInfo 
+    renderAllWithGlobal fbuf world (worldEntities world) :: IO RenderInfo
     return world
     
 
@@ -155,8 +157,8 @@ renderWorldNewWithFramebuffer world fbuf = do
 --   worldFramebuffer.
 renderWorldNewPost :: World t -> IO (World t)
 renderWorldNewPost world = do
-    let effects = snd $ worldPostProcessors world
-        fb = fst $ worldPostProcessors world
+    let effects = snd $ graphicsPostProcessors $ worldGraphics world
+        fb = fst $ graphicsPostProcessors $ worldGraphics world 
     glBindFramebuffer gl_FRAMEBUFFER $
         fbufName fb
     ret <- renderWorldNewWithFramebuffer world fb

@@ -1,9 +1,12 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Engine.Core.Types where
 
 import Data.Time (UTCTime)
+import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Foreign (Word8)
 import Data.Maybe (fromMaybe)
+import Control.Monad.State
 
 import qualified Graphics.Rendering.OpenGL as GL
 import Graphics.Rendering.OpenGL.Raw (GLuint, GLfloat, GLint)
@@ -12,6 +15,28 @@ import qualified Graphics.UI.GLFW as GLFW
 import Engine.Core.Vec
 import Engine.Graphics.Window
 
+newtype Game t a = Game {
+    gameState :: State (World t) a
+} deriving (Functor, Monad, MonadState (World t))
+
+newtype GameIO t a = GameIO {
+    gameIoState :: StateT (World t) IO a
+} deriving (Functor, Monad, MonadIO, MonadState (World t))
+
+testIt :: Vec3 GLfloat
+testIt = entityPosition . head . worldEntities . execState
+    (gameState moveAllObjects) $
+        World emptyEntity [emptyEntity] emptyGraphics emptyWorldState
+
+moveAllObjects :: Game t ()
+moveAllObjects = do
+    w <- get
+    let ents = worldEntities w
+        newEnts = map (\o -> movePos o (Vec3 1 0 0)) ents
+    put w{worldEntities = newEnts}
+
+-- | A class for types that have a position
+--   that can be retrieved and set.
 class HasPosition p where
     getPos :: p -> Vec3 GLfloat
     setPos :: p -> Vec3 GLfloat -> p
@@ -19,14 +44,29 @@ class HasPosition p where
     movePos hp movement =
         setPos hp (getPos hp + movement)
 
+-- | A class for types that have a rotation
+--   that can be retrieved and set.
+class HasRotation r where
+    getRot :: r -> Vec3 GLfloat
+    setRot :: r -> Vec3 GLfloat -> r
+    rotate :: r -> Vec3 GLfloat -> r
+    rotate r deltaR =
+        setRot r (getRot r + deltaR)
+
+-- | A class for types that have an
+--   Axis-Aligned Bounding Box (AABB). Type must
+--   also have a position for this to make sense.
 class HasPosition a => HasAABB a where
     getAABBs :: a -> [AABB]
     getWholeAABB :: a -> Maybe AABB
 
+-- | A class for types 'g' that contain another type 't'.
 class Container g t where
     getContents :: g -> [t]
     setContents :: g -> [t] -> g
 
+-- | A class for types that can be updated, given a global
+--   information type.
 class Container g t => HasUpdate t g where
     updateStep :: t -> Update t g
     performUpdateAll :: g -> [t] -> g
@@ -53,12 +93,12 @@ class Container g t => HasUpdate t g where
         updateNonEff _ _ = []
 
 
+-- | The type I use to contain the overall state of
+--   the entire game.
 data World t = World {
     worldPlayer :: !(GameObject t),
     worldEntities :: ![GameObject t],
-    worldUniforms :: ![ShaderUniform],
-    worldPostProcessors :: !(Framebuffer, [GLuint]),
-    worldShadowInfo :: !(Framebuffer, GLuint),
+    worldGraphics :: !(Graphics t),
     worldState :: !WorldState
 }
 
@@ -66,6 +106,19 @@ instance Container (World t) (GameObject t) where
     getContents = worldEntities
     setContents world xs = world{worldEntities = xs}
 
+-- | The type used to contain global values relating to
+--   graphics / shaders.
+data Graphics t = Graphics {
+    graphicsUniforms :: ![ShaderUniform],
+    graphicsPostProcessors :: !(Framebuffer, [GLuint]),
+    graphicsShadowInfo :: !(Framebuffer, GLuint)
+}
+
+emptyGraphics :: Graphics t
+emptyGraphics = Graphics [] (undefined, []) (undefined, 0)
+
+-- | The type used to contain values that
+--   change and affect the state of the World.
 data WorldState = WorldState {
     stateTime :: !UTCTime,
     stateDelta :: !GLfloat,
@@ -73,11 +126,19 @@ data WorldState = WorldState {
     stateWindow :: !Window
 }
 
+emptyWorldState :: WorldState
+emptyWorldState = WorldState (posixSecondsToUTCTime 0) 0 False defaultWindow
+
+-- | Type used to generalize any update that:
+--   1. Involves a specific type 't'.
+--   2. May or may not involve a global type 'g'.
 data Update t g =
       Pure (t -> t)
     | Effectful (g -> t -> g)
     | Seed (g -> t -> t)
 
+-- | Type representing nearly anything in the game
+--   that is somewhat "physical".
 data GameObject t = Player {
     playerPosition :: !(Vec3 GLfloat),
     playerRotation :: !(Vec3 GLfloat),
@@ -87,10 +148,14 @@ data GameObject t = Player {
     playerInput :: !(Input t)
 } | Entity {
     entityPosition :: !(Vec3 GLfloat),
+    entityRotation :: !(Vec3 GLfloat),
     entityUpdate :: Update (GameObject t) (World t),
     entityModel :: !Model,
     entityAttribute :: !t
 }
+
+emptyEntity :: GameObject ()
+emptyEntity = Entity 0 0 (Pure id) emptyModel ()
 
 -- TODO: Make this more flexible
 playerAABB :: AABB
@@ -102,6 +167,13 @@ instance HasPosition (GameObject t) where
 
     setPos p@(Player{}) pos = p{playerPosition = pos}
     setPos pe@(Entity{}) pos = pe{entityPosition = pos}
+
+instance HasRotation (GameObject t) where
+    getRot p@(Player{}) = playerRotation p
+    getRot e@(Entity{}) = entityRotation e
+
+    setRot p@(Player{}) rot = p{playerRotation = rot}
+    setRot e@(Entity{}) rot = e{entityRotation = rot}
 
 instance HasAABB (GameObject t) where
     getAABBs (Player{}) = [playerAABB]
@@ -128,16 +200,20 @@ data Model = Model {
     modelWholeAABB :: !(Maybe AABB)
 }
 
+emptyModel :: Model
+emptyModel = Model (Shader 0 []) [] [] 0 Nothing Nothing
+
 
 data Input t = Input {
     -- (Key, Wanted Keystate, Current Keystate,
     --  Function to call when wanted == current)
-    inputKeys :: ![(GLFW.Key, GLFW.KeyState, GLFW.KeyState, World t -> World t)],
+    inputKeys :: ![(GLFW.Key, GLFW.KeyState,
+                    GLFW.KeyState,
+                    World t -> World t)],
     inputMouseDelta :: !(Vec2 GLfloat),
     inputLastMousePos :: !(Vec2 GLfloat),
     inputMouseSpeed :: !GLfloat
 }
-
 
 -- | AABB (min corner) (max corner)
 data AABB = AABB !(Vec3 GLfloat) !(Vec3 GLfloat) deriving (Show)
@@ -171,7 +247,7 @@ type ShaderAttrib = Vec3 GLuint
 -- | Name, Values
 type ShaderUniform = (String, IO [GLfloat])
 
-data Image = Image GL.Size (GL.PixelData Word8)
+data Image = Image !GL.Size !(GL.PixelData Word8)
     deriving (Show)
 
 type Texture = (GL.TextureObject, GLint)

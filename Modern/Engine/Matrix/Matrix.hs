@@ -9,7 +9,8 @@ module Engine.Matrix.Matrix (
     WorldMatrices(..), gtranslationMatrix,
     setMatrixUniforms, gfrustumMatrix,
     gidentityMatrix, glookAtMatrix, toGLFormat,
-    Matrix4x4, gorthoMatrix, emptyMatrices
+    Matrix4x4, gorthoMatrix, emptyMatrices,
+    grotationMatrix
 ) where
 
 import Data.List (transpose)
@@ -98,9 +99,9 @@ calculateMatricesFromPlayer p@(Player{}) (width, height) =
         projMat = gperspectiveMatrix 45
                     (fromIntegral width / fromIntegral height) 0.1 100
 
-        rotatedMatX = grotationMatrix (rx * (pi/180)) [-1, 0, 0]
-        rotatedMatXY = rotatedMatX * grotationMatrix (ry * (pi/180)) [0, -1, 0]
-        rotatedMatXYZ = rotatedMatXY * grotationMatrix (rz * (pi/180)) [0, 0, -1]
+        rotatedMatX = grotationMatrix' (rx * (pi/180)) [-1, 0, 0]
+        rotatedMatXY = rotatedMatX * grotationMatrix' (ry * (pi/180)) [0, -1, 0]
+        rotatedMatXYZ = rotatedMatXY * grotationMatrix' (rz * (pi/180)) [0, 0, -1]
         translatedMat = gtranslationMatrix [-px, -py, -pz]
         --viewMat = rotatedMatXYZ * translatedMat
         viewMat = rotatedMatXYZ * translatedMat
@@ -167,8 +168,17 @@ gscalingMatrix [x,y,z] =
     [0,0,0,1]]
 gscalingMatrix _ = gidentityMatrix
 
-grotationMatrix :: GLfloat -> Vector3 -> Matrix4x4
-grotationMatrix angle axis =
+grotationMatrix :: Vector3 -> Matrix4x4
+grotationMatrix [x, y, z] =
+    let radX = x * (pi/180)
+        radY = y * (pi/180)
+        radZ = z * (pi/180)
+    in grotationMatrix' radX [1, 0, 0] *
+       grotationMatrix' radY [0, 1, 0] *
+       grotationMatrix' radZ [0, 0, 1]
+
+grotationMatrix' :: GLfloat -> Vector3 -> Matrix4x4
+grotationMatrix' angle axis =
     let [x,y,z] = gnormalizeVec axis
         c = cos angle
         s = sin angle

@@ -76,8 +76,13 @@ mkWorld fb shadowFb shadowShader shaders = do
     objb <- mkObj2
     objc <- mkObj3
     return $ World mkPlayer [obja, objb, objc]
-             [("lightPos", return [0.0, 10.0, 0.0])] (fb, shaders)
-             (shadowFb, shadowShader) state
+            (mkGraphics fb shadowFb shadowShader shaders)
+            state
+
+mkGraphics :: Framebuffer -> Framebuffer -> GLuint -> [GLuint] -> Graphics t
+mkGraphics fb shadowFb shadowShader shaders =
+    Graphics [("lightPos", return [0.0, 10.0, 0.0])] (fb, shaders)
+             (shadowFb, shadowShader)
 
 mkWorldState :: IO WorldState
 mkWorldState = do
@@ -86,16 +91,16 @@ mkWorldState = do
 
 mkObj :: IO (GameObject ())
 mkObj =
-    Entity (Vec3 10 3 10) eMove <$> mkModel <*> return ()
+    Entity (Vec3 10 3 10) (Vec3 0 0 0) eMove <$> mkModel <*> return ()
 
 mkObj2 :: IO (GameObject ())
 mkObj2 =
-    Entity (Vec3 0 0 0) idUpdate <$> mkTerrain <*> return ()
+    Entity (Vec3 0 0 0) (Vec3 0 0 0) idUpdate <$> mkTerrain <*> return ()
 
 mkObj3 :: IO (GameObject ())
 mkObj3 =
-    Entity (Vec3 0 (-20) 0) idUpdate <$> mkModel3 <*> return ()
-    --PureEntity (Vec3 (-700) (-480) 1016) id <$> mkModel3 <*> return ()
+    Entity (Vec3 0 (-20) 0) (Vec3 0 0 0) idUpdate <$> mkModel3 <*> return ()
+    --Entity (Vec3 (-700) (-480) 1016) id <$> mkModel3 <*> return ()
 
 
 eMove :: Update (GameObject t) (World t)

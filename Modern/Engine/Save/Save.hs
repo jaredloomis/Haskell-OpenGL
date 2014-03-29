@@ -15,7 +15,7 @@ writeSaveFromWorld world file = do
 --generateWorldSaveText :: World t -> String
 --generateWorldSaveText =
 
--- PureEntity$12$12$12$"res/objects/.."$"shader/.."$"shaders/.."
+-- e$12$12$12$res/objects/..$shader/..$shaders/..
 
 generateGameObjectText :: GameObject t -> String
 generateGameObjectText pe@(PureEntity{}) =

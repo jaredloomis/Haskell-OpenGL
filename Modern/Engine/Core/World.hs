@@ -10,7 +10,6 @@ import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
 import Engine.Core.Types
 import Engine.Graphics.Shaders
-import Engine.Core.Vec
 
 setWorldPlayer :: GameObject t -> World t -> World t
 setWorldPlayer player world = world{worldPlayer = player}
@@ -59,7 +58,7 @@ infixl ~>~>
 -- | Set a world's uniforms to given shader.
 setWorldUniforms :: World t -> Shader -> IO Shader
 setWorldUniforms world shader =
-    setUniformsAndRemember shader $ worldUniforms world
+    setUniformsAndRemember shader $ graphicsUniforms $ worldGraphics world
 
 getWorldDelta :: World t -> GLfloat
 getWorldDelta = stateDelta . worldState
