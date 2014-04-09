@@ -4,7 +4,7 @@ module Engine.Object.GameObject (
     updateWorld, applyGravity,
     moveObjectSafe,
     moveObject, moveObjectSlideAllIntersecters,
-    getModel, updateWorld' 
+    getModel
 ) where
 
 import Data.Maybe (isJust, fromJust)
@@ -18,13 +18,20 @@ import Engine.Model.AABB
 
 -- | Call updateObject on all GameObjects in
 --   the world.
-updateWorld :: World t -> World t
-updateWorld world = performUpdateAll world (worldEntities world)
+--updateWorld :: World t -> World t
+--updateWorld world = undefined--performUpdateAll world (worldEntities world)
 
-updateWorld' :: Game t (World t)
-updateWorld' = do
+updateWorld :: Game t (World t)
+updateWorld = do
     world <- get
-    return $ performUpdateAll world (worldEntities world)
+    newObjs <- updateEntities
+    return world{worldEntities = newObjs}
+    -- $ performUpdateAll world (worldEntities world)
+
+updateEntities :: Game t [GameObject t]
+updateEntities = do
+    world <- get
+    mapM (\o -> entityUpdate o o) (worldEntities world)
 
 -- | Safely move an object down, simulating
 --   very simple gravity.

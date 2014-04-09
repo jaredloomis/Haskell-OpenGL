@@ -5,6 +5,7 @@ module Engine.Object.Player (
 ) where
 
 import Data.Maybe (isJust, fromJust)
+import Control.Monad.State (get)
 
 import qualified Graphics.UI.GLFW as GLFW
 import Graphics.Rendering.OpenGL.Raw
@@ -22,8 +23,9 @@ mkPlayer = Player   (Vec3 0 20 0) (Vec3 0 0 0)
                     pUpdate
                     baseInput
 
-pUpdate :: World t -> World t
-pUpdate w =
+pUpdate :: Game t (World t)
+pUpdate = do
+    w <- get
     if not $ statePaused $ worldState w
         then
         let p = worldPlayer w
@@ -38,7 +40,7 @@ pUpdate w =
 
             resolvedP = resolveVelocity w gravityP
 
-        in modifiedW{worldPlayer =
+        in return modifiedW{worldPlayer =
             resolvedP{playerSpeed = origSpeed}}
     else
         let p = worldPlayer w
@@ -47,7 +49,7 @@ pUpdate w =
             -- Do key update.
             modifiedW = playerKeyUpdateSafe w{worldPlayer = playerMouseUpdated}
 
-        in modifiedW{worldPlayer = p}
+        in return modifiedW{worldPlayer = p}
 
 resetPlayerInput :: GameObject t -> GameObject t
 resetPlayerInput p@(Player{}) =

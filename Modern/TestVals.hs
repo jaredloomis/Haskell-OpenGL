@@ -66,7 +66,6 @@ mkWorldFast = do
             "shaders/shadow/shadow.vert"
             "shaders/shadow/shadow.frag"
 
-    --mkWorld undefined undefined 0 []
     mkWorld fb sfb shadowShader [dofShader, fxaaShader]
 
 mkWorld :: Framebuffer -> Framebuffer -> GLuint -> [GLuint] -> IO (World ())
@@ -103,12 +102,11 @@ mkObj3 =
     --Entity (Vec3 (-700) (-480) 1016) id <$> mkModel3 <*> return ()
 
 
-eMove :: Update (GameObject t) (World t)
-eMove =
-    Pure $ \pe -> moveObject pe (Vec3 0.005 0 0)
+eMove :: GameObject t -> Game t (GameObject t)
+eMove obj = return $ moveObject obj (Vec3 0.005 0 0) 
 
-idUpdate :: Update t g
-idUpdate = Pure id
+idUpdate :: GameObject t -> Game t (GameObject t)
+idUpdate = return
 
 
 mkModel :: IO Model

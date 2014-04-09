@@ -46,12 +46,13 @@ All commands using the `-O` or `-O2` flags performed basically the same, with a 
 - <b>I Realized most of the type classes I have been making are simply doing badly what a StateT monad would do well. (ie. `GameIO t a = StateT (World t) IO a`)</b>
 - <b>General code cleanup, make it easier to use and clearer.</b>
 - <b>Framebuffer resizing.</b>
-- <b>Octrees or BVH.</b>
+- <b>Collision Detection</b>
+    - Octree
+    - Bounding Volume Hierarchy (BVH)
+    - Binary Space Partitioning (BSP) - [Frag](http://code.haskell.org/frag/src/BSP.hs) uses it.
 - Create a FRP module, making it optional. (Elerea)
 - AI / Pathfinding (A\*?).
 - Chunks or other methods to allow for infinite terrain.
-- Do alot more `{-# INLINE #-}`ing.
-- Cleanup code again, look for efficiency increases.
 - Make walking more stable and efficient.
 
 <h4>Fixes</h4>

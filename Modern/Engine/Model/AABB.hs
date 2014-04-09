@@ -3,7 +3,7 @@ module Engine.Model.AABB (
     AABB(..), anyIntersect, anyIntersectGet,
     aabbFromPoints, aabbByFace, intersecting,
     createAABB, getObjectIntersecter, isIntersectingAny,
-    calculateNewWholeAABB
+    calculateNewWholeAABB, aabbContainsPoint, objectsIntersect
 ) where
 
 import Data.Maybe (isJust)
@@ -13,18 +13,8 @@ import Graphics.Rendering.OpenGL.Raw
 import Engine.Core.Vec
 import Engine.Core.Types
 
--- TODO TODO TODO TODO (or a BVH)
-data Octree a = Octree {
-    octCorners :: (Vec3 GLfloat, Vec3 GLfloat),
-    octCenter :: Vec3 GLfloat,
-    octValues :: [a],
-    octNumValues :: Int,
-    octDepth :: Int,
-    octChildren :: [Octree a]
-}
-
 -- | Test if two objects intersect.
-objectsIntersect :: HasAABB a => a -> a -> Bool
+objectsIntersect :: (HasAABB a, HasAABB b) => a -> b -> Bool
 objectsIntersect l r
     | isJust (getWholeAABB l) &&
       isJust (getWholeAABB r) =
@@ -36,6 +26,13 @@ objectsIntersect l r
                     newr = calculateNewAABBs r
                 in anyIntersect (head newl) newr)
     | otherwise = False
+
+-- | Check if given point is inside the AABB.
+aabbContainsPoint :: Vec3 GLfloat -> AABB -> Bool
+aabbContainsPoint (Vec3 x y z) (AABB (Vec3 lx ly lz) (Vec3 hx hy hz)) =
+    x >= lx && x <= hx &&
+    y >= ly && y <= hy &&
+    z >= lz && z <= hz
 
 -- | Using the object's current AABB and position,
 --   create a new AABB.
@@ -189,12 +186,12 @@ anyIntersectGet _ _ = Nothing
 intersecting :: AABB -> AABB -> Bool
 intersecting (AABB (Vec3 min1x min1y min1z) (Vec3 max1x max1y max1z))
              (AABB (Vec3 min2x min2y min2z) (Vec3 max2x max2y max2z)) =
-    max1x > min2x &&
-    min1x < max2x &&
-    max1y > min2y &&
-    min1y < max2y &&
-    max1z > min2z &&
-    min1z < max2z
+    max1x >= min2x &&
+    min1x <= max2x &&
+    max1y >= min2y &&
+    min1y <= max2y &&
+    max1z >= min2z &&
+    min1z <= max2z
 {-# INLINE intersecting #-}
 
 getXs :: [a] -> [a]

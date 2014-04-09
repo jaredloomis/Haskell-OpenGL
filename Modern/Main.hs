@@ -1,7 +1,6 @@
 module Main where
 
 import Data.Time (diffUTCTime)
-import Control.Monad (unless)
 import Control.Monad.State
 
 import qualified Graphics.UI.GLFW as GLFW
@@ -98,13 +97,13 @@ updateStepComplete win world = do
     player <- updatePlayerInput win $ worldPlayer world
 
     -- Update player
-    let newW = world{worldPlayer = player, worldState = newState}
-        nw = snd $ (player, newW) ~>
-            playerUpdate ~>~ worldPlayer ~~ resetPlayerInput ~> setWorldPlayer
+    let worldWithPlayer = world{worldPlayer = player, worldState = newState}
+        updatedWorld = evalState (gameState $ playerUpdate player) worldWithPlayer
+        updatedWorldWithUpdatedPlayer =
+            setWorldPlayer (resetPlayerInput $ worldPlayer updatedWorld) updatedWorld
 
     -- Update the rest of the world.
-    --return $ updateWorld nw
-    return $ evalState (gameState updateWorld') nw
+    return $ evalState (gameState updateWorld) updatedWorldWithUpdatedPlayer 
 
 updatePlayerInput :: GLFW.Window -> GameObject t -> IO (GameObject t)
 updatePlayerInput win player@(Player{}) = do

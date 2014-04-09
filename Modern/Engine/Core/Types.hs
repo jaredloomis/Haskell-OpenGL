@@ -1,5 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE FlexibleInstances #-}
 module Engine.Core.Types where
 
 import Data.Time (UTCTime)
@@ -21,7 +22,7 @@ newtype Game t a = Game {
 
 newtype GameIO t a = GameIO {
     gameIoState :: StateT (World t) IO a
-} deriving (Functor, Monad, MonadIO, MonadState (World t))
+} deriving (Functor, Monad, MonadIO, MonadState (World t)) 
 
 testIt :: Vec3 GLfloat
 testIt = entityPosition . head . worldEntities . execState
@@ -93,7 +94,11 @@ class Container g t => HasUpdate t g where
         updateNonEff _ _ = []
 
 
--- | The type I use to contain the overall state of
+instance HasPosition (Vec3 GLfloat) where
+    getPos = id
+    setPos _ = id
+
+-- | The type used to contain the overall state of
 --   the entire game.
 data World t = World {
     worldPlayer :: !(GameObject t),
@@ -144,18 +149,20 @@ data GameObject t = Player {
     playerRotation :: !(Vec3 GLfloat),
     playerVelocity :: !(Vec3 GLfloat),
     playerSpeed :: !GLfloat,
-    playerUpdate :: !(World t -> World t),
+    playerUpdate :: !(Game t (World t)),
+    --playerUpdate :: !(World t -> World t),
     playerInput :: !(Input t)
 } | Entity {
     entityPosition :: !(Vec3 GLfloat),
     entityRotation :: !(Vec3 GLfloat),
-    entityUpdate :: Update (GameObject t) (World t),
+    --entityUpdate :: Update (GameObject t) (World t),
+    entityUpdate :: !(GameObject t -> Game t (GameObject t)),
     entityModel :: !Model,
     entityAttribute :: !t
 }
 
 emptyEntity :: GameObject ()
-emptyEntity = Entity 0 0 (Pure id) emptyModel ()
+emptyEntity = Entity 0 0 return emptyModel ()
 
 -- TODO: Make this more flexible
 playerAABB :: AABB
@@ -184,12 +191,6 @@ instance HasAABB (GameObject t) where
     getWholeAABB (Player{}) = Just playerAABB
     getWholeAABB pe@(Entity{}) =
         modelWholeAABB $ entityModel pe
-
-instance HasUpdate (GameObject t) (World t) where
-    updateStep (Player{}) =
-        Effectful $ flip playerUpdate
-    updateStep pe@(Entity{}) =
-        entityUpdate pe
 
 data Model = Model {
     modelShader :: !Shader,
@@ -222,6 +223,10 @@ instance HasPosition AABB where
     getPos (AABB minV _) = minV
     setPos (AABB minV maxV) pos =
         AABB pos ((maxV - minV) + pos)
+
+instance HasAABB AABB where
+    getWholeAABB = Just
+    getAABBs x = [x]
 
 -- | All OpenGL handles for a Framebuffer and
 --   Renderbuffer.
