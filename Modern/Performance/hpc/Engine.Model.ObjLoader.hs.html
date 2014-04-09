@@ -1,0 +1,289 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<style type="text/css">
+span.lineno { color: white; background: #aaaaaa; border-right: solid white 12px }
+span.nottickedoff { background: yellow}
+span.istickedoff { background: white }
+span.tickonlyfalse { margin: -1px; border: 1px solid #f20913; background: #f20913 }
+span.tickonlytrue  { margin: -1px; border: 1px solid #60de51; background: #60de51 }
+span.funcount { font-size: small; color: orange; z-index: 2; position: absolute; right: 20 }
+span.decl { font-weight: bold }
+span.spaces    { background: white }
+</style>
+</head>
+<body>
+<pre>
+<span class="lineno">    1 </span>{-# LANGUAGE TupleSections #-}
+<span class="lineno">    2 </span>module Engine.Model.ObjLoader (
+<span class="lineno">    3 </span>    loadObjModel, loadObjFile
+<span class="lineno">    4 </span>) where
+<span class="lineno">    5 </span>
+<span class="lineno">    6 </span>import System.IO
+<span class="lineno">    7 </span>    (openFile, IOMode(..), hGetContents, hClose)
+<span class="lineno">    8 </span>import Data.List (isPrefixOf)
+<span class="lineno">    9 </span>import Data.List.Split (splitOn)
+<span class="lineno">   10 </span>import Data.Maybe (isJust, fromJust)
+<span class="lineno">   11 </span>import Control.Monad (liftM)
+<span class="lineno">   12 </span>import System.Directory (doesFileExist)
+<span class="lineno">   13 </span>
+<span class="lineno">   14 </span>import qualified Data.Vector.Storable as V
+<span class="lineno">   15 </span>import qualified Data.DList as D
+<span class="lineno">   16 </span>
+<span class="lineno">   17 </span>import Graphics.Rendering.OpenGL.Raw (GLfloat, GLint)
+<span class="lineno">   18 </span>
+<span class="lineno">   19 </span>import Engine.Model.Material
+<span class="lineno">   20 </span>    (Material(..), emptyMaterial, loadMtlFile, allImagesInFile)
+<span class="lineno">   21 </span>import Engine.Model.Model
+<span class="lineno">   22 </span>    (Model(..), createModel)
+<span class="lineno">   23 </span>import Engine.Core.Vec (Vec3(..))
+<span class="lineno">   24 </span>import Engine.Model.DatLoader
+<span class="lineno">   25 </span>import Engine.Graphics.Textures (juicyLoadTexture)
+<span class="lineno">   26 </span>
+<span class="lineno">   27 </span>loadObjModel ::
+<span class="lineno">   28 </span>    FilePath -&gt;
+<span class="lineno">   29 </span>    FilePath -&gt;
+<span class="lineno">   30 </span>    FilePath -&gt;
+<span class="lineno">   31 </span>    IO Model
+<span class="lineno">   32 </span><span class="decl"><span class="istickedoff">loadObjModel objFile vert frag =</span>
+<span class="lineno">   33 </span><span class="spaces">    </span><span class="istickedoff">let attrNames = [&quot;position&quot;, &quot;texCoord&quot;, &quot;normal&quot;, &quot;color&quot;, &quot;textureId&quot;]</span>
+<span class="lineno">   34 </span><span class="spaces">    </span><span class="istickedoff">in do</span>
+<span class="lineno">   35 </span><span class="spaces">    </span><span class="istickedoff">hasDatFile &lt;- doesFileExist $ objFile ++ &quot;.dat&quot;</span>
+<span class="lineno">   36 </span><span class="spaces"></span><span class="istickedoff">{-</span>
+<span class="lineno">   37 </span><span class="spaces">    </span><span class="istickedoff">fileContents &lt;- openFile objFile ReadMode &gt;&gt;= hGetContents</span>
+<span class="lineno">   38 </span><span class="spaces">    </span><span class="istickedoff">(mats, lib) &lt;- loadObjMaterials fileContents</span>
+<span class="lineno">   39 </span><span class="spaces">    </span><span class="istickedoff">let obj = loadObj fileContents</span>
+<span class="lineno">   40 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   41 </span><span class="spaces">        </span><span class="istickedoff">dat = toArrays obj</span>
+<span class="lineno">   42 </span><span class="spaces">        </span><span class="istickedoff">materialDiffs = fromVec3M $ map matDiffuseColor mats</span>
+<span class="lineno">   43 </span><span class="spaces">        </span><span class="istickedoff">materialTexIds = map (fromIntegral . fromJustSafe . matTexId) mats</span>
+<span class="lineno">   44 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   45 </span><span class="spaces">        </span><span class="istickedoff">--totalData = dat ++ [materialDiffs, materialTexIds]</span>
+<span class="lineno">   46 </span><span class="spaces"></span><span class="istickedoff">-}</span>
+<span class="lineno">   47 </span><span class="spaces">    </span><span class="istickedoff">(totalData, mTextures) &lt;-</span>
+<span class="lineno">   48 </span><span class="spaces">        </span><span class="istickedoff">if <span class="tickonlytrue">hasDatFile</span></span>
+<span class="lineno">   49 </span><span class="spaces">            </span><span class="istickedoff">then do</span>
+<span class="lineno">   50 </span><span class="spaces">                </span><span class="istickedoff">(totalDat, images) &lt;- loadData (objFile ++ &quot;.dat&quot;)</span>
+<span class="lineno">   51 </span><span class="spaces">                </span><span class="istickedoff">textures &lt;- mapM juicyLoadTexture images</span>
+<span class="lineno">   52 </span><span class="spaces">                </span><span class="istickedoff">return (totalDat, textures)</span>
+<span class="lineno">   53 </span><span class="spaces">        </span><span class="istickedoff">else <span class="nottickedoff">do</span></span>
+<span class="lineno">   54 </span><span class="spaces">            </span><span class="istickedoff"><span class="nottickedoff">fileContents &lt;- openFile objFile ReadMode &gt;&gt;= hGetContents</span></span>
+<span class="lineno">   55 </span><span class="spaces">            </span><span class="istickedoff"><span class="nottickedoff">(mats, lib) &lt;- loadObjMaterials fileContents</span></span>
+<span class="lineno">   56 </span><span class="spaces">            </span><span class="istickedoff"><span class="nottickedoff">let obj = loadObj fileContents</span></span>
+<span class="lineno">   57 </span><span class="spaces"></span><span class="istickedoff"><span class="nottickedoff"></span></span>
+<span class="lineno">   58 </span><span class="spaces">                </span><span class="istickedoff"><span class="nottickedoff">dat = toArrays obj</span></span>
+<span class="lineno">   59 </span><span class="spaces">                </span><span class="istickedoff"><span class="nottickedoff">materialDiffs = fromVec3M $ map matDiffuseColor mats</span></span>
+<span class="lineno">   60 </span><span class="spaces">                </span><span class="istickedoff"><span class="nottickedoff">materialTexIds = map (fromIntegral . fromJustSafe . matTexId) mats</span></span>
+<span class="lineno">   61 </span><span class="spaces">                </span><span class="istickedoff"><span class="nottickedoff">total = dat ++ [materialDiffs, materialTexIds]</span></span>
+<span class="lineno">   62 </span><span class="spaces"></span><span class="istickedoff"><span class="nottickedoff"></span></span>
+<span class="lineno">   63 </span><span class="spaces">            </span><span class="istickedoff"><span class="nottickedoff">images &lt;- liftM concat $</span></span>
+<span class="lineno">   64 </span><span class="spaces">                </span><span class="istickedoff"><span class="nottickedoff">mapM (\f -&gt; liftM allImagesInFile (openFile f ReadMode &gt;&gt;= hGetContents)) $ allMtlsInObj fileContents</span></span>
+<span class="lineno">   65 </span><span class="spaces"></span><span class="istickedoff"><span class="nottickedoff"></span></span>
+<span class="lineno">   66 </span><span class="spaces">            </span><span class="istickedoff"><span class="nottickedoff">writeDataToFile (objFile ++ &quot;.dat&quot;) total images</span></span>
+<span class="lineno">   67 </span><span class="spaces"></span><span class="istickedoff"><span class="nottickedoff"></span></span>
+<span class="lineno">   68 </span><span class="spaces">            </span><span class="istickedoff"><span class="nottickedoff">return (total, map (fromJust . matTexture) $ filter (isJust . matTexture) lib)</span></span>
+<span class="lineno">   69 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   70 </span><span class="spaces">    </span><span class="istickedoff">tmp &lt;- createModel vert frag</span>
+<span class="lineno">   71 </span><span class="spaces">        </span><span class="istickedoff">attrNames</span>
+<span class="lineno">   72 </span><span class="spaces">        </span><span class="istickedoff">totalData</span>
+<span class="lineno">   73 </span><span class="spaces">        </span><span class="istickedoff">[3, 2, 3, 3, 1]</span>
+<span class="lineno">   74 </span><span class="spaces">        </span><span class="istickedoff">(fromIntegral (length . head $ totalData) `div` 3)</span>
+<span class="lineno">   75 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   76 </span><span class="spaces">    </span><span class="istickedoff">let mTexIds = replicate (length mTextures) <span class="nottickedoff">0</span> :: [GLint] --undefined --map (fromJust . matTexId) $ filter (isJust . matTexId) lib</span>
+<span class="lineno">   77 </span><span class="spaces">    </span><span class="istickedoff">--    mTextures = map (fromJust . matTexture) $ filter (isJust . matTexture) lib</span>
+<span class="lineno">   78 </span><span class="spaces">    </span><span class="istickedoff">--print mTextures</span>
+<span class="lineno">   79 </span><span class="spaces">    </span><span class="istickedoff">return tmp{modelTextures =</span>
+<span class="lineno">   80 </span><span class="spaces">        </span><span class="istickedoff">zip mTextures</span>
+<span class="lineno">   81 </span><span class="spaces">            </span><span class="istickedoff">mTexIds}</span></span>
+<span class="lineno">   82 </span>
+<span class="lineno">   83 </span>-- | Parse an .obj file and return a Vec3 [GLfloat]
+<span class="lineno">   84 </span>--   containing the vertices, texture coordinates,
+<span class="lineno">   85 </span>--   and normals, in that order.
+<span class="lineno">   86 </span>loadObjFile :: FilePath -&gt; IO (Vec3 [GLfloat])
+<span class="lineno">   87 </span><span class="decl"><span class="nottickedoff">loadObjFile file = do</span>
+<span class="lineno">   88 </span><span class="spaces">    </span><span class="nottickedoff">handle &lt;- openFile file ReadMode</span>
+<span class="lineno">   89 </span><span class="spaces">    </span><span class="nottickedoff">objData &lt;- liftM loadObj $! hGetContents handle</span>
+<span class="lineno">   90 </span><span class="spaces">    </span><span class="nottickedoff">hClose handle</span>
+<span class="lineno">   91 </span><span class="spaces">    </span><span class="nottickedoff">return objData</span></span>
+<span class="lineno">   92 </span>
+<span class="lineno">   93 </span>-- | Parse a string containing the specification
+<span class="lineno">   94 </span>--   for an .obj model and return a Vec3 [GLfloat]
+<span class="lineno">   95 </span>--   containing the vertices, texture coordinates,
+<span class="lineno">   96 </span>--   and normals, in that order.
+<span class="lineno">   97 </span>loadObj :: String -&gt; Vec3 [GLfloat]
+<span class="lineno">   98 </span><span class="decl"><span class="nottickedoff">loadObj text =</span>
+<span class="lineno">   99 </span><span class="spaces">    </span><span class="nottickedoff">let verts = parseVertices text</span>
+<span class="lineno">  100 </span><span class="spaces">        </span><span class="nottickedoff">norms = parseNormals text</span>
+<span class="lineno">  101 </span><span class="spaces">        </span><span class="nottickedoff">texs = parseTextures text</span>
+<span class="lineno">  102 </span><span class="spaces">        </span><span class="nottickedoff">faces = parseFaces text</span>
+<span class="lineno">  103 </span><span class="spaces">    </span><span class="nottickedoff">in packObj verts norms texs faces</span></span>
+<span class="lineno">  104 </span>
+<span class="lineno">  105 </span>-- | Given DLists containg raw information read from a
+<span class="lineno">  106 </span>--   .obj file, put together a Vec3 [GLfloat] of the
+<span class="lineno">  107 </span>--   vertices, texture coordinates, and normals,
+<span class="lineno">  108 </span>--   in that order, formatted to be sent to OpenGL.
+<span class="lineno">  109 </span>packObj ::
+<span class="lineno">  110 </span>    D.DList GLfloat -&gt;      -- ^ Vertices
+<span class="lineno">  111 </span>    D.DList GLfloat -&gt;      -- ^ Normals
+<span class="lineno">  112 </span>    D.DList GLfloat -&gt;      -- ^ Texture coords
+<span class="lineno">  113 </span>    D.DList (Maybe Int) -&gt;  -- ^ Face Definitions
+<span class="lineno">  114 </span>    Vec3 [GLfloat]
+<span class="lineno">  115 </span><span class="decl"><span class="nottickedoff">packObj verts norms texs faces =</span>
+<span class="lineno">  116 </span><span class="spaces">    </span><span class="nottickedoff">let lFaces = D.toList faces</span>
+<span class="lineno">  117 </span><span class="spaces">        </span><span class="nottickedoff">lVerts = V.fromList $ D.toList verts</span>
+<span class="lineno">  118 </span><span class="spaces">        </span><span class="nottickedoff">lNorms = V.fromList $ D.toList norms</span>
+<span class="lineno">  119 </span><span class="spaces">        </span><span class="nottickedoff">lTexs = V.fromList $ D.toList texs</span>
+<span class="lineno">  120 </span><span class="spaces"></span><span class="nottickedoff"></span>
+<span class="lineno">  121 </span><span class="spaces">        </span><span class="nottickedoff">faceVerts = takeEvery3 1 lFaces</span>
+<span class="lineno">  122 </span><span class="spaces">        </span><span class="nottickedoff">faceTexs = takeEvery3 2 lFaces</span>
+<span class="lineno">  123 </span><span class="spaces">        </span><span class="nottickedoff">faceNorms = takeEvery3 3 lFaces</span>
+<span class="lineno">  124 </span><span class="spaces"></span><span class="nottickedoff"></span>
+<span class="lineno">  125 </span><span class="spaces">        </span><span class="nottickedoff">realVerts = D.toList $ getIndicesD lVerts faceVerts 3</span>
+<span class="lineno">  126 </span><span class="spaces">        </span><span class="nottickedoff">realNorms = D.toList $ getIndicesD lNorms faceNorms 3</span>
+<span class="lineno">  127 </span><span class="spaces">        </span><span class="nottickedoff">realTexs = D.toList $ getIndicesD lTexs faceTexs 2</span>
+<span class="lineno">  128 </span><span class="spaces">    </span><span class="nottickedoff">in Vec3 realVerts realTexs realNorms</span></span>
+<span class="lineno">  129 </span>
+<span class="lineno">  130 </span>-- | Given a List of () indices to read and the
+<span class="lineno">  131 </span>--   Vector to read from, read given indices for all
+<span class="lineno">  132 </span>--   Just values, and use -1.0 as a default value for
+<span class="lineno">  133 </span>--   Nothings. Returns a DList of GLfloats.
+<span class="lineno">  134 </span>getIndicesD :: V.Vector GLfloat -&gt; [Maybe Int] -&gt; Int -&gt; D.DList GLfloat
+<span class="lineno">  135 </span><span class="decl"><span class="nottickedoff">getIndicesD haystack (x:xs) vecType</span>
+<span class="lineno">  136 </span><span class="spaces">    </span><span class="nottickedoff">| isJust x =</span>
+<span class="lineno">  137 </span><span class="spaces">            </span><span class="nottickedoff">-- Get the section of the vector that is needed.</span>
+<span class="lineno">  138 </span><span class="spaces">        </span><span class="nottickedoff">let index = vecType * (fromJust x - 1)</span>
+<span class="lineno">  139 </span><span class="spaces">            </span><span class="nottickedoff">splitList = snd $ V.splitAt index haystack</span>
+<span class="lineno">  140 </span><span class="spaces">            </span><span class="nottickedoff">-- Switch to dlist for its O(1) appending.</span>
+<span class="lineno">  141 </span><span class="spaces">            </span><span class="nottickedoff">ret = D.fromList $ V.toList $ V.take vecType splitList</span>
+<span class="lineno">  142 </span><span class="spaces">        </span><span class="nottickedoff">in ret `D.append` getIndicesD haystack xs vecType</span>
+<span class="lineno">  143 </span><span class="spaces">    </span><span class="nottickedoff">| otherwise = D.replicate vecType (-1.0) `D.append` getIndicesD haystack xs vecType</span>
+<span class="lineno">  144 </span><span class="spaces"></span><span class="nottickedoff">getIndicesD _ _ _ = D.empty</span></span>
+<span class="lineno">  145 </span>
+<span class="lineno">  146 </span>takeEvery3 :: Int -&gt; [a] -&gt; [a]
+<span class="lineno">  147 </span><span class="decl"><span class="nottickedoff">takeEvery3 offset (x:y:z:rest)</span>
+<span class="lineno">  148 </span><span class="spaces">    </span><span class="nottickedoff">| offset == 1 = x : takeEvery3 offset rest</span>
+<span class="lineno">  149 </span><span class="spaces">    </span><span class="nottickedoff">| offset == 2 = y : takeEvery3 offset rest</span>
+<span class="lineno">  150 </span><span class="spaces">    </span><span class="nottickedoff">| offset == 3 = z : takeEvery3 offset rest</span>
+<span class="lineno">  151 </span><span class="spaces">    </span><span class="nottickedoff">| otherwise = error $ &quot;ObjLoader.takeEvery 3: arg&quot;</span>
+<span class="lineno">  152 </span><span class="spaces">                        </span><span class="nottickedoff">++ &quot;must be 1, 2, or 3&quot;</span>
+<span class="lineno">  153 </span><span class="spaces"></span><span class="nottickedoff">takeEvery3 _ _ = []</span></span>
+<span class="lineno">  154 </span>{-# INLINE takeEvery3 #-}
+<span class="lineno">  155 </span>
+<span class="lineno">  156 </span>parseFaces :: String -&gt; D.DList (Maybe Int)
+<span class="lineno">  157 </span><span class="decl"><span class="nottickedoff">parseFaces = D.concat . map faceLineCheck . lines</span>
+<span class="lineno">  158 </span><span class="spaces">    </span><span class="nottickedoff">where</span>
+<span class="lineno">  159 </span><span class="spaces">    </span><span class="nottickedoff">faceLineCheck line =</span>
+<span class="lineno">  160 </span><span class="spaces">        </span><span class="nottickedoff">if &quot;f &quot; `isPrefixOf` line</span>
+<span class="lineno">  161 </span><span class="spaces">            </span><span class="nottickedoff">then parseFaceLine line</span>
+<span class="lineno">  162 </span><span class="spaces">        </span><span class="nottickedoff">else D.empty</span></span>
+<span class="lineno">  163 </span>
+<span class="lineno">  164 </span>parseFaceLine :: String -&gt; D.DList (Maybe Int)
+<span class="lineno">  165 </span><span class="decl"><span class="nottickedoff">parseFaceLine =</span>
+<span class="lineno">  166 </span><span class="spaces">    </span><span class="nottickedoff">D.concat . map parseFaceGroup . tail . words</span></span>
+<span class="lineno">  167 </span>{-# INLINE parseFaceLine #-}
+<span class="lineno">  168 </span>
+<span class="lineno">  169 </span>parseFaceGroup :: String -&gt; D.DList (Maybe Int)
+<span class="lineno">  170 </span><span class="decl"><span class="nottickedoff">parseFaceGroup =</span>
+<span class="lineno">  171 </span><span class="spaces">    </span><span class="nottickedoff">D.fromList . map retrieveData . splitOn &quot;/&quot;</span>
+<span class="lineno">  172 </span><span class="spaces">    </span><span class="nottickedoff">where</span>
+<span class="lineno">  173 </span><span class="spaces">    </span><span class="nottickedoff">retrieveData text =</span>
+<span class="lineno">  174 </span><span class="spaces">        </span><span class="nottickedoff">if null text</span>
+<span class="lineno">  175 </span><span class="spaces">            </span><span class="nottickedoff">then Nothing</span>
+<span class="lineno">  176 </span><span class="spaces">        </span><span class="nottickedoff">else Just $ read text</span></span>
+<span class="lineno">  177 </span>{-# INLINE parseFaceGroup #-}
+<span class="lineno">  178 </span>
+<span class="lineno">  179 </span>parseVertices :: String -&gt; D.DList GLfloat
+<span class="lineno">  180 </span><span class="decl"><span class="nottickedoff">parseVertices = parsePrefix &quot;v &quot;</span></span>
+<span class="lineno">  181 </span>parseNormals :: String -&gt; D.DList GLfloat
+<span class="lineno">  182 </span><span class="decl"><span class="nottickedoff">parseNormals = parsePrefix &quot;vn &quot;</span></span>
+<span class="lineno">  183 </span>parseTextures :: String -&gt; D.DList GLfloat
+<span class="lineno">  184 </span><span class="decl"><span class="nottickedoff">parseTextures =</span>
+<span class="lineno">  185 </span><span class="spaces">    </span><span class="nottickedoff">D.concat . map lineCheck . lines</span>
+<span class="lineno">  186 </span><span class="spaces">    </span><span class="nottickedoff">where</span>
+<span class="lineno">  187 </span><span class="spaces">    </span><span class="nottickedoff">lineCheck line =</span>
+<span class="lineno">  188 </span><span class="spaces">        </span><span class="nottickedoff">if &quot;vt &quot; `isPrefixOf` line</span>
+<span class="lineno">  189 </span><span class="spaces">            </span><span class="nottickedoff">then</span>
+<span class="lineno">  190 </span><span class="spaces">                </span><span class="nottickedoff">let [x, y] = D.toList $ parseLine line</span>
+<span class="lineno">  191 </span><span class="spaces">                </span><span class="nottickedoff">in D.fromList [x, 1-y]</span>
+<span class="lineno">  192 </span><span class="spaces">        </span><span class="nottickedoff">else D.empty</span></span>
+<span class="lineno">  193 </span>
+<span class="lineno">  194 </span>-- | Call parseLine on all lines with the given prefix
+<span class="lineno">  195 </span>--   in given String.
+<span class="lineno">  196 </span>parsePrefix :: Read a =&gt; String -&gt; String -&gt; D.DList a
+<span class="lineno">  197 </span><span class="decl"><span class="nottickedoff">parsePrefix prefix =</span>
+<span class="lineno">  198 </span><span class="spaces">    </span><span class="nottickedoff">D.concat . map lineCheck . lines</span>
+<span class="lineno">  199 </span><span class="spaces">    </span><span class="nottickedoff">where</span>
+<span class="lineno">  200 </span><span class="spaces">    </span><span class="nottickedoff">lineCheck line =</span>
+<span class="lineno">  201 </span><span class="spaces">        </span><span class="nottickedoff">if prefix `isPrefixOf` line</span>
+<span class="lineno">  202 </span><span class="spaces">            </span><span class="nottickedoff">then parseLine line</span>
+<span class="lineno">  203 </span><span class="spaces">        </span><span class="nottickedoff">else D.empty</span>
+<span class="lineno">  204 </span><span class="spaces">    </span><span class="nottickedoff">{-# INLINE lineCheck #-}</span></span>
+<span class="lineno">  205 </span>
+<span class="lineno">  206 </span>parseLine :: Read a =&gt; String -&gt; D.DList a
+<span class="lineno">  207 </span><span class="decl"><span class="nottickedoff">parseLine = D.map read . D.tail . D.fromList . words</span></span>
+<span class="lineno">  208 </span>{-# INLINE parseLine #-}
+<span class="lineno">  209 </span>
+<span class="lineno">  210 </span>loadObjMaterials :: String -&gt; IO ([Material], [Material])
+<span class="lineno">  211 </span><span class="decl"><span class="nottickedoff">loadObjMaterials contents = do</span>
+<span class="lineno">  212 </span><span class="spaces">    </span><span class="nottickedoff">library &lt;- loadObjMaterialLib contents</span>
+<span class="lineno">  213 </span><span class="spaces"></span><span class="nottickedoff"></span>
+<span class="lineno">  214 </span><span class="spaces">    </span><span class="nottickedoff">let listRet = listOfMats contents library emptyMaterial</span>
+<span class="lineno">  215 </span><span class="spaces">    </span><span class="nottickedoff">return (listRet, library)</span></span>
+<span class="lineno">  216 </span>
+<span class="lineno">  217 </span>loadObjMaterialLib :: String -&gt; IO [Material]
+<span class="lineno">  218 </span><span class="decl"><span class="nottickedoff">loadObjMaterialLib =</span>
+<span class="lineno">  219 </span><span class="spaces">    </span><span class="nottickedoff">liftM concat . mapM loadMtlFile . parseMtlLibs</span></span>
+<span class="lineno">  220 </span>{-# INLINE loadObjMaterialLib #-}
+<span class="lineno">  221 </span>
+<span class="lineno">  222 </span>parseMtlLibs :: String -&gt; [FilePath]
+<span class="lineno">  223 </span><span class="decl"><span class="nottickedoff">parseMtlLibs = getMaterialLibs . lines</span></span>
+<span class="lineno">  224 </span>
+<span class="lineno">  225 </span>getMaterialLibs :: [String] -&gt; [FilePath]
+<span class="lineno">  226 </span><span class="decl"><span class="nottickedoff">getMaterialLibs (line:rest) =</span>
+<span class="lineno">  227 </span><span class="spaces">    </span><span class="nottickedoff">if &quot;mtllib &quot; `isPrefixOf` line</span>
+<span class="lineno">  228 </span><span class="spaces">        </span><span class="nottickedoff">then (last . words $ line) :</span>
+<span class="lineno">  229 </span><span class="spaces">                </span><span class="nottickedoff">getMaterialLibs rest</span>
+<span class="lineno">  230 </span><span class="spaces">    </span><span class="nottickedoff">else getMaterialLibs rest</span>
+<span class="lineno">  231 </span><span class="spaces"></span><span class="nottickedoff">getMaterialLibs _ = []</span></span>
+<span class="lineno">  232 </span>{-# INLINE getMaterialLibs #-}
+<span class="lineno">  233 </span>
+<span class="lineno">  234 </span>listOfMats :: String -&gt; [Material] -&gt; Material -&gt; [Material]
+<span class="lineno">  235 </span><span class="decl"><span class="nottickedoff">listOfMats contents =</span>
+<span class="lineno">  236 </span><span class="spaces">    </span><span class="nottickedoff">lineAction (lines contents)</span>
+<span class="lineno">  237 </span><span class="spaces">    </span><span class="nottickedoff">where</span>
+<span class="lineno">  238 </span><span class="spaces">    </span><span class="nottickedoff">lineAction :: [String] -&gt; [Material] -&gt; Material -&gt; [Material]</span>
+<span class="lineno">  239 </span><span class="spaces">    </span><span class="nottickedoff">lineAction (line:rest) library currentMat</span>
+<span class="lineno">  240 </span><span class="spaces">        </span><span class="nottickedoff">| &quot;usemtl &quot; `isPrefixOf` line =</span>
+<span class="lineno">  241 </span><span class="spaces">            </span><span class="nottickedoff">let mat = findMaterial (last . words $ line) library</span>
+<span class="lineno">  242 </span><span class="spaces">            </span><span class="nottickedoff">in lineAction rest library mat</span>
+<span class="lineno">  243 </span><span class="spaces">        </span><span class="nottickedoff">| &quot;f &quot; `isPrefixOf` line =</span>
+<span class="lineno">  244 </span><span class="spaces">            </span><span class="nottickedoff">replicate 3 currentMat ++</span>
+<span class="lineno">  245 </span><span class="spaces">                </span><span class="nottickedoff">lineAction rest library currentMat</span>
+<span class="lineno">  246 </span><span class="spaces">        </span><span class="nottickedoff">| otherwise = lineAction rest library currentMat</span>
+<span class="lineno">  247 </span><span class="spaces">    </span><span class="nottickedoff">lineAction _ _ _ = []</span></span>
+<span class="lineno">  248 </span>
+<span class="lineno">  249 </span>allMtlsInObj :: String -&gt; [FilePath]
+<span class="lineno">  250 </span><span class="decl"><span class="nottickedoff">allMtlsInObj =</span>
+<span class="lineno">  251 </span><span class="spaces">    </span><span class="nottickedoff">map (last . filter (not . null) . splitOn &quot; &quot;) . filter (isPrefixOf &quot;mtllib &quot;) . lines</span></span>
+<span class="lineno">  252 </span>
+<span class="lineno">  253 </span>findMaterial :: String -&gt; [Material] -&gt; Material
+<span class="lineno">  254 </span><span class="decl"><span class="nottickedoff">findMaterial name library = head $ filter (\x -&gt; matName x == name) library</span></span>
+<span class="lineno">  255 </span>{-# INLINE findMaterial #-}
+<span class="lineno">  256 </span>
+<span class="lineno">  257 </span>toArrays :: Vec3 [a] -&gt; [[a]]
+<span class="lineno">  258 </span><span class="decl"><span class="nottickedoff">toArrays (Vec3 x y z) = [x, y, z]</span></span>
+<span class="lineno">  259 </span>
+<span class="lineno">  260 </span>fromVec3M :: [Maybe (Vec3 a)] -&gt; [a]
+<span class="lineno">  261 </span><span class="decl"><span class="nottickedoff">fromVec3M (Just (Vec3 x y z) : xs) =</span>
+<span class="lineno">  262 </span><span class="spaces">    </span><span class="nottickedoff">[x, y, z] ++ fromVec3M xs</span>
+<span class="lineno">  263 </span><span class="spaces"></span><span class="nottickedoff">fromVec3M [] = []</span>
+<span class="lineno">  264 </span><span class="spaces"></span><span class="nottickedoff">fromVec3M (Nothing : _) = error &quot;fromVec3M: argument contained Nothing.&quot;</span></span>
+<span class="lineno">  265 </span>
+<span class="lineno">  266 </span>fromJustSafe :: Num a =&gt; Maybe a -&gt; a
+<span class="lineno">  267 </span><span class="decl"><span class="nottickedoff">fromJustSafe (Just x) = x</span>
+<span class="lineno">  268 </span><span class="spaces"></span><span class="nottickedoff">fromJustSafe Nothing = 0</span></span>
+<span class="lineno">  269 </span>{-# INLINE fromJustSafe #-}
+
+</pre>
+</body>
+</html>

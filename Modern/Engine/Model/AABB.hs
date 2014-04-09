@@ -3,7 +3,8 @@ module Engine.Model.AABB (
     AABB(..), anyIntersect, anyIntersectGet,
     aabbFromPoints, aabbByFace, intersecting,
     createAABB, getObjectIntersecter, isIntersectingAny,
-    calculateNewWholeAABB, aabbContainsPoint, objectsIntersect
+    calculateNewWholeAABB, aabbContainsPoint, objectsIntersect,
+    calculateNewAABBs
 ) where
 
 import Data.Maybe (isJust)
@@ -12,6 +13,7 @@ import Graphics.Rendering.OpenGL.Raw
 
 import Engine.Core.Vec
 import Engine.Core.Types
+
 
 -- | Test if two objects intersect.
 objectsIntersect :: (HasAABB a, HasAABB b) => a -> b -> Bool
@@ -25,7 +27,11 @@ objectsIntersect l r
                 let newl = calculateNewAABBs l
                     newr = calculateNewAABBs r
                 in anyIntersect (head newl) newr)
-    | otherwise = False
+    | otherwise =
+        null (getAABBs l) && (not . null) (getAABBs r) ||
+            let newl = calculateNewAABBs l
+                newr = calculateNewAABBs r
+            in anyIntersect (head newl) newr
 
 -- | Check if given point is inside the AABB.
 aabbContainsPoint :: Vec3 GLfloat -> AABB -> Bool
@@ -60,7 +66,7 @@ transformAll [] _ = []
 
 -- | Check if the needle intersects with any in the
 --   haystack.
-isIntersectingAny :: HasAABB a => a -> [a] -> Bool
+isIntersectingAny :: (HasAABB a, HasAABB b) => a -> [b] -> Bool
 isIntersectingAny collider (collidee:xs) =
     objectsIntersect collider collidee ||
         isIntersectingAny collider xs
@@ -68,7 +74,7 @@ isIntersectingAny _ [] = False
 
 -- | Check if the needle intersects with any in the haystack,
 --   if it does, the intersected AABB is returned.
-getObjectIntersecter :: HasAABB a => a -> [a] -> Maybe AABB
+getObjectIntersecter :: (HasAABB a, HasAABB b) => a -> [b] -> Maybe AABB
 getObjectIntersecter collider (collidee:xs) =
     let intersecter = getIntersecter collider collidee
     in if isJust intersecter
@@ -78,7 +84,7 @@ getObjectIntersecter _ [] = Nothing
 
 -- | Test if two objects intersect, yeilding the
 --   offending AABB if they do.
-getIntersecter :: HasAABB a => a -> a -> Maybe AABB
+getIntersecter :: (HasAABB a, HasAABB b) => a -> b -> Maybe AABB
 getIntersecter l r
     | isJust (getWholeAABB l) &&
       isJust (getWholeAABB r) =

@@ -6,8 +6,8 @@ import Graphics.Rendering.OpenGL.Raw (GLfloat)
 import Engine.Model.Model
 import Engine.Terrain.Noise
 import Engine.Graphics.Textures
-import Engine.Graphics.Shaders
 
+{-
 genHeightsSplit ::
     (Int, Int) -> (Int, Int) -> Int -> Int -> GLfloat -> GLfloat -> IO [[[GLfloat]]]
 genHeightsSplit (width, height) (startx, starty) splits octaves wavelength intensity
@@ -17,8 +17,8 @@ genHeightsSplit (width, height) (startx, starty) splits octaves wavelength inten
                 (startx + width, starty + width) splits octaves wavelength intensity
         return $ cur : rest
     | otherwise = return []
+-}
     
-{-
 genSimplexModel :: FilePath -> FilePath ->
     GLfloat ->          -- ^ Width
     GLfloat ->          -- ^ Spacing
@@ -52,8 +52,8 @@ genSimplexModel vert frag w spacing octaves wavelength intensity texture = do
                     replicate lengthVertices (-1)]
                     [3, 3, 3, 2, 1]
                     (fromIntegral $ length vertices `div` 3)
--}
 
+{-
 genSimplexModel :: FilePath -> FilePath -> FilePath -> FilePath -> FilePath ->
     GLfloat ->          -- ^ Width
     GLfloat ->          -- ^ Spacing
@@ -84,7 +84,7 @@ genSimplexModel vert frag tessC tessE geom w spacing octaves wavelength intensit
                     [vertices]
                     [3]
                     (fromIntegral $ length vertices `div` 3)
-
+-}
 
 createFlat :: GLfloat -> GLfloat -> [GLfloat]
 createFlat spacing width =

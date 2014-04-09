@@ -15,6 +15,7 @@ import Graphics.Rendering.OpenGL.Raw
 import Engine.Core.Types
 import Engine.Core.Vec
 import Engine.Model.AABB
+import Engine.Object.Collision
 
 -- | Call updateObject on all GameObjects in
 --   the world.
@@ -47,7 +48,7 @@ moveObjectSlideIntersecter world object (Vec3 dx dy dz) =
     let (objectX, abX) = if dx /= 0
             then
                 let objectXP = moveObject object $ Vec3 dx 0 0
-                    entities = worldEntities world
+                    entities = findNearby (worldOctree world) (movePos playerAABB (getPos object))--worldEntities world
                     intersectingX = getObjectIntersecter objectXP entities
                 in if isJust intersectingX
                         then (object, intersectingX)
@@ -57,7 +58,7 @@ moveObjectSlideIntersecter world object (Vec3 dx dy dz) =
         (objectY, abY) = if dy /= 0
             then
                 let objectYP = moveObject objectX $ Vec3 0 dy 0
-                    entities = worldEntities world
+                    entities = findNearby (worldOctree world) (movePos playerAABB (getPos object))--worldEntities world
                     intersectingY = getObjectIntersecter objectYP entities
                 in if isJust intersectingY
                         then (objectX, intersectingY)
@@ -67,7 +68,7 @@ moveObjectSlideIntersecter world object (Vec3 dx dy dz) =
     in if dz /= 0
         then
             let objectZP = moveObject objectY $ Vec3 0 0 dz
-                entities = worldEntities world
+                entities = findNearby (worldOctree world) (movePos playerAABB (getPos object))--worldEntities world
                 intersectingZ = getObjectIntersecter objectZP entities
             in if isJust intersectingZ
                         then (objectY, intersectingZ)
@@ -82,7 +83,7 @@ moveObjectSlideAllIntersecters world object (Vec3 dx dy dz) =
     let (objectX, abX) = if dx /= 0
             then
                 let objectXP = moveObject object $ Vec3 dx 0 0
-                    entities = worldEntities world
+                    entities = findNearby (worldOctree world) (movePos playerAABB (getPos object))--worldEntities world
                     intersectingX = getObjectIntersecter objectXP entities
                 in if isJust intersectingX
                         then (object, intersectingX)
@@ -92,7 +93,7 @@ moveObjectSlideAllIntersecters world object (Vec3 dx dy dz) =
         (objectY, abY) = if dy /= 0
             then
                 let objectYP = moveObject objectX $ Vec3 0 dy 0
-                    entities = worldEntities world
+                    entities = findNearby (worldOctree world) (movePos playerAABB (getPos object)) --worldEntities world
                     intersectingY = getObjectIntersecter objectYP entities
                 in if isJust intersectingY
                         then (objectX, intersectingY)
@@ -102,7 +103,7 @@ moveObjectSlideAllIntersecters world object (Vec3 dx dy dz) =
     in if dz /= 0
         then
             let objectZP = moveObject objectY $ Vec3 0 0 dz
-                entities = worldEntities world
+                entities = findNearby (worldOctree world) (movePos playerAABB (getPos object))--worldEntities world
                 intersectingZ = getObjectIntersecter objectZP entities
             in if isJust intersectingZ
                         then
@@ -127,7 +128,7 @@ moveObjectSlide world object (Vec3 dx dy dz) =
     let objectX = if dx /= 0
         then
             let objectXP = moveObject object $ Vec3 dx 0 0
-                entities = worldEntities world
+                entities = findNearby (worldOctree world) (movePos playerAABB (getPos object)) --worldEntities world
                 intersectingX = isIntersectingAny objectXP entities
             in if intersectingX then object else objectXP
         else object
@@ -135,7 +136,7 @@ moveObjectSlide world object (Vec3 dx dy dz) =
         objectY = if dy /= 0
             then
                 let objectYP = moveObject objectX $ Vec3 0 dy 0
-                    entities = worldEntities world
+                    entities = findNearby (worldOctree world) (movePos playerAABB (getPos object))--worldEntities world
                     intersectingY = isIntersectingAny objectYP entities
                 in if intersectingY then objectX else objectYP
             else objectX
@@ -143,7 +144,7 @@ moveObjectSlide world object (Vec3 dx dy dz) =
     in if dz /= 0
         then
             let objectZP = moveObject objectY $ Vec3 0 0 dz
-                entities = worldEntities world
+                entities = findNearby (worldOctree world) (movePos playerAABB (getPos object))--worldEntities world
                 intersectingZ = isIntersectingAny objectZP entities
             in if intersectingZ then objectY else objectZP
         else objectY
@@ -151,7 +152,7 @@ moveObjectSlide world object (Vec3 dx dy dz) =
 moveObjectSafe :: World t -> GameObject t -> Vec3 GLfloat -> GameObject t
 moveObjectSafe world object vec =
     let moved = moveObject object vec
-        entities = worldEntities world
+        entities = findNearby (worldOctree world) (movePos playerAABB (getPos object))--worldEntities world
         intersectingObject = isIntersectingAny moved entities
     in if intersectingObject
         then object

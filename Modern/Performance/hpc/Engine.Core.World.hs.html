@@ -1,0 +1,88 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<style type="text/css">
+span.lineno { color: white; background: #aaaaaa; border-right: solid white 12px }
+span.nottickedoff { background: yellow}
+span.istickedoff { background: white }
+span.tickonlyfalse { margin: -1px; border: 1px solid #f20913; background: #f20913 }
+span.tickonlytrue  { margin: -1px; border: 1px solid #60de51; background: #60de51 }
+span.funcount { font-size: small; color: orange; z-index: 2; position: absolute; right: 20 }
+span.decl { font-weight: bold }
+span.spaces    { background: white }
+</style>
+</head>
+<body>
+<pre>
+<span class="lineno">    1 </span>module Engine.Core.World (
+<span class="lineno">    2 </span>    setWorldPlayer, playerAABB, (~&gt;~), (~&gt;~&gt;),
+<span class="lineno">    3 </span>    (~&gt;), (~~), setWorldUniforms, getWorldDelta,
+<span class="lineno">    4 </span>    getWorldTime
+<span class="lineno">    5 </span>) where
+<span class="lineno">    6 </span>
+<span class="lineno">    7 </span>import Data.Time (getCurrentTime, UTCTime)
+<span class="lineno">    8 </span>
+<span class="lineno">    9 </span>import Graphics.Rendering.OpenGL.Raw (GLfloat)
+<span class="lineno">   10 </span>
+<span class="lineno">   11 </span>import Engine.Core.Types
+<span class="lineno">   12 </span>import Engine.Graphics.Shaders
+<span class="lineno">   13 </span>
+<span class="lineno">   14 </span>setWorldPlayer :: GameObject t -&gt; World t -&gt; World t
+<span class="lineno">   15 </span><span class="decl"><span class="istickedoff">setWorldPlayer player world = world{worldPlayer = player}</span></span>
+<span class="lineno">   16 </span>
+<span class="lineno">   17 </span>actWithSeed ::
+<span class="lineno">   18 </span>    (a -&gt; b -&gt; b) -&gt;
+<span class="lineno">   19 </span>    (a, b) -&gt;
+<span class="lineno">   20 </span>    (a, b)
+<span class="lineno">   21 </span><span class="decl"><span class="nottickedoff">actWithSeed func (world, obj) =</span>
+<span class="lineno">   22 </span><span class="spaces">    </span><span class="nottickedoff">(world, func world obj)</span></span>
+<span class="lineno">   23 </span>
+<span class="lineno">   24 </span>infixl ~&gt;
+<span class="lineno">   25 </span>
+<span class="lineno">   26 </span>(~&gt;) ::
+<span class="lineno">   27 </span>    (a, b) -&gt;
+<span class="lineno">   28 </span>    (a -&gt; b -&gt; b) -&gt;
+<span class="lineno">   29 </span>    (a, b)
+<span class="lineno">   30 </span><span class="decl"><span class="nottickedoff">(~&gt;) val func = actWithSeed func val</span></span>
+<span class="lineno">   31 </span>
+<span class="lineno">   32 </span>infixl ~~
+<span class="lineno">   33 </span>
+<span class="lineno">   34 </span>(~~) ::
+<span class="lineno">   35 </span>    (a, b) -&gt;
+<span class="lineno">   36 </span>    (a -&gt; a) -&gt;
+<span class="lineno">   37 </span>    (a, b)
+<span class="lineno">   38 </span><span class="decl"><span class="nottickedoff">(~~) (applyVal, passVal) func =</span>
+<span class="lineno">   39 </span><span class="spaces">    </span><span class="nottickedoff">(func applyVal, passVal)</span></span>
+<span class="lineno">   40 </span>
+<span class="lineno">   41 </span>infixl ~&gt;~
+<span class="lineno">   42 </span>
+<span class="lineno">   43 </span>(~&gt;~) ::
+<span class="lineno">   44 </span>    (a, b) -&gt;
+<span class="lineno">   45 </span>    (b -&gt; a) -&gt;
+<span class="lineno">   46 </span>    (a, b)
+<span class="lineno">   47 </span><span class="decl"><span class="nottickedoff">(~&gt;~) (_, pass) func =</span>
+<span class="lineno">   48 </span><span class="spaces">    </span><span class="nottickedoff">(func pass, pass)</span></span>
+<span class="lineno">   49 </span>
+<span class="lineno">   50 </span>infixl ~&gt;~&gt;
+<span class="lineno">   51 </span>
+<span class="lineno">   52 </span>(~&gt;~&gt;) ::
+<span class="lineno">   53 </span>    (a, b) -&gt;
+<span class="lineno">   54 </span>    (a -&gt; a, b -&gt; b) -&gt;
+<span class="lineno">   55 </span>    (a, b)
+<span class="lineno">   56 </span><span class="decl"><span class="nottickedoff">(~&gt;~&gt;) (x, y) (fx, fy) = (fx x, fy y)</span></span>
+<span class="lineno">   57 </span>
+<span class="lineno">   58 </span>-- | Set a world's uniforms to given shader.
+<span class="lineno">   59 </span>setWorldUniforms :: World t -&gt; Shader -&gt; IO Shader
+<span class="lineno">   60 </span><span class="decl"><span class="istickedoff">setWorldUniforms world shader =</span>
+<span class="lineno">   61 </span><span class="spaces">    </span><span class="istickedoff">setUniformsAndRemember shader $ graphicsUniforms $ worldGraphics world</span></span>
+<span class="lineno">   62 </span>
+<span class="lineno">   63 </span>getWorldDelta :: World t -&gt; GLfloat
+<span class="lineno">   64 </span><span class="decl"><span class="istickedoff">getWorldDelta = stateDelta . worldState</span></span>
+<span class="lineno">   65 </span>
+<span class="lineno">   66 </span>-- | Synonym for getCurrentTime.
+<span class="lineno">   67 </span>getWorldTime :: IO UTCTime
+<span class="lineno">   68 </span><span class="decl"><span class="istickedoff">getWorldTime = getCurrentTime</span></span>
+
+</pre>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<style type="text/css">
+span.lineno { color: white; background: #aaaaaa; border-right: solid white 12px }
+span.nottickedoff { background: yellow}
+span.istickedoff { background: white }
+span.tickonlyfalse { margin: -1px; border: 1px solid #f20913; background: #f20913 }
+span.tickonlytrue  { margin: -1px; border: 1px solid #60de51; background: #60de51 }
+span.funcount { font-size: small; color: orange; z-index: 2; position: absolute; right: 20 }
+span.decl { font-weight: bold }
+span.spaces    { background: white }
+</style>
+</head>
+<body>
+<pre>
+<span class="lineno">    1 </span>module Engine.Graphics.Window (
+<span class="lineno">    2 </span>    defaultWindow, Window(..),
+<span class="lineno">    3 </span>    openWindow, shutdown
+<span class="lineno">    4 </span>) where
+<span class="lineno">    5 </span>
+<span class="lineno">    6 </span>import System.Exit (exitSuccess)
+<span class="lineno">    7 </span>
+<span class="lineno">    8 </span>import qualified Graphics.UI.GLFW as GLFW
+<span class="lineno">    9 </span>
+<span class="lineno">   10 </span>data Window = Window {
+<span class="lineno">   11 </span>    <span class="istickedoff"><span class="decl"><span class="istickedoff">windowHints</span></span></span> :: [GLFW.WindowHint],
+<span class="lineno">   12 </span>    <span class="istickedoff"><span class="decl"><span class="istickedoff">windowTitle</span></span></span> :: String,
+<span class="lineno">   13 </span>    <span class="istickedoff"><span class="decl"><span class="istickedoff">windowSize</span></span></span> :: (Int, Int),
+<span class="lineno">   14 </span>    <span class="istickedoff"><span class="decl"><span class="istickedoff">windowInner</span></span></span> :: Maybe GLFW.Window
+<span class="lineno">   15 </span>}
+<span class="lineno">   16 </span>
+<span class="lineno">   17 </span>defaultWindow :: Window
+<span class="lineno">   18 </span><span class="decl"><span class="istickedoff">defaultWindow =</span>
+<span class="lineno">   19 </span><span class="spaces">    </span><span class="istickedoff">Window</span>
+<span class="lineno">   20 </span><span class="spaces">        </span><span class="istickedoff">[GLFW.WindowHint'RefreshRate 60,</span>
+<span class="lineno">   21 </span><span class="spaces">         </span><span class="istickedoff">GLFW.WindowHint'Samples 4]</span>
+<span class="lineno">   22 </span><span class="spaces">        </span><span class="istickedoff">&quot;GLFW Window&quot;</span>
+<span class="lineno">   23 </span><span class="spaces">        </span><span class="istickedoff">(800, 600)</span>
+<span class="lineno">   24 </span><span class="spaces">        </span><span class="istickedoff"><span class="nottickedoff">Nothing</span></span></span>
+<span class="lineno">   25 </span>
+<span class="lineno">   26 </span>openWindow :: Window -&gt; IO Window
+<span class="lineno">   27 </span><span class="decl"><span class="istickedoff">openWindow window =</span>
+<span class="lineno">   28 </span><span class="spaces">    </span><span class="istickedoff">let (w, h) = windowSize window </span>
+<span class="lineno">   29 </span><span class="spaces">    </span><span class="istickedoff">in do</span>
+<span class="lineno">   30 </span><span class="spaces">    </span><span class="istickedoff">_ &lt;- GLFW.init</span>
+<span class="lineno">   31 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   32 </span><span class="spaces">    </span><span class="istickedoff">-- Apply window hints.</span>
+<span class="lineno">   33 </span><span class="spaces">    </span><span class="istickedoff">mapM_ GLFW.windowHint $ windowHints window</span>
+<span class="lineno">   34 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   35 </span><span class="spaces">    </span><span class="istickedoff">Just win &lt;- GLFW.createWindow w h (windowTitle window) Nothing Nothing</span>
+<span class="lineno">   36 </span><span class="spaces">    </span><span class="istickedoff">GLFW.setWindowPos win 100 50</span>
+<span class="lineno">   37 </span><span class="spaces">    </span><span class="istickedoff">GLFW.makeContextCurrent (Just win)</span>
+<span class="lineno">   38 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   39 </span><span class="spaces">    </span><span class="istickedoff">-- Enable VSync</span>
+<span class="lineno">   40 </span><span class="spaces">    </span><span class="istickedoff">GLFW.swapInterval 1</span>
+<span class="lineno">   41 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   42 </span><span class="spaces">    </span><span class="istickedoff">--GLFW.setWindowCloseCallback win (Just shutdown)</span>
+<span class="lineno">   43 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   44 </span><span class="spaces">    </span><span class="istickedoff">return $ window{windowInner = Just win}</span></span>
+<span class="lineno">   45 </span>
+<span class="lineno">   46 </span>shutdown :: GLFW.WindowCloseCallback
+<span class="lineno">   47 </span><span class="decl"><span class="istickedoff">shutdown win = do</span>
+<span class="lineno">   48 </span><span class="spaces">    </span><span class="istickedoff">GLFW.destroyWindow win</span>
+<span class="lineno">   49 </span><span class="spaces">    </span><span class="istickedoff">GLFW.terminate</span>
+<span class="lineno">   50 </span><span class="spaces">    </span><span class="istickedoff">_ &lt;- exitSuccess</span>
+<span class="lineno">   51 </span><span class="spaces">    </span><span class="istickedoff"><span class="nottickedoff">return ()</span></span></span>
+
+</pre>
+</body>
+</html>

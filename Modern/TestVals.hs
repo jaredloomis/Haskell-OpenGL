@@ -16,8 +16,8 @@ import Engine.Core.World
 import Engine.Graphics.Window
 import Engine.Graphics.Shaders
 import Engine.Graphics.Framebuffer
-import Engine.Object.GameObject
 import Engine.Graphics.Shadows
+import Engine.Object.Collision
 
 mkWorldFast :: IO (World ())
 mkWorldFast = do
@@ -74,9 +74,17 @@ mkWorld fb shadowFb shadowShader shaders = do
     obja <- mkObj
     objb <- mkObj2
     objc <- mkObj3
-    return $ World mkPlayer [obja, objb, objc]
+    let octree = mkOctree [obja, objb, objc]
+
+    --print octree
+
+    return $ World mkPlayer [obja, objb, objc] octree
             (mkGraphics fb shadowFb shadowShader shaders)
             state
+
+mkOctree :: [GameObject t] -> Octree AABB
+mkOctree = createOctreeFromAABBs (AABB (-500) 500)
+--foldl octInsert (createOctree $ AABB (-500) 500)
 
 mkGraphics :: Framebuffer -> Framebuffer -> GLuint -> [GLuint] -> Graphics t
 mkGraphics fb shadowFb shadowShader shaders =
@@ -90,7 +98,7 @@ mkWorldState = do
 
 mkObj :: IO (GameObject ())
 mkObj =
-    Entity (Vec3 10 3 10) (Vec3 0 0 0) eMove <$> mkModel <*> return ()
+    Entity (Vec3 10 3 10) (Vec3 0 0 0) idUpdate <$> mkModel <*> return ()
 
 mkObj2 :: IO (GameObject ())
 mkObj2 =
@@ -102,8 +110,8 @@ mkObj3 =
     --Entity (Vec3 (-700) (-480) 1016) id <$> mkModel3 <*> return ()
 
 
-eMove :: GameObject t -> Game t (GameObject t)
-eMove obj = return $ moveObject obj (Vec3 0.005 0 0) 
+--eMove :: GameObject t -> Game t (GameObject t)
+--eMove obj = return $ moveObject obj (Vec3 0.005 0 0) 
 
 idUpdate :: GameObject t -> Game t (GameObject t)
 idUpdate = return
@@ -117,12 +125,9 @@ mkModel =
 
 mkTerrain :: IO Model
 mkTerrain = genSimplexModel
-            "shaders/tesselation/pass.vert"
-            "shaders/tesselation/pass.frag"
-            "shaders/tesselation/test_ts.glsl"
-            "shaders/tesselation/test_te.glsl"
-            "shaders/tesselation/test_gs.glsl"
-            50
+            mainVertShader
+            mainFragShader
+            100
             1
             1
             20

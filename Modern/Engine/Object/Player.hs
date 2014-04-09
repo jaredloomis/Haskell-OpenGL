@@ -1,6 +1,6 @@
 module Engine.Object.Player (
     mkPlayer, moveFromLook,
-    moveFromLookSlide, applyTransformations,
+    moveFromLookSlide, --applyTransformations,
     resetPlayerInput
 ) where
 
@@ -306,6 +306,7 @@ resolveVelocity _ _ =
     error $ "Player.resolveVelocity can only be used"
             ++ " on Players"
 
+{-
 -- | Takes a Player and "moves the camera" by
 --   moving the whole world in the opposite direction.
 --   Then applies rotation.
@@ -328,3 +329,4 @@ applyTransformations player = do
 
     -- Reset attributes to former state?
     glPopAttrib
+-}

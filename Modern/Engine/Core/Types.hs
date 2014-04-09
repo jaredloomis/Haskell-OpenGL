@@ -1,6 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
 module Engine.Core.Types where
 
 import Data.Time (UTCTime)
@@ -24,10 +25,12 @@ newtype GameIO t a = GameIO {
     gameIoState :: StateT (World t) IO a
 } deriving (Functor, Monad, MonadIO, MonadState (World t)) 
 
+{-
 testIt :: Vec3 GLfloat
 testIt = entityPosition . head . worldEntities . execState
     (gameState moveAllObjects) $
         World emptyEntity [emptyEntity] emptyGraphics emptyWorldState
+-}
 
 moveAllObjects :: Game t ()
 moveAllObjects = do
@@ -61,39 +64,6 @@ class HasPosition a => HasAABB a where
     getAABBs :: a -> [AABB]
     getWholeAABB :: a -> Maybe AABB
 
--- | A class for types 'g' that contain another type 't'.
-class Container g t where
-    getContents :: g -> [t]
-    setContents :: g -> [t] -> g
-
--- | A class for types that can be updated, given a global
---   information type.
-class Container g t => HasUpdate t g where
-    updateStep :: t -> Update t g
-    performUpdateAll :: g -> [t] -> g
-    performUpdateAll g list =
-        let nonEff = updateNonEff list g
-            newGlobal = updateEff list g
-        in setContents newGlobal nonEff
-        where
-        updateEff :: HasUpdate t g => [t] -> g -> g
-        updateEff (x : xs) global =
-            let upStep = updateStep x
-            in case upStep of
-                Effectful f -> updateEff xs (f global x)
-                _ -> updateEff xs global
-        updateEff _ global = global
-
-        updateNonEff :: HasUpdate t g => [t] -> g -> [t]
-        updateNonEff (x : xs) global =
-            let upStep = updateStep x
-            in case upStep of
-                Pure f -> f x : updateNonEff xs global
-                Seed f -> f global x : updateNonEff xs global
-                _ -> updateNonEff xs global
-        updateNonEff _ _ = []
-
-
 instance HasPosition (Vec3 GLfloat) where
     getPos = id
     setPos _ = id
@@ -103,13 +73,10 @@ instance HasPosition (Vec3 GLfloat) where
 data World t = World {
     worldPlayer :: !(GameObject t),
     worldEntities :: ![GameObject t],
+    worldOctree :: !(Octree AABB),
     worldGraphics :: !(Graphics t),
     worldState :: !WorldState
 }
-
-instance Container (World t) (GameObject t) where
-    getContents = worldEntities
-    setContents world xs = world{worldEntities = xs}
 
 -- | The type used to contain global values relating to
 --   graphics / shaders.
@@ -150,12 +117,10 @@ data GameObject t = Player {
     playerVelocity :: !(Vec3 GLfloat),
     playerSpeed :: !GLfloat,
     playerUpdate :: !(Game t (World t)),
-    --playerUpdate :: !(World t -> World t),
     playerInput :: !(Input t)
 } | Entity {
     entityPosition :: !(Vec3 GLfloat),
     entityRotation :: !(Vec3 GLfloat),
-    --entityUpdate :: Update (GameObject t) (World t),
     entityUpdate :: !(GameObject t -> Game t (GameObject t)),
     entityModel :: !Model,
     entityAttribute :: !t
@@ -167,6 +132,10 @@ emptyEntity = Entity 0 0 return emptyModel ()
 -- TODO: Make this more flexible
 playerAABB :: AABB
 playerAABB = AABB (Vec3 (-0.5) (-2) (-0.5)) (Vec3 0.5 1 0.5)
+
+-- TODO: Not really...
+instance Show (GameObject t) where
+    show = show . getPos
 
 instance HasPosition (GameObject t) where
     getPos p@(Player{}) = playerPosition p
@@ -202,8 +171,18 @@ data Model = Model {
 }
 
 emptyModel :: Model
-emptyModel = Model (Shader 0 []) [] [] 0 Nothing Nothing
+emptyModel = Model (Shader 0 []) [] [] 0 (Just [AABB 0 0]) (Just $ AABB 0 0)
 
+data Octree a where
+    ONode :: HasAABB a => AABB -> [Octree a] -> Octree a
+    OLeaf :: HasAABB a => AABB -> [a] -> Int -> Octree a
+
+instance Show a => Show (Octree a) where
+    show (ONode aabb children) =
+        "Node: " ++ show aabb ++ "\n{\n" ++
+        concatMap ((++"\n") . show) children ++ "}"
+    show (OLeaf aabb contents _) =
+        "Leaf: " ++ show aabb ++ ", " ++ show contents
 
 data Input t = Input {
     -- (Key, Wanted Keystate, Current Keystate,
@@ -225,8 +204,8 @@ instance HasPosition AABB where
         AABB pos ((maxV - minV) + pos)
 
 instance HasAABB AABB where
-    getWholeAABB = Just
-    getAABBs x = [x]
+    getWholeAABB (AABB low high) = Just (AABB 0 (high - low))
+    getAABBs (AABB low high) = [AABB 0 (high - low)]
 
 -- | All OpenGL handles for a Framebuffer and
 --   Renderbuffer.

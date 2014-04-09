@@ -1,65 +1,73 @@
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE BangPatterns #-}
 module Engine.Object.Collision where
+
+import System.IO.Unsafe
 
 import Engine.Model.AABB
 import Engine.Core.Types
 import Engine.Core.Vec
 
-data Octree a where
-    ONode :: HasAABB a => AABB -> [Octree a] -> Octree a
-    OLeaf :: HasAABB a => AABB -> [a] -> Int -> Octree a
+--
+{-
+instance HasPosition Int where
+    getPos _ = 0
+    setPos _ (Vec3 x _ _) = floor x
 
-instance Show a => Show (Octree a) where
-    show (ONode aabb children) =
-        "Node: " ++ show aabb ++ "\n{\n" ++
-        concat (map ((++"\n") . show) children) ++ "}"
-    show (OLeaf aabb contents _) =
-        "Leaf: " ++ show aabb ++ ", " ++ show contents
+instance HasAABB Int where
+    getAABBs i = [AABB (fromIntegral i) $ fromIntegral i]
+    getWholeAABB i = Just $ AABB (fromIntegral i) $ fromIntegral i
 
+test :: Octree Int
+test = subdivide $ createOctree $ AABB (-500) 500
+-}
 --
 
 maxCapacity :: Int
-maxCapacity = 4
+maxCapacity = 64
 
-instance HasPosition Int where
-    getPos _ = 0
-    setPos _ (Vec3 x _ _) = 0
+createOctree :: HasAABB a => AABB -> Octree a
+createOctree aabb = OLeaf aabb [] 0
 
-instance HasAABB Int where
-    getAABBs x = [AABB (fromIntegral x) (fromIntegral x)]
-    getWholeAABB x = Just $ AABB (fromIntegral x) (fromIntegral x)
+createOctreeFromAABBs :: HasAABB a => AABB -> [a] -> Octree AABB
+createOctreeFromAABBs aabb =
+    foldl ((. calculateNewAABBs) . foldl octInsert) (OLeaf aabb [] 0)
+-- Pointfree form of:
+--foldl (\a b -> foldl octInsert a (calculateNewAABBs b)) (OLeaf aabb [] 0)
 
-baseTree :: HasAABB a => AABB -> Octree a
-baseTree aabb = OLeaf aabb [] 0
+output :: String -> a -> a
+output msg = seq (unsafePerformIO $ putStrLn msg)
 
-testTree :: Octree Int
-testTree = OLeaf (AABB 0 10) [] 0
+findNearby :: Octree a -> a -> [a]
+findNearby (ONode _ children) val =
+    let insertIntos = filter (checkOctant val) children
+    in if null insertIntos
+            then []
+        else concatMap (`findNearby` val) insertIntos
+findNearby (OLeaf _ contents _) _ = contents
 
-newTree :: Octree Int
-newTree = foldl octInsert testTree [0, 1, 2, 3, 4]
-
----
-
-octInsert :: Octree a -> a -> Octree a
-octInsert tree@(ONode aabb children) val =
+octInsert :: Show a => Octree a -> a -> Octree a
+octInsert tree@(ONode !aabb !children) !val =
     let (insertIntos, others) = filterPartition (checkOctant val) children
     in if null insertIntos
-            then tree
-        else ONode aabb $ octInsert (head insertIntos) val : others ++ tail insertIntos
-octInsert leaf@(OLeaf aabb contents size) val =
+            then output
+                ("Error in Collision.octInsert:" ++
+                 " value \"" ++ show val ++
+                 "\"could not be inserted into tree. Ignoring.") tree
+        else ONode aabb $ map (`octInsert` val) insertIntos ++ others
+octInsert leaf@(OLeaf !aabb !contents !size) !val =
     if size+1 <= maxCapacity
         then OLeaf aabb (val : contents) (size+1)
     else octInsert (subdivide leaf) val
 
-subdivide :: Octree a -> Octree a
-subdivide (OLeaf wholeAABB@(AABB minVec maxVec) contents _) =
+subdivide :: Show a => Octree a -> Octree a
+subdivide (OLeaf wholeAABB@(AABB !minVec !maxVec) !contents _) =
     let halfVec@(Vec3 halfX halfY halfZ) = fmap (/2) (abs $ maxVec - minVec)
         newAABBTemplate = AABB minVec $ minVec + halfVec 
 
         northWestA = newAABBTemplate
         northWestB = movePos northWestA (Vec3 0 0 halfZ)
         northWestALeaf = OLeaf northWestA [] 0
-        northWestBLeaf = OLeaf northWestB [] 0 
+        northWestBLeaf = OLeaf northWestB [] 0
         
         northEastA = movePos newAABBTemplate (Vec3 halfX 0 0)
         northEastB = movePos northEastA (Vec3 0 0 halfZ)
@@ -67,7 +75,7 @@ subdivide (OLeaf wholeAABB@(AABB minVec maxVec) contents _) =
         northEastBLeaf = OLeaf northEastB [] 0
 
         southWestA = movePos newAABBTemplate (Vec3 0 halfY 0)
-        southWestB = movePos northWestA (Vec3 0 0 halfZ)
+        southWestB = movePos southWestA (Vec3 0 0 halfZ)
         southWestALeaf = OLeaf southWestA [] 0
         southWestBLeaf = OLeaf southWestB [] 0
 
@@ -81,6 +89,7 @@ subdivide (OLeaf wholeAABB@(AABB minVec maxVec) contents _) =
                                    southWestALeaf, southWestBLeaf,
                                    southEastALeaf, southEastBLeaf]
     in foldl octInsert newNode contents
+subdivide _ = error "Collision.subdivide: cannot subdivide a ONode."
 
 filterPartition :: (a -> Bool) -> [a] -> ([a], [a])
 filterPartition f (x:xs)
@@ -96,5 +105,5 @@ checkOctant :: a -> Octree a -> Bool
 checkOctant val (ONode aabb _) =
     objectsIntersect val aabb
 checkOctant val (OLeaf aabb _ _) =
-    objectsIntersect val aabb 
+    objectsIntersect val aabb
 {-# INLINE checkOctant #-}

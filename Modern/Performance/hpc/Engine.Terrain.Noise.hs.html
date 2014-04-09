@@ -1,0 +1,141 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<style type="text/css">
+span.lineno { color: white; background: #aaaaaa; border-right: solid white 12px }
+span.nottickedoff { background: yellow}
+span.istickedoff { background: white }
+span.tickonlyfalse { margin: -1px; border: 1px solid #f20913; background: #f20913 }
+span.tickonlytrue  { margin: -1px; border: 1px solid #60de51; background: #60de51 }
+span.funcount { font-size: small; color: orange; z-index: 2; position: absolute; right: 20 }
+span.decl { font-weight: bold }
+span.spaces    { background: white }
+</style>
+</head>
+<body>
+<pre>
+<span class="lineno">    1 </span>module Engine.Terrain.Noise where
+<span class="lineno">    2 </span>
+<span class="lineno">    3 </span>import Data.Bits ((.&amp;.))
+<span class="lineno">    4 </span>import System.Random.Shuffle (shuffle')
+<span class="lineno">    5 </span>import System.Random hiding (next)
+<span class="lineno">    6 </span>import qualified Data.Vector.Unboxed as V
+<span class="lineno">    7 </span>
+<span class="lineno">    8 </span>import Graphics.Rendering.OpenGL.Raw (GLfloat)
+<span class="lineno">    9 </span>
+<span class="lineno">   10 </span>type Permutation = V.Vector Int
+<span class="lineno">   11 </span>
+<span class="lineno">   12 </span>g3 :: Double
+<span class="lineno">   13 </span><span class="decl"><span class="istickedoff">g3 = 1/6</span></span>
+<span class="lineno">   14 </span>
+<span class="lineno">   15 </span>{-# INLINE int #-}
+<span class="lineno">   16 </span>int :: Int -&gt; Double
+<span class="lineno">   17 </span><span class="decl"><span class="istickedoff">int = fromIntegral</span></span>
+<span class="lineno">   18 </span>
+<span class="lineno">   19 </span>grad3 :: V.Vector (Double, Double, Double)
+<span class="lineno">   20 </span><span class="decl"><span class="istickedoff">grad3 = V.fromList [(1,1,0),(-1, 1,0),(1,-1, 0),(-1,-1, 0),</span>
+<span class="lineno">   21 </span><span class="spaces">                     </span><span class="istickedoff">(1,0,1),(-1, 0,1),(1, 0,-1),(-1, 0,-1),</span>
+<span class="lineno">   22 </span><span class="spaces">                     </span><span class="istickedoff">(0,1,1),( 0,-1,1),(0, 1,-1),( 0,-1,-1)]</span></span>
+<span class="lineno">   23 </span>
+<span class="lineno">   24 </span>{-# INLINE dot3 #-}
+<span class="lineno">   25 </span>dot3 :: (Double, Double, Double) -&gt; Double -&gt; Double -&gt; Double -&gt; Double
+<span class="lineno">   26 </span><span class="decl"><span class="istickedoff">dot3 (a,b,c) x y z = a * x + b * y + c * z</span></span>
+<span class="lineno">   27 </span>
+<span class="lineno">   28 </span>{-# INLINE fastFloor #-}
+<span class="lineno">   29 </span>fastFloor :: Double -&gt; Int
+<span class="lineno">   30 </span><span class="decl"><span class="istickedoff">fastFloor x = truncate (if x &gt; 0 then x else x - 1)</span></span>
+<span class="lineno">   31 </span>
+<span class="lineno">   32 </span>-- | Generate a random permutation for use in the noise functions
+<span class="lineno">   33 </span>perm :: Int -&gt; Permutation
+<span class="lineno">   34 </span><span class="decl"><span class="istickedoff">perm seed = V.fromList . concat . replicate 2 . shuffle' [0..255] 256 $</span>
+<span class="lineno">   35 </span><span class="spaces">                </span><span class="istickedoff">mkStdGen seed</span></span>
+<span class="lineno">   36 </span>
+<span class="lineno">   37 </span>-- | Generate 3D noise between -0.5 and 0.5
+<span class="lineno">   38 </span>noise3D :: Permutation -&gt; Double -&gt; Double -&gt; Double -&gt; Double
+<span class="lineno">   39 </span><span class="decl"><span class="istickedoff">noise3D p x y z =</span>
+<span class="lineno">   40 </span><span class="spaces">    </span><span class="istickedoff">16 * (n gi0 (x0,y0,z0) + n gi1 xyz1 + n gi2 xyz2 + n gi3 xyz3)</span>
+<span class="lineno">   41 </span><span class="spaces">    </span><span class="istickedoff">where</span>
+<span class="lineno">   42 </span><span class="spaces">    </span><span class="istickedoff">(i,j,k) = (s x, s y, s z)</span>
+<span class="lineno">   43 </span><span class="spaces">    </span><span class="istickedoff">s a = fastFloor (a + (x + y + z) / 3)</span>
+<span class="lineno">   44 </span><span class="spaces">    </span><span class="istickedoff">(x0, y0, z0) = (x - int i + t, y - int j + t, z - int k + t)</span>
+<span class="lineno">   45 </span><span class="spaces">    </span><span class="istickedoff">t = int (i + j + k) * g3</span>
+<span class="lineno">   46 </span><span class="spaces">    </span><span class="istickedoff">(i1, j1, k1, i2, j2, k2)</span>
+<span class="lineno">   47 </span><span class="spaces">        </span><span class="istickedoff">| x0 &gt;= y0 =</span>
+<span class="lineno">   48 </span><span class="spaces">            </span><span class="istickedoff">if y0 &gt;= z0</span>
+<span class="lineno">   49 </span><span class="spaces">                </span><span class="istickedoff">then (1,0,0,1,1,0)</span>
+<span class="lineno">   50 </span><span class="spaces">            </span><span class="istickedoff">else if x0 &gt;= z0</span>
+<span class="lineno">   51 </span><span class="spaces">                </span><span class="istickedoff">then (1,0,0,1,0,1)</span>
+<span class="lineno">   52 </span><span class="spaces">            </span><span class="istickedoff">else (0,0,1,1,0,1)</span>
+<span class="lineno">   53 </span><span class="spaces">        </span><span class="istickedoff">| <span class="tickonlyfalse">x0 &gt;= y0</span> =</span>
+<span class="lineno">   54 </span><span class="spaces">                </span><span class="istickedoff"><span class="nottickedoff">if y0 &gt;= z0</span></span>
+<span class="lineno">   55 </span><span class="spaces">                    </span><span class="istickedoff"><span class="nottickedoff">then (1,0,0,1,1,0)</span></span>
+<span class="lineno">   56 </span><span class="spaces">                </span><span class="istickedoff"><span class="nottickedoff">else if x0 &gt;= z0</span></span>
+<span class="lineno">   57 </span><span class="spaces">                    </span><span class="istickedoff"><span class="nottickedoff">then (1,0,0,1,0,1)</span></span>
+<span class="lineno">   58 </span><span class="spaces">                </span><span class="istickedoff"><span class="nottickedoff">else (0,0,1,1,0,1)</span></span>
+<span class="lineno">   59 </span><span class="spaces">        </span><span class="istickedoff">| y0 &lt;  z0 = (0,0,1,0,1,1)</span>
+<span class="lineno">   60 </span><span class="spaces">        </span><span class="istickedoff">| x0 &lt;  z0 = (0,1,0,0,1,1)</span>
+<span class="lineno">   61 </span><span class="spaces">        </span><span class="istickedoff">| <span class="tickonlytrue">otherwise</span> = (0,1,0,1,1,0)</span>
+<span class="lineno">   62 </span><span class="spaces">    </span><span class="istickedoff">xyz1 = (x0 - int i1 +   g3, y0 - int j1 +   g3, z0 - int k1 +   g3)</span>
+<span class="lineno">   63 </span><span class="spaces">    </span><span class="istickedoff">xyz2 = (x0 - int i2 + 2*g3, y0 - int j2 + 2*g3, z0 - int k2 + 2*g3)</span>
+<span class="lineno">   64 </span><span class="spaces">    </span><span class="istickedoff">xyz3 = (x0 - 1 + 3*g3, y0 - 1 + 3*g3, z0 - 1 + 3*g3)</span>
+<span class="lineno">   65 </span><span class="spaces">    </span><span class="istickedoff">(ii,jj,kk) = (i .&amp;. 255, j .&amp;. 255, k .&amp;. 255)</span>
+<span class="lineno">   66 </span><span class="spaces">    </span><span class="istickedoff">gi0 = rem (V.unsafeIndex p </span>
+<span class="lineno">   67 </span><span class="spaces">        </span><span class="istickedoff">(ii + V.unsafeIndex p (jj + V.unsafeIndex p kk))) 12</span>
+<span class="lineno">   68 </span><span class="spaces">    </span><span class="istickedoff">gi1 = rem (V.unsafeIndex p </span>
+<span class="lineno">   69 </span><span class="spaces">        </span><span class="istickedoff">(ii + i1 + V.unsafeIndex p (jj + j1 + V.unsafeIndex p (kk + k1)))) 12</span>
+<span class="lineno">   70 </span><span class="spaces">    </span><span class="istickedoff">gi2 = rem (V.unsafeIndex p</span>
+<span class="lineno">   71 </span><span class="spaces">        </span><span class="istickedoff">(ii + i2 + V.unsafeIndex p (jj + j2 + V.unsafeIndex p (kk + k2)))) 12</span>
+<span class="lineno">   72 </span><span class="spaces">    </span><span class="istickedoff">gi3 = rem (V.unsafeIndex p</span>
+<span class="lineno">   73 </span><span class="spaces">        </span><span class="istickedoff">(ii + 1  + V.unsafeIndex p (jj + 1  + V.unsafeIndex p (kk + 1)))) 12</span>
+<span class="lineno">   74 </span><span class="spaces">    </span><span class="istickedoff">{-# INLINE n #-}</span>
+<span class="lineno">   75 </span><span class="spaces">    </span><span class="istickedoff">n gi (x',y',z') = (\a -&gt; if a &lt; 0 then 0 else</span>
+<span class="lineno">   76 </span><span class="spaces">        </span><span class="istickedoff">a*a*a*a*dot3 (V.unsafeIndex grad3 gi) x' y' z') $</span>
+<span class="lineno">   77 </span><span class="spaces">            </span><span class="istickedoff">0.6 - x'*x' - y'*y' - z'*z'</span></span>
+<span class="lineno">   78 </span>
+<span class="lineno">   79 </span>harmonic :: Int -&gt; (Double -&gt; Double) -&gt; Double
+<span class="lineno">   80 </span><span class="decl"><span class="istickedoff">harmonic octaves noise = f octaves / (2 - 1 / int (<span class="nottickedoff">2</span> ^ (octaves - 1)))</span>
+<span class="lineno">   81 </span><span class="spaces">    </span><span class="istickedoff">where</span>
+<span class="lineno">   82 </span><span class="spaces">    </span><span class="istickedoff">f 0 = 0</span>
+<span class="lineno">   83 </span><span class="spaces">    </span><span class="istickedoff">f o = let r = <span class="nottickedoff">2</span> ^^ (o - 1) in noise r / r + f (o - 1)</span></span>
+<span class="lineno">   84 </span>
+<span class="lineno">   85 </span>-- | 3D simplex noise
+<span class="lineno">   86 </span>--   args - permutation number_of_octaves wavelength x y z
+<span class="lineno">   87 </span>simplex3D :: Permutation -&gt; Int -&gt; Double -&gt; Double -&gt; Double -&gt; Double -&gt; Double
+<span class="lineno">   88 </span><span class="decl"><span class="istickedoff">simplex3D p octaves l x y z = harmonic octaves</span>
+<span class="lineno">   89 </span><span class="spaces">    </span><span class="istickedoff">(\f -&gt; noise3D p (x * f / l) (y * f / l) (z * f / l))</span></span>
+<span class="lineno">   90 </span>
+<span class="lineno">   91 </span>-- | Generate a 2D list of the height returned by simplex
+<span class="lineno">   92 </span>--   for each coordinate.
+<span class="lineno">   93 </span>simplexNoise :: Int -&gt; GLfloat -&gt; Int -&gt; GLfloat -&gt; GLfloat -&gt; IO [[GLfloat]]
+<span class="lineno">   94 </span><span class="decl"><span class="istickedoff">simplexNoise width spacing octaves wavelength intensity = do</span>
+<span class="lineno">   95 </span><span class="spaces">    </span><span class="istickedoff">seed &lt;- randomRIO (0, 100)</span>
+<span class="lineno">   96 </span><span class="spaces">    </span><span class="istickedoff">let raw = map</span>
+<span class="lineno">   97 </span><span class="spaces">            </span><span class="istickedoff">(\(x, y) -&gt; intensity * realToFrac</span>
+<span class="lineno">   98 </span><span class="spaces">                </span><span class="istickedoff">(simplex3D (perm seed) octaves (realToFrac wavelength) x y 0))</span>
+<span class="lineno">   99 </span><span class="spaces">            </span><span class="istickedoff">[(realToFrac x, realToFrac y) |</span>
+<span class="lineno">  100 </span><span class="spaces">                </span><span class="istickedoff">x &lt;- [0, spacing .. (fromIntegral $ width-1)],</span>
+<span class="lineno">  101 </span><span class="spaces">                </span><span class="istickedoff">y &lt;- [0, spacing .. (fromIntegral $ width-1)]]</span>
+<span class="lineno">  102 </span><span class="spaces">    </span><span class="istickedoff">return $ splitInterval raw width</span></span>
+<span class="lineno">  103 </span>
+<span class="lineno">  104 </span>simplexNoiseSection :: (Int, Int) -&gt; (Int, Int) -&gt; Int -&gt; GLfloat -&gt; GLfloat -&gt; IO [[GLfloat]]
+<span class="lineno">  105 </span><span class="decl"><span class="nottickedoff">simplexNoiseSection (width, height) (startx, starty) octaves wavelength intensity = do</span>
+<span class="lineno">  106 </span><span class="spaces">    </span><span class="nottickedoff">seed &lt;- randomRIO (0, 100)</span>
+<span class="lineno">  107 </span><span class="spaces">    </span><span class="nottickedoff">let raw = map</span>
+<span class="lineno">  108 </span><span class="spaces">            </span><span class="nottickedoff">(\(x, y) -&gt; intensity * realToFrac</span>
+<span class="lineno">  109 </span><span class="spaces">                </span><span class="nottickedoff">(simplex3D (perm seed) octaves (realToFrac wavelength) x y 0))</span>
+<span class="lineno">  110 </span><span class="spaces">            </span><span class="nottickedoff">[(realToFrac x, realToFrac y) |</span>
+<span class="lineno">  111 </span><span class="spaces">                </span><span class="nottickedoff">x &lt;- [startx .. (width-1)],</span>
+<span class="lineno">  112 </span><span class="spaces">                </span><span class="nottickedoff">y &lt;- [starty .. (height-1)]]</span>
+<span class="lineno">  113 </span><span class="spaces">    </span><span class="nottickedoff">return $ splitInterval raw width</span></span>
+<span class="lineno">  114 </span>
+<span class="lineno">  115 </span>splitInterval :: [a] -&gt; Int -&gt; [[a]]
+<span class="lineno">  116 </span><span class="decl"><span class="istickedoff">splitInterval xs i</span>
+<span class="lineno">  117 </span><span class="spaces">    </span><span class="istickedoff">| not $ null xs =</span>
+<span class="lineno">  118 </span><span class="spaces">        </span><span class="istickedoff">let (ret, rest) = splitAt i xs</span>
+<span class="lineno">  119 </span><span class="spaces">        </span><span class="istickedoff">in ret : splitInterval rest i</span>
+<span class="lineno">  120 </span><span class="spaces">    </span><span class="istickedoff">| <span class="tickonlytrue">otherwise</span> = []</span></span>
+<span class="lineno">  121 </span>
+
+</pre>
+</body>
+</html>

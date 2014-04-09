@@ -1,0 +1,335 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<style type="text/css">
+span.lineno { color: white; background: #aaaaaa; border-right: solid white 12px }
+span.nottickedoff { background: yellow}
+span.istickedoff { background: white }
+span.tickonlyfalse { margin: -1px; border: 1px solid #f20913; background: #f20913 }
+span.tickonlytrue  { margin: -1px; border: 1px solid #60de51; background: #60de51 }
+span.funcount { font-size: small; color: orange; z-index: 2; position: absolute; right: 20 }
+span.decl { font-weight: bold }
+span.spaces    { background: white }
+</style>
+</head>
+<body>
+<pre>
+<span class="lineno">    1 </span>-- | Modified from / based on:
+<span class="lineno">    2 </span>--   https://github.com/kig/tomtegebra/blob/master/Tomtegebra/Matrix.hs
+<span class="lineno">    3 </span>{-# LANGUAGE TypeSynonymInstances #-}
+<span class="lineno">    4 </span>{-# LANGUAGE FlexibleInstances #-}
+<span class="lineno">    5 </span>{-# OPTIONS_GHC -fno-warn-orphans #-}
+<span class="lineno">    6 </span>{-# OPTIONS_GHC -fno-warn-unused-binds #-}
+<span class="lineno">    7 </span>module Engine.Matrix.Matrix (
+<span class="lineno">    8 </span>    calculateMatricesFromPlayer,
+<span class="lineno">    9 </span>    WorldMatrices(..), gtranslationMatrix,
+<span class="lineno">   10 </span>    setMatrixUniforms, gfrustumMatrix,
+<span class="lineno">   11 </span>    gidentityMatrix, glookAtMatrix, toGLFormat,
+<span class="lineno">   12 </span>    Matrix4x4, gorthoMatrix, emptyMatrices,
+<span class="lineno">   13 </span>    grotationMatrix
+<span class="lineno">   14 </span>) where
+<span class="lineno">   15 </span>
+<span class="lineno">   16 </span>import Data.List (transpose)
+<span class="lineno">   17 </span>import Foreign.Marshal.Array (withArray)
+<span class="lineno">   18 </span>
+<span class="lineno">   19 </span>import qualified Graphics.Rendering.OpenGL as GL
+<span class="lineno">   20 </span>import Graphics.Rendering.OpenGL.Raw
+<span class="lineno">   21 </span>
+<span class="lineno">   22 </span>import Engine.Core.Types
+<span class="lineno">   23 </span>import Engine.Graphics.Shaders
+<span class="lineno">   24 </span>import Engine.Core.Vec
+<span class="lineno">   25 </span>
+<span class="lineno">   26 </span>data WorldMatrices = WorldMatrices {
+<span class="lineno">   27 </span>    <span class="istickedoff"><span class="decl"><span class="istickedoff">matrixModel</span></span></span> :: Matrix4x4,
+<span class="lineno">   28 </span>    <span class="istickedoff"><span class="decl"><span class="istickedoff">matrixView</span></span></span> :: Matrix4x4,
+<span class="lineno">   29 </span>    <span class="istickedoff"><span class="decl"><span class="istickedoff">matrixProjection</span></span></span> :: Matrix4x4
+<span class="lineno">   30 </span>}
+<span class="lineno">   31 </span>
+<span class="lineno">   32 </span>emptyMatrices :: WorldMatrices
+<span class="lineno">   33 </span><span class="decl"><span class="nottickedoff">emptyMatrices = WorldMatrices 1 1 1</span></span>
+<span class="lineno">   34 </span>
+<span class="lineno">   35 </span>-- | 4x4 Matrix in the OpenGL orientation:
+<span class="lineno">   36 </span>--   translation column is the last 4 elements.
+<span class="lineno">   37 </span>type Matrix4x4 = [[GLfloat]]
+<span class="lineno">   38 </span>-- | 3x3 Matrix in the OpenGL orientation.
+<span class="lineno">   39 </span>type Matrix3x3 = [[GLfloat]]
+<span class="lineno">   40 </span>-- | Four element GLfloat vector.
+<span class="lineno">   41 </span>type Vector4 = [GLfloat]
+<span class="lineno">   42 </span>-- | Three element GLfloat vector.
+<span class="lineno">   43 </span>type Vector3 = [GLfloat]
+<span class="lineno">   44 </span>
+<span class="lineno">   45 </span>instance Num Matrix4x4 where
+<span class="lineno">   46 </span>    <span class="decl"><span class="istickedoff">a * b =</span>
+<span class="lineno">   47 </span><span class="spaces">        </span><span class="istickedoff">map (\row -&gt; map (gdotVec row) at) b</span>
+<span class="lineno">   48 </span><span class="spaces">        </span><span class="istickedoff">where at = transpose a</span></span>
+<span class="lineno">   49 </span>    <span class="decl"><span class="nottickedoff">a + b = applyToIndices2 a b (+)</span></span>
+<span class="lineno">   50 </span>    <span class="decl"><span class="nottickedoff">abs = map (map abs)</span></span>
+<span class="lineno">   51 </span>    <span class="decl"><span class="nottickedoff">fromInteger i =</span>
+<span class="lineno">   52 </span><span class="spaces">        </span><span class="nottickedoff">[</span>
+<span class="lineno">   53 </span><span class="spaces">        </span><span class="nottickedoff">[fromInteger i, 0, 0, 0],</span>
+<span class="lineno">   54 </span><span class="spaces">        </span><span class="nottickedoff">[0, fromInteger i, 0, 0],</span>
+<span class="lineno">   55 </span><span class="spaces">        </span><span class="nottickedoff">[0, 0, fromInteger i, 0],</span>
+<span class="lineno">   56 </span><span class="spaces">        </span><span class="nottickedoff">[0, 0, 0, fromInteger i]</span>
+<span class="lineno">   57 </span><span class="spaces">        </span><span class="nottickedoff">]</span></span>
+<span class="lineno">   58 </span>    <span class="decl"><span class="nottickedoff">signum = map $ map signum</span></span>
+<span class="lineno">   59 </span>    <span class="decl"><span class="nottickedoff">negate = map $ map negate</span></span>
+<span class="lineno">   60 </span>
+<span class="lineno">   61 </span>applyToIndices2 :: [[a]] -&gt; [[b]] -&gt; (a -&gt; b -&gt; c) -&gt; [[c]]
+<span class="lineno">   62 </span><span class="decl"><span class="nottickedoff">applyToIndices2 (a:as) (b:bs) f =</span>
+<span class="lineno">   63 </span><span class="spaces">    </span><span class="nottickedoff">applyToIndices a b f : applyToIndices2 as bs f</span>
+<span class="lineno">   64 </span><span class="spaces"></span><span class="nottickedoff">applyToIndices2 _ _ _ = []</span></span>
+<span class="lineno">   65 </span>
+<span class="lineno">   66 </span>applyToIndices :: [a] -&gt; [b] -&gt; (a -&gt; b -&gt; c) -&gt; [c]
+<span class="lineno">   67 </span><span class="decl"><span class="nottickedoff">applyToIndices (a:as) (b:bs) f =</span>
+<span class="lineno">   68 </span><span class="spaces">    </span><span class="nottickedoff">f a b : applyToIndices as bs f</span>
+<span class="lineno">   69 </span><span class="spaces"></span><span class="nottickedoff">applyToIndices _ _ _ = []</span></span>
+<span class="lineno">   70 </span>
+<span class="lineno">   71 </span>setMatrixUniforms :: Shader -&gt; WorldMatrices -&gt; IO Shader
+<span class="lineno">   72 </span><span class="decl"><span class="istickedoff">setMatrixUniforms shader wm = do</span>
+<span class="lineno">   73 </span><span class="spaces">    </span><span class="istickedoff">(shader', modelMatrix) &lt;- findUniformLocationAndRemember shader &quot;modelMatrix&quot;</span>
+<span class="lineno">   74 </span><span class="spaces">    </span><span class="istickedoff">withArray (toGLFormat $ matrixModel wm)</span>
+<span class="lineno">   75 </span><span class="spaces">        </span><span class="istickedoff">$ glUniformMatrix4fv modelMatrix 1 (fromIntegral gl_FALSE)</span>
+<span class="lineno">   76 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   77 </span><span class="spaces">    </span><span class="istickedoff">(shader'', projectionMatrix) &lt;- findUniformLocationAndRemember shader'</span>
+<span class="lineno">   78 </span><span class="spaces">                                    </span><span class="istickedoff">&quot;projectionMatrix&quot;</span>
+<span class="lineno">   79 </span><span class="spaces">    </span><span class="istickedoff">withArray (toGLFormat $ matrixProjection wm)</span>
+<span class="lineno">   80 </span><span class="spaces">        </span><span class="istickedoff">$ glUniformMatrix4fv projectionMatrix 1 (fromIntegral gl_FALSE)</span>
+<span class="lineno">   81 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   82 </span><span class="spaces">    </span><span class="istickedoff">(shader''', viewMatrix) &lt;- findUniformLocationAndRemember shader'' &quot;viewMatrix&quot;</span>
+<span class="lineno">   83 </span><span class="spaces">    </span><span class="istickedoff">withArray (toGLFormat $ matrixView wm)</span>
+<span class="lineno">   84 </span><span class="spaces">        </span><span class="istickedoff">$ glUniformMatrix4fv viewMatrix 1 (fromIntegral gl_FALSE)</span>
+<span class="lineno">   85 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   86 </span><span class="spaces">    </span><span class="istickedoff">(shader'''', mvpMatrix) &lt;- findUniformLocationAndRemember shader''' &quot;mvpMatrix&quot;</span>
+<span class="lineno">   87 </span><span class="spaces">    </span><span class="istickedoff">withArray</span>
+<span class="lineno">   88 </span><span class="spaces">        </span><span class="istickedoff">(toGLFormat $ matrixProjection wm * matrixView wm * matrixModel wm)</span>
+<span class="lineno">   89 </span><span class="spaces">        </span><span class="istickedoff">$ glUniformMatrix4fv mvpMatrix 1 (fromIntegral gl_FALSE)</span>
+<span class="lineno">   90 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   91 </span><span class="spaces">    </span><span class="istickedoff">return shader''''</span></span>
+<span class="lineno">   92 </span>
+<span class="lineno">   93 </span>calculateMatricesFromPlayer :: GameObject a -&gt; (Int, Int) -&gt; WorldMatrices
+<span class="lineno">   94 </span><span class="decl"><span class="istickedoff">calculateMatricesFromPlayer p@(Player{}) (width, height) =</span>
+<span class="lineno">   95 </span><span class="spaces">    </span><span class="istickedoff">let Vec3 px py pz = playerPosition p</span>
+<span class="lineno">   96 </span><span class="spaces">        </span><span class="istickedoff">Vec3 rx ry rz = playerRotation p</span>
+<span class="lineno">   97 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   98 </span><span class="spaces">        </span><span class="istickedoff">-- Calculate projection matrix.</span>
+<span class="lineno">   99 </span><span class="spaces">        </span><span class="istickedoff">projMat = gperspectiveMatrix 45</span>
+<span class="lineno">  100 </span><span class="spaces">                    </span><span class="istickedoff">(fromIntegral width / fromIntegral height) 0.1 100</span>
+<span class="lineno">  101 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">  102 </span><span class="spaces">        </span><span class="istickedoff">rotatedMatX = grotationMatrix' (rx * (pi/180)) [-1, 0, 0]</span>
+<span class="lineno">  103 </span><span class="spaces">        </span><span class="istickedoff">rotatedMatXY = rotatedMatX * grotationMatrix' (ry * (pi/180)) [0, -1, 0]</span>
+<span class="lineno">  104 </span><span class="spaces">        </span><span class="istickedoff">rotatedMatXYZ = rotatedMatXY * grotationMatrix' (rz * (pi/180)) [0, 0, -1]</span>
+<span class="lineno">  105 </span><span class="spaces">        </span><span class="istickedoff">translatedMat = gtranslationMatrix [-px, -py, -pz]</span>
+<span class="lineno">  106 </span><span class="spaces">        </span><span class="istickedoff">--viewMat = rotatedMatXYZ * translatedMat</span>
+<span class="lineno">  107 </span><span class="spaces">        </span><span class="istickedoff">viewMat = rotatedMatXYZ * translatedMat</span>
+<span class="lineno">  108 </span><span class="spaces">        </span><span class="istickedoff"><span class="nottickedoff">modelMat = gidentityMatrix</span></span>
+<span class="lineno">  109 </span><span class="spaces">    </span><span class="istickedoff">in WorldMatrices <span class="nottickedoff">modelMat</span> viewMat projMat</span>
+<span class="lineno">  110 </span><span class="spaces"></span><span class="istickedoff">calculateMatricesFromPlayer _ _ =</span>
+<span class="lineno">  111 </span><span class="spaces">    </span><span class="istickedoff"><span class="nottickedoff">error $ &quot;Matrix.calculateMatricesFromPlayer given a &quot; ++</span></span>
+<span class="lineno">  112 </span><span class="spaces">            </span><span class="istickedoff"><span class="nottickedoff">&quot;non-Player GameObject.&quot;</span></span></span>
+<span class="lineno">  113 </span>
+<span class="lineno">  114 </span>toGLFormat :: [[GLfloat]] -&gt; [GLfloat]
+<span class="lineno">  115 </span><span class="decl"><span class="istickedoff">toGLFormat = concat</span></span>
+<span class="lineno">  116 </span>
+<span class="lineno">  117 </span>-- | The 'Matrix4x4' identity matrix.
+<span class="lineno">  118 </span>gidentityMatrix :: Matrix4x4
+<span class="lineno">  119 </span><span class="decl"><span class="nottickedoff">gidentityMatrix =</span>
+<span class="lineno">  120 </span><span class="spaces">    </span><span class="nottickedoff">[</span>
+<span class="lineno">  121 </span><span class="spaces">        </span><span class="nottickedoff">[1,0,0,0],</span>
+<span class="lineno">  122 </span><span class="spaces">        </span><span class="nottickedoff">[0,1,0,0],</span>
+<span class="lineno">  123 </span><span class="spaces">        </span><span class="nottickedoff">[0,0,1,0],</span>
+<span class="lineno">  124 </span><span class="spaces">        </span><span class="nottickedoff">[0,0,0,1]</span>
+<span class="lineno">  125 </span><span class="spaces">    </span><span class="nottickedoff">]</span></span>
+<span class="lineno">  126 </span>
+<span class="lineno">  127 </span>-- | Multiplies a vector by a matrix.
+<span class="lineno">  128 </span>gmatrixMulVec :: Matrix4x4 -&gt; Vector4 -&gt; Vector4
+<span class="lineno">  129 </span><span class="decl"><span class="nottickedoff">gmatrixMulVec m v = map (gdotVec v) (transpose m)</span></span>
+<span class="lineno">  130 </span>
+<span class="lineno">  131 </span>-- | Returns the upper-left 3x3 matrix of a 4x4 matrix.
+<span class="lineno">  132 </span>gmatrix4x4To3x3 :: Matrix4x4 -&gt; Matrix3x3
+<span class="lineno">  133 </span><span class="decl"><span class="nottickedoff">gmatrix4x4To3x3 m = take 3 $ map gvec4To3 m</span></span>
+<span class="lineno">  134 </span>
+<span class="lineno">  135 </span>-- | Pads the 3x3 matrix to a 4x4 matrix with a 1 in 
+<span class="lineno">  136 </span>--   bottom right corner and 0 elsewhere.
+<span class="lineno">  137 </span>gmatrix3x3To4x4 :: Matrix3x3 -&gt; Matrix4x4
+<span class="lineno">  138 </span><span class="decl"><span class="nottickedoff">gmatrix3x3To4x4 [x,y,z] = [x ++ [0], y ++ [0], z ++ [0], [0,0,0,1]]</span>
+<span class="lineno">  139 </span><span class="spaces"></span><span class="nottickedoff">gmatrix3x3To4x4 m = m</span></span>
+<span class="lineno">  140 </span>
+<span class="lineno">  141 </span>-- | Inverts a 4x4 orthonormal matrix with the special case trick.
+<span class="lineno">  142 </span>ginvertMatrix4x4ON :: Matrix4x4 -&gt; Matrix4x4
+<span class="lineno">  143 </span><span class="decl"><span class="nottickedoff">ginvertMatrix4x4ON m = -- orthonormal matrix inverse</span>
+<span class="lineno">  144 </span><span class="spaces">    </span><span class="nottickedoff">let [a,b,c] = transpose $ gmatrix4x4To3x3 m</span>
+<span class="lineno">  145 </span><span class="spaces">        </span><span class="nottickedoff">[_,_,_,t4] = m</span>
+<span class="lineno">  146 </span><span class="spaces">        </span><span class="nottickedoff">t = gvec4To3 t4</span>
+<span class="lineno">  147 </span><span class="spaces">    </span><span class="nottickedoff">in [</span>
+<span class="lineno">  148 </span><span class="spaces">        </span><span class="nottickedoff">gvec3To4 a 0, gvec3To4 b 0, gvec3To4 c 0,</span>
+<span class="lineno">  149 </span><span class="spaces">        </span><span class="nottickedoff">[gdotVec a t, gdotVec b t, gdotVec c t, t4 !! 3]</span>
+<span class="lineno">  150 </span><span class="spaces">       </span><span class="nottickedoff">]</span></span>
+<span class="lineno">  151 </span>
+<span class="lineno">  152 </span>-- | Creates the translation matrix that translates points by the given vector.
+<span class="lineno">  153 </span>gtranslationMatrix :: Vector3 -&gt; Matrix4x4
+<span class="lineno">  154 </span><span class="decl"><span class="istickedoff">gtranslationMatrix [x,y,z] =</span>
+<span class="lineno">  155 </span><span class="spaces">    </span><span class="istickedoff">[[1,0,0,0],</span>
+<span class="lineno">  156 </span><span class="spaces">     </span><span class="istickedoff">[0,1,0,0],</span>
+<span class="lineno">  157 </span><span class="spaces">     </span><span class="istickedoff">[0,0,1,0],</span>
+<span class="lineno">  158 </span><span class="spaces">     </span><span class="istickedoff">[x,y,z,1]]</span>
+<span class="lineno">  159 </span><span class="spaces"></span><span class="istickedoff">gtranslationMatrix _ = <span class="nottickedoff">gidentityMatrix</span></span></span>
+<span class="lineno">  160 </span>
+<span class="lineno">  161 </span>-- | Creates the scaling matrix that scales points by the factors given by the
+<span class="lineno">  162 </span>--   vector components.
+<span class="lineno">  163 </span>gscalingMatrix :: Vector3 -&gt; Matrix4x4
+<span class="lineno">  164 </span><span class="decl"><span class="nottickedoff">gscalingMatrix [x,y,z] =</span>
+<span class="lineno">  165 </span><span class="spaces">   </span><span class="nottickedoff">[[x,0,0,0],</span>
+<span class="lineno">  166 </span><span class="spaces">    </span><span class="nottickedoff">[0,y,0,0],</span>
+<span class="lineno">  167 </span><span class="spaces">    </span><span class="nottickedoff">[0,0,z,0],</span>
+<span class="lineno">  168 </span><span class="spaces">    </span><span class="nottickedoff">[0,0,0,1]]</span>
+<span class="lineno">  169 </span><span class="spaces"></span><span class="nottickedoff">gscalingMatrix _ = gidentityMatrix</span></span>
+<span class="lineno">  170 </span>
+<span class="lineno">  171 </span>grotationMatrix :: Vector3 -&gt; Matrix4x4
+<span class="lineno">  172 </span><span class="decl"><span class="istickedoff">grotationMatrix [x, y, z] =</span>
+<span class="lineno">  173 </span><span class="spaces">    </span><span class="istickedoff">let radX = x * (pi/180)</span>
+<span class="lineno">  174 </span><span class="spaces">        </span><span class="istickedoff">radY = y * (pi/180)</span>
+<span class="lineno">  175 </span><span class="spaces">        </span><span class="istickedoff">radZ = z * (pi/180)</span>
+<span class="lineno">  176 </span><span class="spaces">    </span><span class="istickedoff">in grotationMatrix' radX [1, 0, 0] *</span>
+<span class="lineno">  177 </span><span class="spaces">       </span><span class="istickedoff">grotationMatrix' radY [0, 1, 0] *</span>
+<span class="lineno">  178 </span><span class="spaces">       </span><span class="istickedoff">grotationMatrix' radZ [0, 0, 1]</span></span>
+<span class="lineno">  179 </span>
+<span class="lineno">  180 </span>grotationMatrix' :: GLfloat -&gt; Vector3 -&gt; Matrix4x4
+<span class="lineno">  181 </span><span class="decl"><span class="istickedoff">grotationMatrix' angle axis =</span>
+<span class="lineno">  182 </span><span class="spaces">    </span><span class="istickedoff">let [x,y,z] = gnormalizeVec axis</span>
+<span class="lineno">  183 </span><span class="spaces">        </span><span class="istickedoff">c = cos angle</span>
+<span class="lineno">  184 </span><span class="spaces">        </span><span class="istickedoff">s = sin angle</span>
+<span class="lineno">  185 </span><span class="spaces">        </span><span class="istickedoff">c1 = 1-c</span>
+<span class="lineno">  186 </span><span class="spaces">    </span><span class="istickedoff">in [</span>
+<span class="lineno">  187 </span><span class="spaces">      </span><span class="istickedoff">[x*x*c1+c, y*x*c1+z*s, z*x*c1-y*s, 0],</span>
+<span class="lineno">  188 </span><span class="spaces">      </span><span class="istickedoff">[x*y*c1-z*s, y*y*c1+c, y*z*c1+x*s, 0],</span>
+<span class="lineno">  189 </span><span class="spaces">      </span><span class="istickedoff">[x*z*c1+y*s, y*z*c1-x*s, z*z*c1+c, 0],</span>
+<span class="lineno">  190 </span><span class="spaces">      </span><span class="istickedoff">[0,0,0,1]</span>
+<span class="lineno">  191 </span><span class="spaces">       </span><span class="istickedoff">]</span></span>
+<span class="lineno">  192 </span>
+<span class="lineno">  193 </span>glookAtMatrix :: Vec3 GLfloat -&gt; Vec3 GLfloat -&gt; Vec3 GLfloat -&gt; Matrix4x4
+<span class="lineno">  194 </span><span class="decl"><span class="nottickedoff">glookAtMatrix eye center up =</span>
+<span class="lineno">  195 </span><span class="spaces">    </span><span class="nottickedoff">glookAtMatrixG (vecToGVec3 eye) (vecToGVec3 center) (vecToGVec3 up)</span></span>
+<span class="lineno">  196 </span>
+<span class="lineno">  197 </span>vecToGVec3 :: Vec3 GLfloat -&gt; Vector3
+<span class="lineno">  198 </span><span class="decl"><span class="nottickedoff">vecToGVec3 (Vec3 x y z) = [x, y, z]</span></span>
+<span class="lineno">  199 </span>
+<span class="lineno">  200 </span>-- | Creates a lookAt matrix from three vectors: the eye position, the point the
+<span class="lineno">  201 </span>--   eye is looking at and the up vector of the eye.
+<span class="lineno">  202 </span>glookAtMatrixG :: Vector3 -&gt; Vector3 -&gt; Vector3 -&gt; Matrix4x4
+<span class="lineno">  203 </span><span class="decl"><span class="nottickedoff">glookAtMatrixG eye center up =</span>
+<span class="lineno">  204 </span><span class="spaces">    </span><span class="nottickedoff">let z = gdirectionVec eye center</span>
+<span class="lineno">  205 </span><span class="spaces">        </span><span class="nottickedoff">x = gnormalizeVec $ gcrossVec3 up z</span>
+<span class="lineno">  206 </span><span class="spaces">        </span><span class="nottickedoff">y = gnormalizeVec $ gcrossVec3 z x</span>
+<span class="lineno">  207 </span><span class="spaces">    </span><span class="nottickedoff">in gmatrix3x3To4x4 (transpose [x,y,z]) *</span>
+<span class="lineno">  208 </span><span class="spaces">        </span><span class="nottickedoff">gtranslationMatrix (gnegateVec eye)</span></span>
+<span class="lineno">  209 </span>
+<span class="lineno">  210 </span>-- | Creates a frustumMatrix from the given
+<span class="lineno">  211 </span>--   left, right, bottom, top, znear and zfar
+<span class="lineno">  212 </span>--   values for the view frustum.
+<span class="lineno">  213 </span>gfrustumMatrix ::
+<span class="lineno">  214 </span>    GLfloat -&gt; GLfloat -&gt; GLfloat -&gt; GLfloat -&gt; GLfloat -&gt; GLfloat -&gt; Matrix4x4
+<span class="lineno">  215 </span><span class="decl"><span class="istickedoff">gfrustumMatrix left right bottom top znear zfar =</span>
+<span class="lineno">  216 </span><span class="spaces">    </span><span class="istickedoff">let x = 2*znear/(right-left)</span>
+<span class="lineno">  217 </span><span class="spaces">        </span><span class="istickedoff">y = 2*znear/(top-bottom)</span>
+<span class="lineno">  218 </span><span class="spaces">        </span><span class="istickedoff">a = (right+left)/(right-left)</span>
+<span class="lineno">  219 </span><span class="spaces">        </span><span class="istickedoff">b = (top+bottom)/(top-bottom)</span>
+<span class="lineno">  220 </span><span class="spaces">        </span><span class="istickedoff">c = -(zfar+znear)/(zfar-znear)</span>
+<span class="lineno">  221 </span><span class="spaces">        </span><span class="istickedoff">d = -2*zfar*znear/(zfar-znear)</span>
+<span class="lineno">  222 </span><span class="spaces">    </span><span class="istickedoff">in</span>
+<span class="lineno">  223 </span><span class="spaces">       </span><span class="istickedoff">[[x, 0, 0, 0],</span>
+<span class="lineno">  224 </span><span class="spaces">        </span><span class="istickedoff">[0, y, 0, 0],</span>
+<span class="lineno">  225 </span><span class="spaces">        </span><span class="istickedoff">[a, b, c, -1],</span>
+<span class="lineno">  226 </span><span class="spaces">        </span><span class="istickedoff">[0, 0, d, 0]]</span></span>
+<span class="lineno">  227 </span>
+<span class="lineno">  228 </span>gorthoMatrix ::
+<span class="lineno">  229 </span>    GLfloat -&gt; GLfloat -&gt; GLfloat -&gt; GLfloat -&gt; GLfloat -&gt; GLfloat -&gt; Matrix4x4
+<span class="lineno">  230 </span><span class="decl"><span class="nottickedoff">gorthoMatrix l r b t n f =</span>
+<span class="lineno">  231 </span><span class="spaces">    </span><span class="nottickedoff">let ai = 2/(r-l)</span>
+<span class="lineno">  232 </span><span class="spaces">        </span><span class="nottickedoff">bi = 2/(t-b)</span>
+<span class="lineno">  233 </span><span class="spaces">        </span><span class="nottickedoff">ci = -2/(f-n)</span>
+<span class="lineno">  234 </span><span class="spaces">        </span><span class="nottickedoff">di = -(r+l)/(r-l)</span>
+<span class="lineno">  235 </span><span class="spaces">        </span><span class="nottickedoff">ei = -(t+b)/(t-b)</span>
+<span class="lineno">  236 </span><span class="spaces">        </span><span class="nottickedoff">fi = -(f+n)/(f-n)</span>
+<span class="lineno">  237 </span><span class="spaces">    </span><span class="nottickedoff">in</span>
+<span class="lineno">  238 </span><span class="spaces">    </span><span class="nottickedoff">[[ai, 0, 0, 0],</span>
+<span class="lineno">  239 </span><span class="spaces">     </span><span class="nottickedoff">[0, bi, 0, 0],</span>
+<span class="lineno">  240 </span><span class="spaces">     </span><span class="nottickedoff">[0, 0, ci, 0],</span>
+<span class="lineno">  241 </span><span class="spaces">     </span><span class="nottickedoff">[di, ei, fi, 1]]</span></span>
+<span class="lineno">  242 </span>
+<span class="lineno">  243 </span>-- | Creates a perspective projection matrix for the given field-of-view,
+<span class="lineno">  244 </span>--   screen aspect ratio, znear and zfar.
+<span class="lineno">  245 </span>gperspectiveMatrix :: GLfloat -&gt; GLfloat -&gt; GLfloat -&gt; GLfloat -&gt; Matrix4x4
+<span class="lineno">  246 </span><span class="decl"><span class="istickedoff">gperspectiveMatrix fovy aspect znear zfar =</span>
+<span class="lineno">  247 </span><span class="spaces">    </span><span class="istickedoff">let ymax = znear * tan (fovy * pi / 360.0)</span>
+<span class="lineno">  248 </span><span class="spaces">        </span><span class="istickedoff">ymin = -ymax</span>
+<span class="lineno">  249 </span><span class="spaces">        </span><span class="istickedoff">xmin = ymin * aspect</span>
+<span class="lineno">  250 </span><span class="spaces">        </span><span class="istickedoff">xmax = ymax * aspect</span>
+<span class="lineno">  251 </span><span class="spaces">    </span><span class="istickedoff">in gfrustumMatrix xmin xmax ymin ymax znear zfar</span></span>
+<span class="lineno">  252 </span>
+<span class="lineno">  253 </span>-- | Normalizes a vector to a unit vector.
+<span class="lineno">  254 </span>gnormalizeVec :: [GLfloat] -&gt; [GLfloat]
+<span class="lineno">  255 </span><span class="decl"><span class="istickedoff">gnormalizeVec v = gscaleVec (recip $ glengthVec v) v</span></span>
+<span class="lineno">  256 </span>-- | Scales a vector by a scalar
+<span class="lineno">  257 </span>gscaleVec :: GLfloat -&gt; [GLfloat] -&gt; [GLfloat]
+<span class="lineno">  258 </span><span class="decl"><span class="istickedoff">gscaleVec s = map (s*)</span></span>
+<span class="lineno">  259 </span>-- | Computes the length of a vector.
+<span class="lineno">  260 </span>glengthVec :: [GLfloat] -&gt; GLfloat
+<span class="lineno">  261 </span><span class="decl"><span class="istickedoff">glengthVec v = sqrt.sum $ map square v</span></span>
+<span class="lineno">  262 </span>
+<span class="lineno">  263 </span>-- | Inner product of two vectors.
+<span class="lineno">  264 </span>ginnerVec :: [GLfloat] -&gt; [GLfloat] -&gt; [GLfloat]
+<span class="lineno">  265 </span><span class="decl"><span class="istickedoff">ginnerVec = zipWith (*)</span></span>
+<span class="lineno">  266 </span>-- | Adds two vectors together.
+<span class="lineno">  267 </span>gaddVec :: [GLfloat] -&gt; [GLfloat] -&gt; [GLfloat]
+<span class="lineno">  268 </span><span class="decl"><span class="nottickedoff">gaddVec = zipWith (+)</span></span>
+<span class="lineno">  269 </span>-- | Subtracts a vector from another.
+<span class="lineno">  270 </span>gsubVec :: [GLfloat] -&gt; [GLfloat] -&gt; [GLfloat]
+<span class="lineno">  271 </span><span class="decl"><span class="nottickedoff">gsubVec = zipWith (-)</span></span>
+<span class="lineno">  272 </span>-- | Negates a vector.
+<span class="lineno">  273 </span>gnegateVec :: [GLfloat] -&gt; [GLfloat]
+<span class="lineno">  274 </span><span class="decl"><span class="nottickedoff">gnegateVec = map negate</span></span>
+<span class="lineno">  275 </span>-- | Computes the direction unit vector between two vectors.
+<span class="lineno">  276 </span>gdirectionVec :: [GLfloat] -&gt; [GLfloat] -&gt; [GLfloat]
+<span class="lineno">  277 </span><span class="decl"><span class="nottickedoff">gdirectionVec u v = gnormalizeVec (gsubVec u v)</span></span>
+<span class="lineno">  278 </span>-- | Vector dot product.
+<span class="lineno">  279 </span>gdotVec :: [GLfloat] -&gt; [GLfloat] -&gt; GLfloat
+<span class="lineno">  280 </span><span class="decl"><span class="istickedoff">gdotVec a b = sum $ ginnerVec a b</span></span>
+<span class="lineno">  281 </span>-- | Cross product of two 3-vectors.
+<span class="lineno">  282 </span>gcrossVec3 :: [GLfloat] -&gt; [GLfloat] -&gt; [GLfloat]
+<span class="lineno">  283 </span><span class="decl"><span class="nottickedoff">gcrossVec3 [u0,u1,u2] [v0,v1,v2] = [u1*v2-u2*v1, u2*v0-u0*v2, u0*v1-u1*v0]</span>
+<span class="lineno">  284 </span><span class="spaces"></span><span class="nottickedoff">gcrossVec3 _ _ = [0,0,1]</span></span>
+<span class="lineno">  285 </span>
+<span class="lineno">  286 </span>-- | Substract two 3-vectors
+<span class="lineno">  287 </span>gsubV3 :: (Num a) =&gt; GL.Vertex3 a -&gt; GL.Vertex3 a -&gt; GL.Vertex3 a
+<span class="lineno">  288 </span><span class="decl"><span class="nottickedoff">gsubV3 (GL.Vertex3 u0 u1 u2) (GL.Vertex3 v0 v1 v2) =</span>
+<span class="lineno">  289 </span><span class="spaces">    </span><span class="nottickedoff">GL.Vertex3 (u0-v0) (u1-v1) (u2-v2)</span></span>
+<span class="lineno">  290 </span>-- | Cross product of two 3-vectors.
+<span class="lineno">  291 </span>gcrossV3 :: (Num a) =&gt; GL.Vertex3 a -&gt; GL.Vertex3 a -&gt; GL.Vertex3 a
+<span class="lineno">  292 </span><span class="decl"><span class="nottickedoff">gcrossV3 (GL.Vertex3 u0 u1 u2) (GL.Vertex3 v0 v1 v2) = </span>
+<span class="lineno">  293 </span><span class="spaces">    </span><span class="nottickedoff">GL.Vertex3 (u1*v2-u2*v1) (u2*v0-u0*v2) (u0*v1-u1*v0)</span></span>
+<span class="lineno">  294 </span>-- | Normalizes a vector to a unit vector.
+<span class="lineno">  295 </span>gnormalizeV3 :: (Floating a, Fractional a) =&gt; GL.Vertex3 a -&gt; GL.Normal3 a
+<span class="lineno">  296 </span><span class="decl"><span class="nottickedoff">gnormalizeV3 v = let GL.Vertex3 a b c = gscaleV3 (recip $ glengthV3 v) v</span>
+<span class="lineno">  297 </span><span class="spaces">                 </span><span class="nottickedoff">in GL.Normal3 a b c</span></span>
+<span class="lineno">  298 </span>-- | Scales a vector by a scalar
+<span class="lineno">  299 </span>gscaleV3 :: (Num a) =&gt; a -&gt; GL.Vertex3 a -&gt; GL.Vertex3 a
+<span class="lineno">  300 </span><span class="decl"><span class="nottickedoff">gscaleV3 s (GL.Vertex3 a b c) = GL.Vertex3 (s*a) (s*b) (s*c)</span></span>
+<span class="lineno">  301 </span>-- | Computes the length of a vector.
+<span class="lineno">  302 </span>glengthV3 :: (Floating a) =&gt; GL.Vertex3 a -&gt; a
+<span class="lineno">  303 </span><span class="decl"><span class="nottickedoff">glengthV3 (GL.Vertex3 a b c) = sqrt (a*a + b*b + c*c)</span></span>
+<span class="lineno">  304 </span>
+<span class="lineno">  305 </span>-- | Converts a 4-vector into a 3-vector by dropping the fourth element.
+<span class="lineno">  306 </span>gvec4To3 :: Vector4 -&gt; Vector3
+<span class="lineno">  307 </span><span class="decl"><span class="nottickedoff">gvec4To3 = take 3</span></span>
+<span class="lineno">  308 </span>
+<span class="lineno">  309 </span>-- | Converts a 3-vector into a 4-vector by appending the given value to it.
+<span class="lineno">  310 </span>gvec3To4 :: Vector3 -&gt; GLfloat -&gt; Vector4
+<span class="lineno">  311 </span><span class="decl"><span class="nottickedoff">gvec3To4 v i = v ++ [i]</span></span>
+<span class="lineno">  312 </span>
+<span class="lineno">  313 </span>-- | Multiplies a GLfloat by itself.
+<span class="lineno">  314 </span>square :: GLfloat -&gt; GLfloat
+<span class="lineno">  315 </span><span class="decl"><span class="istickedoff">square x = x * x</span></span>
+
+</pre>
+</body>
+</html>

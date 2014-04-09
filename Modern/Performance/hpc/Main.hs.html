@@ -1,0 +1,174 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<style type="text/css">
+span.lineno { color: white; background: #aaaaaa; border-right: solid white 12px }
+span.nottickedoff { background: yellow}
+span.istickedoff { background: white }
+span.tickonlyfalse { margin: -1px; border: 1px solid #f20913; background: #f20913 }
+span.tickonlytrue  { margin: -1px; border: 1px solid #60de51; background: #60de51 }
+span.funcount { font-size: small; color: orange; z-index: 2; position: absolute; right: 20 }
+span.decl { font-weight: bold }
+span.spaces    { background: white }
+</style>
+</head>
+<body>
+<pre>
+<span class="lineno">    1 </span>module Main where
+<span class="lineno">    2 </span>
+<span class="lineno">    3 </span>import Data.Time (diffUTCTime)
+<span class="lineno">    4 </span>import Control.Monad.State
+<span class="lineno">    5 </span>
+<span class="lineno">    6 </span>import qualified Graphics.UI.GLFW as GLFW
+<span class="lineno">    7 </span>
+<span class="lineno">    8 </span>import Graphics.Rendering.OpenGL.Raw
+<span class="lineno">    9 </span>
+<span class="lineno">   10 </span>import Engine.Core.Types
+<span class="lineno">   11 </span>import Engine.Graphics.Graphics
+<span class="lineno">   12 </span>import Engine.Core.Vec
+<span class="lineno">   13 </span>import Engine.Graphics.Window
+<span class="lineno">   14 </span>import Engine.Core.World
+<span class="lineno">   15 </span>import Engine.Object.Player
+<span class="lineno">   16 </span>import Engine.Graphics.Shaders
+<span class="lineno">   17 </span>import Engine.Object.GameObject
+<span class="lineno">   18 </span>import Engine.Graphics.NewGraphics
+<span class="lineno">   19 </span>import TestVals
+<span class="lineno">   20 </span>
+<span class="lineno">   21 </span>main :: IO ()
+<span class="lineno">   22 </span><span class="decl"><span class="istickedoff">main = do</span>
+<span class="lineno">   23 </span><span class="spaces">    </span><span class="istickedoff">-- Initialize GLFW, create a window, open it.</span>
+<span class="lineno">   24 </span><span class="spaces">    </span><span class="istickedoff">window &lt;- openWindow defaultWindow</span>
+<span class="lineno">   25 </span><span class="spaces">    </span><span class="istickedoff">let Just win = windowInner window</span>
+<span class="lineno">   26 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   27 </span><span class="spaces">    </span><span class="istickedoff">-- Perform some intitial OpenGL configurations.</span>
+<span class="lineno">   28 </span><span class="spaces">    </span><span class="istickedoff">initGL win</span>
+<span class="lineno">   29 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   30 </span><span class="spaces">    </span><span class="istickedoff">-- Create default world, set the window.</span>
+<span class="lineno">   31 </span><span class="spaces">    </span><span class="istickedoff">tmp &lt;- mkWorldFast</span>
+<span class="lineno">   32 </span><span class="spaces">    </span><span class="istickedoff">let world = tmp{</span>
+<span class="lineno">   33 </span><span class="spaces">        </span><span class="istickedoff">worldState = (worldState tmp){stateWindow = window}}</span>
+<span class="lineno">   34 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   35 </span><span class="spaces">    </span><span class="istickedoff">-- Register the function called when the window is resized.</span>
+<span class="lineno">   36 </span><span class="spaces">    </span><span class="istickedoff">GLFW.setFramebufferSizeCallback win (Just <span class="nottickedoff">resizeScene</span>)</span>
+<span class="lineno">   37 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   38 </span><span class="spaces">    </span><span class="istickedoff">-- Make cursor Hidden.</span>
+<span class="lineno">   39 </span><span class="spaces">    </span><span class="istickedoff">GLFW.setCursorInputMode win GLFW.CursorInputMode'Disabled</span>
+<span class="lineno">   40 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   41 </span><span class="spaces">    </span><span class="istickedoff">-- Begin game loop.</span>
+<span class="lineno">   42 </span><span class="spaces">    </span><span class="istickedoff">loop win world</span>
+<span class="lineno">   43 </span><span class="spaces">    </span><span class="istickedoff">-- Delete stuff left in OpenGL.</span>
+<span class="lineno">   44 </span><span class="spaces">    </span><span class="istickedoff">cleanupWorld world</span>
+<span class="lineno">   45 </span><span class="spaces">    </span><span class="istickedoff">cleanupObjects $ worldEntities world</span>
+<span class="lineno">   46 </span><span class="spaces">    </span><span class="istickedoff">-- Shutdown when game loop is done.</span>
+<span class="lineno">   47 </span><span class="spaces">    </span><span class="istickedoff">shutdown win</span>
+<span class="lineno">   48 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   49 </span><span class="spaces">    </span><span class="istickedoff">where</span>
+<span class="lineno">   50 </span><span class="spaces">        </span><span class="istickedoff">loop :: GLFW.Window -&gt; World t -&gt; IO ()</span>
+<span class="lineno">   51 </span><span class="spaces">        </span><span class="istickedoff">loop win world = do</span>
+<span class="lineno">   52 </span><span class="spaces">            </span><span class="istickedoff">-- Check if any events have occured.</span>
+<span class="lineno">   53 </span><span class="spaces">            </span><span class="istickedoff">GLFW.pollEvents</span>
+<span class="lineno">   54 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   55 </span><span class="spaces">            </span><span class="istickedoff">-- Perform logic update on the world and render.</span>
+<span class="lineno">   56 </span><span class="spaces">            </span><span class="istickedoff">newWorld &lt;- updateStepComplete win world &gt;&gt;=</span>
+<span class="lineno">   57 </span><span class="spaces">                    </span><span class="istickedoff">(`renderStep` <span class="nottickedoff">win</span>)</span>
+<span class="lineno">   58 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   59 </span><span class="spaces">            </span><span class="istickedoff">--glGetError &gt;&gt;= \err -&gt;</span>
+<span class="lineno">   60 </span><span class="spaces">            </span><span class="istickedoff">--  if err /= gl_NO_ERROR then print err else return ()</span>
+<span class="lineno">   61 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   62 </span><span class="spaces">            </span><span class="istickedoff">-- Swap back and front buffer.</span>
+<span class="lineno">   63 </span><span class="spaces">            </span><span class="istickedoff">GLFW.swapBuffers win</span>
+<span class="lineno">   64 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   65 </span><span class="spaces">            </span><span class="istickedoff">shouldClose &lt;- GLFW.windowShouldClose win</span>
+<span class="lineno">   66 </span><span class="spaces">            </span><span class="istickedoff">unless shouldClose $</span>
+<span class="lineno">   67 </span><span class="spaces">                </span><span class="istickedoff">loop win newWorld</span></span>
+<span class="lineno">   68 </span>
+<span class="lineno">   69 </span>renderStep :: World t -&gt; GLFW.Window -&gt; IO (World t)
+<span class="lineno">   70 </span><span class="decl"><span class="istickedoff">renderStep world _ =</span>
+<span class="lineno">   71 </span><span class="spaces">    </span><span class="istickedoff">renderWorldNewPost world</span></span>
+<span class="lineno">   72 </span>    --renderWorldWithPostprocessing world
+<span class="lineno">   73 </span>    --renderWorldNew world
+<span class="lineno">   74 </span>    --renderWorldMat world
+<span class="lineno">   75 </span>    --renderWorldWithShadows world
+<span class="lineno">   76 </span>
+<span class="lineno">   77 </span>depthShader :: IO GLuint
+<span class="lineno">   78 </span><span class="decl"><span class="nottickedoff">depthShader = loadProgram &quot;shaders/shadow/shadow.vert&quot;</span>
+<span class="lineno">   79 </span><span class="spaces">                          </span><span class="nottickedoff">&quot;shaders/shadow/shadow.frag&quot;</span></span>
+<span class="lineno">   80 </span>
+<span class="lineno">   81 </span>updateStepComplete :: GLFW.Window -&gt; World t -&gt; IO (World t)
+<span class="lineno">   82 </span><span class="decl"><span class="istickedoff">updateStepComplete win world = do</span>
+<span class="lineno">   83 </span><span class="spaces">    </span><span class="istickedoff">let wState = worldState world</span>
+<span class="lineno">   84 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   85 </span><span class="spaces">    </span><span class="istickedoff">-- Set cursor as hidden or visible.</span>
+<span class="lineno">   86 </span><span class="spaces">    </span><span class="istickedoff">GLFW.setCursorInputMode win $ if statePaused wState</span>
+<span class="lineno">   87 </span><span class="spaces">        </span><span class="istickedoff">then GLFW.CursorInputMode'Normal</span>
+<span class="lineno">   88 </span><span class="spaces">    </span><span class="istickedoff">else GLFW.CursorInputMode'Disabled</span>
+<span class="lineno">   89 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   90 </span><span class="spaces">    </span><span class="istickedoff">-- Update the world time and delta.</span>
+<span class="lineno">   91 </span><span class="spaces">    </span><span class="istickedoff">worldTime &lt;- getWorldTime</span>
+<span class="lineno">   92 </span><span class="spaces">    </span><span class="istickedoff">let delta = realToFrac $ diffUTCTime worldTime (stateTime wState)</span>
+<span class="lineno">   93 </span><span class="spaces">        </span><span class="istickedoff">newState = wState{</span>
+<span class="lineno">   94 </span><span class="spaces">            </span><span class="istickedoff">stateTime = worldTime, stateDelta = delta}</span>
+<span class="lineno">   95 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   96 </span><span class="spaces">    </span><span class="istickedoff">-- Update player input.</span>
+<span class="lineno">   97 </span><span class="spaces">    </span><span class="istickedoff">player &lt;- updatePlayerInput win $ worldPlayer world</span>
+<span class="lineno">   98 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   99 </span><span class="spaces">    </span><span class="istickedoff">-- Update player</span>
+<span class="lineno">  100 </span><span class="spaces">    </span><span class="istickedoff">let worldWithPlayer = world{worldPlayer = player, worldState = newState}</span>
+<span class="lineno">  101 </span><span class="spaces">        </span><span class="istickedoff">updatedWorld = evalState (gameState $ playerUpdate player) worldWithPlayer</span>
+<span class="lineno">  102 </span><span class="spaces">        </span><span class="istickedoff">updatedWorldWithUpdatedPlayer =</span>
+<span class="lineno">  103 </span><span class="spaces">            </span><span class="istickedoff">setWorldPlayer (resetPlayerInput $ worldPlayer updatedWorld) updatedWorld</span>
+<span class="lineno">  104 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">  105 </span><span class="spaces">    </span><span class="istickedoff">-- Update the rest of the world.</span>
+<span class="lineno">  106 </span><span class="spaces">    </span><span class="istickedoff">return $ evalState (gameState updateWorld) updatedWorldWithUpdatedPlayer</span></span> 
+<span class="lineno">  107 </span>
+<span class="lineno">  108 </span>updatePlayerInput :: GLFW.Window -&gt; GameObject t -&gt; IO (GameObject t)
+<span class="lineno">  109 </span><span class="decl"><span class="istickedoff">updatePlayerInput win player@(Player{}) = do</span>
+<span class="lineno">  110 </span><span class="spaces">    </span><span class="istickedoff">let input = playerInput player</span>
+<span class="lineno">  111 </span><span class="spaces">    </span><span class="istickedoff">newIn &lt;- updateInput win input</span>
+<span class="lineno">  112 </span><span class="spaces">    </span><span class="istickedoff">return $ player{</span>
+<span class="lineno">  113 </span><span class="spaces">        </span><span class="istickedoff">playerInput = newIn</span>
+<span class="lineno">  114 </span><span class="spaces">    </span><span class="istickedoff">}</span>
+<span class="lineno">  115 </span><span class="spaces"></span><span class="istickedoff">updatePlayerInput _ _ =</span>
+<span class="lineno">  116 </span><span class="spaces">    </span><span class="istickedoff"><span class="nottickedoff">error $ &quot;Main.updatePlayerInput can only&quot;</span></span>
+<span class="lineno">  117 </span><span class="spaces">        </span><span class="istickedoff"><span class="nottickedoff">++ &quot; be used on Players.&quot;</span></span></span>
+<span class="lineno">  118 </span>
+<span class="lineno">  119 </span>updateInput :: GLFW.Window -&gt; Input t -&gt; IO (Input t)
+<span class="lineno">  120 </span><span class="decl"><span class="istickedoff">updateInput win input = do</span>
+<span class="lineno">  121 </span><span class="spaces">    </span><span class="istickedoff">let mousePos = inputLastMousePos input</span>
+<span class="lineno">  122 </span><span class="spaces">    </span><span class="istickedoff">newKeys &lt;- loopThrough win $ inputKeys input</span>
+<span class="lineno">  123 </span><span class="spaces">    </span><span class="istickedoff">newMousePos &lt;- mouseUpdate win</span>
+<span class="lineno">  124 </span><span class="spaces">    </span><span class="istickedoff">return input {</span>
+<span class="lineno">  125 </span><span class="spaces">        </span><span class="istickedoff">inputKeys = newKeys,</span>
+<span class="lineno">  126 </span><span class="spaces">        </span><span class="istickedoff">inputMouseDelta = newMousePos - mousePos</span>
+<span class="lineno">  127 </span><span class="spaces">    </span><span class="istickedoff">}</span>
+<span class="lineno">  128 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">  129 </span><span class="spaces">    </span><span class="istickedoff">where</span>
+<span class="lineno">  130 </span><span class="spaces">    </span><span class="istickedoff">loopThrough ::</span>
+<span class="lineno">  131 </span><span class="spaces">        </span><span class="istickedoff">GLFW.Window -&gt;</span>
+<span class="lineno">  132 </span><span class="spaces">        </span><span class="istickedoff">[(GLFW.Key, GLFW.KeyState, GLFW.KeyState, World t -&gt; World t)] -&gt;</span>
+<span class="lineno">  133 </span><span class="spaces">        </span><span class="istickedoff">IO [(GLFW.Key, GLFW.KeyState, GLFW.KeyState, World t -&gt; World t)]</span>
+<span class="lineno">  134 </span><span class="spaces">    </span><span class="istickedoff">loopThrough w ((key, desired, lastState, func) : others) = do</span>
+<span class="lineno">  135 </span><span class="spaces">        </span><span class="istickedoff">returnedState &lt;- GLFW.getKey w key</span>
+<span class="lineno">  136 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">  137 </span><span class="spaces">        </span><span class="istickedoff">let keyState</span>
+<span class="lineno">  138 </span><span class="spaces">                </span><span class="istickedoff">| returnedState == GLFW.KeyState'Released =</span>
+<span class="lineno">  139 </span><span class="spaces">                    </span><span class="istickedoff">GLFW.KeyState'Released</span>
+<span class="lineno">  140 </span><span class="spaces">                </span><span class="istickedoff">| returnedState == GLFW.KeyState'Pressed &amp;&amp;</span>
+<span class="lineno">  141 </span><span class="spaces">                    </span><span class="istickedoff">(lastState == GLFW.KeyState'Pressed ||</span>
+<span class="lineno">  142 </span><span class="spaces">                     </span><span class="istickedoff">lastState == GLFW.KeyState'Repeating) =</span>
+<span class="lineno">  143 </span><span class="spaces">                    </span><span class="istickedoff">GLFW.KeyState'Repeating</span>
+<span class="lineno">  144 </span><span class="spaces">                </span><span class="istickedoff">| <span class="tickonlytrue">otherwise</span> = GLFW.KeyState'Pressed</span>
+<span class="lineno">  145 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">  146 </span><span class="spaces">        </span><span class="istickedoff">let curVal = (key, desired, keyState, func)</span>
+<span class="lineno">  147 </span><span class="spaces">        </span><span class="istickedoff">restVal &lt;- loopThrough win others</span>
+<span class="lineno">  148 </span><span class="spaces">        </span><span class="istickedoff">return $ curVal : restVal</span>
+<span class="lineno">  149 </span><span class="spaces">    </span><span class="istickedoff">loopThrough _ [] = return []</span>
+<span class="lineno">  150 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">  151 </span><span class="spaces">    </span><span class="istickedoff">mouseUpdate :: GLFW.Window -&gt; IO (Vec2 GLfloat)</span>
+<span class="lineno">  152 </span><span class="spaces">    </span><span class="istickedoff">mouseUpdate w = do</span>
+<span class="lineno">  153 </span><span class="spaces">        </span><span class="istickedoff">(x, y) &lt;- GLFW.getCursorPos w</span>
+<span class="lineno">  154 </span><span class="spaces">        </span><span class="istickedoff">return $ Vec2 (realToFrac x) (realToFrac y)</span></span>
+
+</pre>
+</body>
+</html>
