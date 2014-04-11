@@ -15,7 +15,7 @@ import Graphics.Rendering.OpenGL.Raw
 import Engine.Core.Types
 import Engine.Core.Vec
 import Engine.Model.AABB
-import Engine.Object.Collision
+import Engine.Object.Octree
 
 -- | Call updateObject on all GameObjects in
 --   the world.

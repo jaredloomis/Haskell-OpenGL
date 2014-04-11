@@ -16,11 +16,13 @@ data Simplex = Simplex {
     simpSpacing :: GLfloat,
     simpOctaves :: Int,
     simpWavelength :: GLfloat,
-    simpIntensity :: GLfloat
+    simpIntensity :: GLfloat,
+    simpPerm :: Permutation
 }
 
 g3 :: Double
 g3 = 0.16666666666666666 -- 1/6
+{-# INLINE g3 #-}
 
 {-# INLINE int #-}
 int :: Int -> Double
@@ -37,7 +39,7 @@ dot3 (a,b,c) x y z = a * x + b * y + c * z
 
 {-# INLINE fastFloor #-}
 fastFloor :: Double -> Int
-fastFloor x = truncate (if x > 0 then x else x - 1)
+fastFloor x = truncate $ if x > 0 then x else x - 1
 
 -- | Generate a random permutation for use in the noise functions
 perm :: Int -> Permutation
@@ -99,9 +101,9 @@ simplex3D p octaves l x y z = harmonic octaves
     (\f -> noise3D p (x * f / l) (y * f / l) (z * f / l))
 
 getSimplexHeight :: Simplex -> GLfloat -> GLfloat -> GLfloat
-getSimplexHeight (Simplex seed _ _ _ octaves wavelength intensity) x y =
+getSimplexHeight (Simplex _ _ _ _ octaves wavelength intensity permutation) x y =
         intensity * realToFrac
-            (simplex3D (perm seed) octaves (realToFrac wavelength)
+            (simplex3D permutation octaves (realToFrac wavelength)
                 (realToFrac x) (realToFrac y) 0)
 
 -- | Generate a 2D list of the height returned by simplex

@@ -176,6 +176,8 @@ grotationMatrix [x, y, z] =
     in grotationMatrix' radX [1, 0, 0] *
        grotationMatrix' radY [0, 1, 0] *
        grotationMatrix' radZ [0, 0, 1]
+grotationMatrix _ =
+    error "Matrix.grotationMatrix: argument is not a Vector3."
 
 grotationMatrix' :: GLfloat -> Vector3 -> Matrix4x4
 grotationMatrix' angle axis =

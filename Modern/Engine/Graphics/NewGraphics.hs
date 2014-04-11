@@ -114,6 +114,7 @@ renderAllToFramebuffer fbuf xs =
         renderAll :: Renderable t g => [t] -> g -> IO g
         renderAll (x:xs') info =
             totalRender x info >>= renderAll xs'
+        renderAll [] info = return info
 
 renderAllWithGlobal :: (Renderable t1 g, Renderable t2 g) =>
                         Framebuffer -> t1 -> [t2] -> IO g
@@ -142,14 +143,14 @@ renderAllWithGlobal' info _ _ _ = return info
 renderWorldNew :: World t -> IO (World t)
 renderWorldNew world = do
     glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
-    renderAllWithGlobal (screenFramebuffer (800, 600))
+    _ <- renderAllWithGlobal (screenFramebuffer (800, 600))
                         world (worldEntities world) :: IO RenderInfo
     return world
 
 renderWorldNewWithFramebuffer :: World t -> Framebuffer -> IO (World t)
 renderWorldNewWithFramebuffer world fbuf = do
     glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
-    renderAllWithGlobal fbuf world (worldEntities world) :: IO RenderInfo
+    _ <- renderAllWithGlobal fbuf world (worldEntities world) :: IO RenderInfo
     return world
     
 

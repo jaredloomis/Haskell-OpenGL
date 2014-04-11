@@ -17,7 +17,7 @@ import Engine.Graphics.Window
 import Engine.Graphics.Shaders
 import Engine.Graphics.Framebuffer
 import Engine.Graphics.Shadows
-import Engine.Object.Collision
+import Engine.Object.Octree
 
 mkWorldFast :: IO (World ())
 mkWorldFast = do
@@ -71,14 +71,14 @@ mkWorldFast = do
 mkWorld :: Framebuffer -> Framebuffer -> GLuint -> [GLuint] -> IO (World ())
 mkWorld fb shadowFb shadowShader shaders = do
     state <- mkWorldState
-    --obja <- mkObj
+    obja <- mkObj
     objb <- mkObj2
-    --objc <- mkObj3
-    let octree = mkOctree [objb]
+    objc <- mkObj3
+    let octree = mkOctree [obja, objb, objc]
 
     --print octree
 
-    return $ World mkPlayer [objb] octree
+    return $ World mkPlayer [obja, objb, objc] octree
             (mkGraphics fb shadowFb shadowShader shaders)
             state
 
@@ -110,7 +110,7 @@ mkObj3 =
 
 
 --eMove :: GameObject t -> Game t (GameObject t)
---eMove obj = return $ moveObject obj (Vec3 0.005 0 0) 
+--eMove obj = return $ moveObject obj (Vec3 0.005 0 0)
 
 idUpdate :: GameObject t -> Game t (GameObject t)
 idUpdate = return

@@ -125,9 +125,9 @@ renderObjectsWithShadows world wm depthMVP fbuf (cur : rest) = do
         modelMat = gtranslationMatrix [ox, oy, oz]
     glUseProgram $ shaderId mShader
 
-    setMatrixUniformsBias mShader wm{matrixModel = modelMat} depthMVP
+    _ <- setMatrixUniformsBias mShader wm{matrixModel = modelMat} depthMVP
 
-    setWorldUniforms world mShader
+    _ <- setWorldUniforms world mShader
 
     bindTextures (modelTextures curModel) $ shaderId mShader
     

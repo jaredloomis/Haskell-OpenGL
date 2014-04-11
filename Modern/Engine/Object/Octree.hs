@@ -1,4 +1,4 @@
-module Engine.Object.Collision where
+module Engine.Object.Octree where
 
 import System.IO.Unsafe
 
@@ -84,6 +84,8 @@ filterPartition _ [] = ([], [])
 consTuple :: (Maybe a, Maybe a) -> ([a], [a]) -> ([a], [a])
 consTuple (Just x, Nothing) (xs, ys) = (x:xs, ys)
 consTuple (Nothing, Just y) (xs, ys) = (xs, y:ys)
+consTuple _ _ =
+    error "Octree.consTuple: invalid arguments."
 
 checkOctant :: a -> Octree a -> Bool
 checkOctant val (ONode aabb _) =

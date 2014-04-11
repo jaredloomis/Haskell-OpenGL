@@ -46,7 +46,6 @@ Performance by GHC/GHCI command:
 
 <h4>Fixes</h4>
 - Make walking more stable and efficient.
-- Fix normals in procedurally generated terrain (Every other face is off by a bit).
 
 <h4>Additions</h4>
 - Normal mapping / normal textures.

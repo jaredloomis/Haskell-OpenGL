@@ -16,6 +16,9 @@ import Engine.Core.Vec
 writeDataToFile :: FilePath -> [[GLfloat]] -> [FilePath] -> IO ()
 writeDataToFile datFile [verts, coords, norms, colors, tids] =
     writeVntToDat datFile (Vec4 verts norms coords tids) colors
+writeDataToFile _ _ =
+    error $ "DatLoader.writeDataToFile:" ++
+            "arguments not properly formatted."
 
 writeVntToDat :: FilePath -> Vec4 [GLfloat] -> [GLfloat] -> [FilePath] -> IO ()
 writeVntToDat datFile (Vec4 verts norms texCoords texIds) colors images =
@@ -51,12 +54,17 @@ listToString (x:y:xs) =
     show x ++ "," ++ listToString (y:xs)
 listToString (x:[]) =
     show x
+listToString [] =
+    error "DatLoader.listToString: argument is empty."
 
 listStringsToString :: [String] -> String
 listStringsToString (x:y:xs) =
     x ++ "," ++ listStringsToString (y:xs)
 listStringsToString (x:[]) =
     x
+listStringsToString [] =
+    error "DatLoader.listStringsToString: argument is empty."
+
 
 --
 
