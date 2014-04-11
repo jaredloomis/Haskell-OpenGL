@@ -71,20 +71,19 @@ mkWorldFast = do
 mkWorld :: Framebuffer -> Framebuffer -> GLuint -> [GLuint] -> IO (World ())
 mkWorld fb shadowFb shadowShader shaders = do
     state <- mkWorldState
-    obja <- mkObj
+    --obja <- mkObj
     objb <- mkObj2
-    objc <- mkObj3
-    let octree = mkOctree [obja, objb, objc]
+    --objc <- mkObj3
+    let octree = mkOctree [objb]
 
     --print octree
 
-    return $ World mkPlayer [obja, objb, objc] octree
+    return $ World mkPlayer [objb] octree
             (mkGraphics fb shadowFb shadowShader shaders)
             state
 
 mkOctree :: [GameObject t] -> Octree AABB
-mkOctree = createOctreeFromAABBs (AABB (-500) 500)
---foldl octInsert (createOctree $ AABB (-500) 500)
+mkOctree = createOctreeFromAABBs (AABB (-5) 200)
 
 mkGraphics :: Framebuffer -> Framebuffer -> GLuint -> [GLuint] -> Graphics t
 mkGraphics fb shadowFb shadowShader shaders =
@@ -127,7 +126,7 @@ mkTerrain :: IO Model
 mkTerrain = genSimplexModel
             mainVertShader
             mainFragShader
-            100
+            200
             1
             1
             20

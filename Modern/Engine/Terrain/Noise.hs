@@ -9,8 +9,18 @@ import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
 type Permutation = V.Vector Int
 
+data Simplex = Simplex {
+    simpSeed :: Int,
+    simpDimensions :: (Int, Int),
+    simpStartXY :: (Int, Int),
+    simpSpacing :: GLfloat,
+    simpOctaves :: Int,
+    simpWavelength :: GLfloat,
+    simpIntensity :: GLfloat
+}
+
 g3 :: Double
-g3 = 1/6
+g3 = 0.16666666666666666 -- 1/6
 
 {-# INLINE int #-}
 int :: Int -> Double
@@ -88,6 +98,12 @@ simplex3D :: Permutation -> Int -> Double -> Double -> Double -> Double -> Doubl
 simplex3D p octaves l x y z = harmonic octaves
     (\f -> noise3D p (x * f / l) (y * f / l) (z * f / l))
 
+getSimplexHeight :: Simplex -> GLfloat -> GLfloat -> GLfloat
+getSimplexHeight (Simplex seed _ _ _ octaves wavelength intensity) x y =
+        intensity * realToFrac
+            (simplex3D (perm seed) octaves (realToFrac wavelength)
+                (realToFrac x) (realToFrac y) 0)
+
 -- | Generate a 2D list of the height returned by simplex
 --   for each coordinate.
 simplexNoise :: Int -> GLfloat -> Int -> GLfloat -> GLfloat -> IO [[GLfloat]]
@@ -118,4 +134,3 @@ splitInterval xs i
         let (ret, rest) = splitAt i xs
         in ret : splitInterval rest i
     | otherwise = []
-

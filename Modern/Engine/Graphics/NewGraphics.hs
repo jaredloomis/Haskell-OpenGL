@@ -1,5 +1,4 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RankNTypes #-}
 module Engine.Graphics.NewGraphics where
 
 import Data.Bits ((.|.))
@@ -103,11 +102,11 @@ totalRender r s =
     renderCleanup r
 
 
-renderToFramebuffer :: forall t g. Renderable t g => Framebuffer -> t -> IO g
+renderToFramebuffer :: Renderable t g => Framebuffer -> t -> IO g
 renderToFramebuffer fbuf rend =
     withFramebuffer fbuf $ totalRender rend (defaultGlobal rend)
 
-renderAllToFramebuffer :: forall t g. Renderable t g => Framebuffer -> [t] -> IO g
+renderAllToFramebuffer :: Renderable t g => Framebuffer -> [t] -> IO g
 renderAllToFramebuffer fbuf xs =
     withFramebuffer fbuf $
         renderAll xs (defaultGlobal $ head xs)
@@ -143,7 +142,8 @@ renderAllWithGlobal' info _ _ _ = return info
 renderWorldNew :: World t -> IO (World t)
 renderWorldNew world = do
     glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
-    renderAllWithGlobal (screenFramebuffer (800, 600)) world (worldEntities world) :: IO RenderInfo
+    renderAllWithGlobal (screenFramebuffer (800, 600))
+                        world (worldEntities world) :: IO RenderInfo
     return world
 
 renderWorldNewWithFramebuffer :: World t -> Framebuffer -> IO (World t)

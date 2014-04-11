@@ -1,5 +1,6 @@
 module Engine.Terrain.Generator where
 
+import System.Random
 import Data.Maybe (isJust, fromJust)
 import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
@@ -7,18 +8,6 @@ import Engine.Model.Model
 import Engine.Terrain.Noise
 import Engine.Graphics.Textures
 
-{-
-genHeightsSplit ::
-    (Int, Int) -> (Int, Int) -> Int -> Int -> GLfloat -> GLfloat -> IO [[[GLfloat]]]
-genHeightsSplit (width, height) (startx, starty) splits octaves wavelength intensity
-    | max startx starty < width = do
-        cur <- simplexNoiseSection (width, height) (startx, starty) octaves wavelength intensity
-        rest <- genHeightsSplit (width, height)
-                (startx + width, starty + width) splits octaves wavelength intensity
-        return $ cur : rest
-    | otherwise = return []
--}
-    
 genSimplexModel :: FilePath -> FilePath ->
     GLfloat ->          -- ^ Width
     GLfloat ->          -- ^ Spacing
@@ -28,16 +17,16 @@ genSimplexModel :: FilePath -> FilePath ->
     Maybe FilePath ->   -- ^ The texture (Maybe)
     IO Model
 genSimplexModel vert frag w spacing octaves wavelength intensity texture = do
-    heights <- simplexNoise (floor w) spacing octaves wavelength intensity
-    let hCoords = heightsToCoords heights 0 spacing
-        flat = createFlat spacing w
-        vertices = applyHeights flat hCoords
+    seed <- randomRIO (0, 2048)
+    let simplex = Simplex seed (floor w, floor w) (0, 0) spacing octaves wavelength intensity
+        vertices = createSimplexTerrain simplex
         normals = calculateNormals vertices
         lengthVertices = length vertices
 
     if isJust texture
         then do
-            loadedModel <- createModel vert frag ["position", "normal", "color", "texCoord", "textureId"]
+            loadedModel <- createModel vert frag
+                    ["position", "normal", "color", "texCoord", "textureId"]
                     [vertices, normals, take (lengthVertices * 3) (cycle [0, 1, 0]),
                     take (lengthVertices * 3) $ cycle [0, 0, 1, 0, 0, 1],
                     replicate lengthVertices 0]
@@ -53,38 +42,58 @@ genSimplexModel vert frag w spacing octaves wavelength intensity texture = do
                     [3, 3, 3, 2, 1]
                     (fromIntegral $ length vertices `div` 3)
 
-{-
-genSimplexModel :: FilePath -> FilePath -> FilePath -> FilePath -> FilePath ->
-    GLfloat ->          -- ^ Width
-    GLfloat ->          -- ^ Spacing
-    Int ->              -- ^ Octaves
-    GLfloat ->          -- ^ Wavelength
-    GLfloat ->          -- ^ Waveheight / intensity
-    Maybe FilePath ->   -- ^ The texture (Maybe)
-    IO Model
-genSimplexModel vert frag tessC tessE geom w spacing octaves wavelength intensity texture = do
-    program <- loadProgramComplete vert frag tessC tessE geom
-    heights <- simplexNoise (floor w) spacing octaves wavelength intensity
-    let hCoords = heightsToCoords heights 0 spacing
-        flat = createFlat spacing w
-        vertices = applyHeights flat hCoords
-        --normals = calculateNormals vertices
-        --lengthVertices = length vertices
+createSimplexTerrain :: Simplex -> [GLfloat]
+createSimplexTerrain simplex =
+    concatMap (\x -> concatMap (makeSquare simplex x) $ allYs simplex)
+        $ allXs simplex
 
-    if isJust texture
-        then
-            createModelWithProgram program ["position"]
-                    [vertices]
-                    [3]
-                    (fromIntegral $ length vertices `div` 3)
-            --textureData <- juicyLoadTexture $ fromJust texture
-            --return $ loadedModel{modelTextures = [(textureData, 1)]}
-    else
-        createModelWithProgram program ["position"]
-                    [vertices]
-                    [3]
-                    (fromIntegral $ length vertices `div` 3)
--}
+allXs :: Simplex -> [GLfloat]
+allXs simplex =
+    let first = fromIntegral $ fst $ simpStartXY simplex :: GLfloat
+    in first : allXs' simplex first 0
+    where
+        allXs' :: Simplex -> GLfloat -> Int -> [GLfloat]
+        allXs' s i j
+            | j < fst (simpDimensions s) =
+                let cur = i + simpSpacing s
+                in cur : allXs' simplex cur (j+1)
+            | otherwise = []
+
+allYs :: Simplex -> [GLfloat]
+allYs simplex =
+    let first = fromIntegral $ snd $ simpStartXY simplex :: GLfloat
+    in first : allYs' simplex first 0
+    where
+        allYs' :: Simplex -> GLfloat -> Int -> [GLfloat]
+        allYs' s i j
+            | j < snd (simpDimensions s) =
+                let cur = i + simpSpacing s
+                in cur : allYs' simplex cur (j+1)
+            | otherwise = []
+
+makeSquare :: Simplex -> GLfloat -> GLfloat -> [GLfloat]
+makeSquare simplex x z =
+    let spacing = simpSpacing simplex
+    in makePointFromXY simplex x z ++
+        makePointFromXY simplex x (z+spacing) ++
+        makePointFromXY simplex (x+spacing) z ++
+        makePointFromXY simplex (x+spacing) z ++
+        makePointFromXY simplex x (z+spacing) ++
+        makePointFromXY simplex (x+spacing) (z+spacing)
+
+makePointFromXY :: Simplex -> GLfloat -> GLfloat -> [GLfloat]
+makePointFromXY simp x z = [x, getSimplexHeight simp x z, z]
+
+createStripSimplex :: GLfloat -> GLfloat -> GLfloat -> GLfloat -> [GLfloat]
+createStripSimplex spacing len x i
+    | i < len =
+        [x, 0, i,
+         x, 0, i+spacing,
+         x+spacing, 0, i,
+         x+spacing, 0, i,
+         x, 0, i+spacing,
+         x+spacing, 0, i+spacing] ++ createStripSimplex spacing len x (i+spacing)
+    | otherwise = []
 
 createFlat :: GLfloat -> GLfloat -> [GLfloat]
 createFlat spacing width =

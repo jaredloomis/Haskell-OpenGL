@@ -1,4 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
 module Engine.Object.Collision where
 
 import System.IO.Unsafe
@@ -6,21 +5,6 @@ import System.IO.Unsafe
 import Engine.Model.AABB
 import Engine.Core.Types
 import Engine.Core.Vec
-
---
-{-
-instance HasPosition Int where
-    getPos _ = 0
-    setPos _ (Vec3 x _ _) = floor x
-
-instance HasAABB Int where
-    getAABBs i = [AABB (fromIntegral i) $ fromIntegral i]
-    getWholeAABB i = Just $ AABB (fromIntegral i) $ fromIntegral i
-
-test :: Octree Int
-test = subdivide $ createOctree $ AABB (-500) 500
--}
---
 
 maxCapacity :: Int
 maxCapacity = 64
@@ -46,7 +30,7 @@ findNearby (ONode _ children) val =
 findNearby (OLeaf _ contents _) _ = contents
 
 octInsert :: Show a => Octree a -> a -> Octree a
-octInsert tree@(ONode !aabb !children) !val =
+octInsert tree@(ONode aabb children) val =
     let (insertIntos, others) = filterPartition (checkOctant val) children
     in if null insertIntos
             then output
@@ -54,13 +38,13 @@ octInsert tree@(ONode !aabb !children) !val =
                  " value \"" ++ show val ++
                  "\"could not be inserted into tree. Ignoring.") tree
         else ONode aabb $ map (`octInsert` val) insertIntos ++ others
-octInsert leaf@(OLeaf !aabb !contents !size) !val =
+octInsert leaf@(OLeaf aabb contents size) val =
     if size+1 <= maxCapacity
         then OLeaf aabb (val : contents) (size+1)
     else octInsert (subdivide leaf) val
 
 subdivide :: Show a => Octree a -> Octree a
-subdivide (OLeaf wholeAABB@(AABB !minVec !maxVec) !contents _) =
+subdivide (OLeaf wholeAABB@(AABB minVec maxVec) contents _) =
     let halfVec@(Vec3 halfX halfY halfZ) = fmap (/2) (abs $ maxVec - minVec)
         newAABBTemplate = AABB minVec $ minVec + halfVec 
 

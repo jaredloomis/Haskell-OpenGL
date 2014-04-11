@@ -5,9 +5,10 @@
 - Simplex procedurally generated terrain.
 - GLSL 4+.
 - Loading and displaying of textures in a variety of formats.
-- Collision detection via AABBs.
+- Collision detection via AABBs, using Octrees for speed.
 - Gravity / basic physics.
 - Uses own matrices, according to the OpenGL 2.1+ spec.
+- Shadows.
 <h2>Screenshots</h2>
 <h4>Simplex procedurally generated terrain.</h4>
 
@@ -18,54 +19,40 @@
 ![](http://i.imgur.com/URxxELT.png)
 
 <h2>Performance</h2>
-Benchmark was done with a procedurally generated terrain, 50x50 vertices, with collision detection per face and a surrounding AABB to check general collision. Test was performed by walking around the terrain. Benchmarked on 1/31/14 with `ghc 7.6.3`. <b>This benchmark was done before a few significant changes.</b>
+Benchmark was done with a procedurally generated terrain, `200x200 vertices`, with collision detection per face and an `Octree` with a max size (per leaf) of `64`. Test was performed by walking around the terrain. Benchmarked on `4/11/14` with `ghc 7.6.3`.
 
 Tested on `Arch Linux 64 bit` with
 - `16GB RAM`
 - `i5-3470 Quad-Core CPU @ 3.20GHz`
 
 Performance by GHC/GHCI command:
-- `ghci`
-    - CPU: `1-25%`
-    - RAM: `315 MB`
-- `ghc` (No flags)
-    - CPU: `1-8%`
-    - RAM: `55 MiB`
-- `ghc -O`, `ghc -O2`, `ghc -fvia-C -O`, `ghc -O -fllvm`
-    - CPU: `1-4%`
-    - RAM: `53 MiB`
-- `ghc -O -funfolding-use-threshold=16`
-    - CPU: `1-4%`
-    - RAM: `52 MiB`
-
-All commands using the `-O` or `-O2` flags performed basically the same, with a decrease of `<1%` CPU usage from `-fllvm`, well within the margin of error. The version of llvm used was 3.4, which is "untested", so performance could be increased with the correct version. Adding the `-funfolding-use-threshold=16` flag decresed memory usage by 1 MiB, without affecting CPU usage.
+- `ghc -O2 -funfolding-use-threshold=16`
+    - CPU: `1-2%`
+    - RAM: `403 MiB`
+- `ghc -O2 -fllvm -funfolding-use-threshold=16`
+    - CPU: `1-2%`
+    - RAM: `313 MiB`
 
 <h2>Todo</h2>
 
 <h4>Top</h4>
-- <b>I Realized most of the type classes I have been making are simply doing badly what a StateT monad would do well. (ie. `GameIO t a = StateT (World t) IO a`)</b>
 - <b>General code cleanup, make it easier to use and clearer.</b>
 - <b>Framebuffer resizing.</b>
-- <b>Collision Detection</b>
-    - Octree
-    - Bounding Volume Hierarchy (BVH)
-    - Binary Space Partitioning (BSP) - [Frag](http://code.haskell.org/frag/src/BSP.hs) uses it.
+- <b>Relative file loading in .mtl and .obj files.</b>
+- <b>Repair shadows.</b>
 - Create a FRP module, making it optional. (Elerea)
 - AI / Pathfinding (A\*?).
 - Chunks or other methods to allow for infinite terrain.
-- Make walking more stable and efficient.
 
 <h4>Fixes</h4>
+- Make walking more stable and efficient.
 - Fix normals in procedurally generated terrain (Every other face is off by a bit).
-- Better generalization of loading .obj files. Current loader is not compatible with many (most?) .obj files.
 
 <h4>Additions</h4>
-- Use [FFI](http://www.haskell.org/haskellwiki/FFI_Introduction) for core functions. Maybe for Matrices?
 - Normal mapping / normal textures.
 - Text / GUI
 - Physics
 - Audio support using a library
-- Relative file loading in .mtl and .obj files.
 - Save files.
 - A GLSL shader code generator would be cool.
 
@@ -79,32 +66,14 @@ All commands using the `-O` or `-O2` flags performed basically the same, with a 
     - [GPUGems](http://http.developer.nvidia.com/GPUGems/gpugems_ch09.html)
 
 <h4>Performance increases</h4>
-- Use Bang Patterns.
 - Use [Parallelism](http://www.haskell.org/haskellwiki/Parallel) in parts of the program like loading .obj/.mtl files.
-- Analyze generated [Haskell Core](http://www.haskell.org/haskellwiki/Performance/GHC#Looking_at_the_Core) code for possible efficiency increases.
-    - [Tutorial on how to read and use Core](http://alpmestan.com/2013/06/27/ghc-core-by-example-episode-1/)
-- Instead of splitting a loaded terrain, just create a function to load multiple terrains and place them next to each other.
-- Octree or some kind of grouping of vertices to speed up collision detection. Actually, collision detection is not that slow, but this should still be implemented at some point.
-    - Bounding Volume Hierarchy seems to be the best choice.
-        - Requires Raytracing
-        - [Java code](https://github.com/diwi/Space_Partitioning_Octree_BVH/tree/master/SpacePartitioning/src/DwBVH), [C# code](http://www.3dmuve.com/3dmblog/?p=182), [Scholarly paper](http://www.cg.cs.tu-bs.de/media/publications/minimal-bounding-volume-hierarchy.pdf), [C++ Walkthrough/tutorial](http://www.scratchapixel.com/lessons/3d-basic-lessons/lesson-12-introduction-to-acceleration-structures/bounding-volume-hierarchy-bvh-part-1/), [C++ code](https://github.com/brandonpelfrey/Fast-BVH), [Large academic paper](http://www.sci.utah.edu/~wald/Publications/2007/FastBuild/download/fastbuild.pdf), [Stackoverflow question](http://stackoverflow.com/questions/5077243/how-to-roll-a-fast-bvh-representation-in-haskell), [Another Stackoverflow question](http://stackoverflow.com/questions/15013523/how-to-sort-and-compare-in-a-bounding-volume-hierarchy), [Academic publication](http://cg.ibds.kit.edu/publications/p2012/RBVH/RBVH.pdf)
 - Use more efficient data structures - [ByteString](http://hackage.haskell.org/package/bytestring-0.9.2.1/docs/Data-ByteString.html) insteat of String, and [Vectors](https://hackage.haskell.org/package/vector) or [Arrays](https://hackage.haskell.org/package/array) instead of lists.
 
 <h4>Organization</h4>
-- Maybe define classes to constrain functions, instead of forcing the use of `GameObjects`?
+- Define classes to constrain functions, instead of forcing the use of `GameObjects`?
 - Better documentation / comments.
 
-<h2>Interesting Extensions</h2>
-- [Stackoverflow question](http://stackoverflow.com/questions/10845179/which-haskell-ghc-extensions-should-users-use-avoid/10849782#10849782)
-- [GADTs](http://www.haskell.org/haskellwiki/GADTs_for_dummies)
-- [Tuple sections](http://www.haskell.org/ghc/docs/7.0.1/html/users_guide/syntax-extns.html)
-- Record wild cards
-- [Existential types](http://www.haskell.org/haskellwiki/Existential_type)
-- [Multi-parameter type classes](http://www.haskell.org/haskellwiki/Multi-parameter_type_class)
-- [Type Families](http://www.haskell.org/haskellwiki/GHC/Type_families)
-- <b>Bang Patterns</b>
-
-<h2>Used libraries</h2>
+<h2>Used libraries Include</h2>
 - [OpenGL](http://hackage.haskell.org/package/OpenGL)
 - [GLFW-b](http://hackage.haskell.org/package/GLFW-b-1.4.3)
 - [GLUtil](https://github.com/acowley/GLUtil)

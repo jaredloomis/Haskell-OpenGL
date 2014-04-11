@@ -13,7 +13,6 @@ import Engine.Core.Vec
 import Engine.Graphics.Window
 import Engine.Core.World
 import Engine.Object.Player
-import Engine.Graphics.Shaders
 import Engine.Object.GameObject
 import Engine.Graphics.NewGraphics
 import TestVals
@@ -73,10 +72,6 @@ renderStep world _ =
     --renderWorldNew world
     --renderWorldMat world
     --renderWorldWithShadows world
-
-depthShader :: IO GLuint
-depthShader = loadProgram "shaders/shadow/shadow.vert"
-                          "shaders/shadow/shadow.frag"
 
 updateStepComplete :: GLFW.Window -> World t -> IO (World t)
 updateStepComplete win world = do

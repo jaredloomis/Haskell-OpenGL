@@ -1,4 +1,3 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
@@ -23,14 +22,7 @@ newtype Game t a = Game {
 
 newtype GameIO t a = GameIO {
     gameIoState :: StateT (World t) IO a
-} deriving (Functor, Monad, MonadIO, MonadState (World t)) 
-
-{-
-testIt :: Vec3 GLfloat
-testIt = entityPosition . head . worldEntities . execState
-    (gameState moveAllObjects) $
-        World emptyEntity [emptyEntity] emptyGraphics emptyWorldState
--}
+} deriving (Functor, Monad, MonadIO, MonadState (World t))
 
 moveAllObjects :: Game t ()
 moveAllObjects = do
