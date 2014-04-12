@@ -1,11 +1,10 @@
-{-# LANGUAGE TupleSections #-}
 module Engine.Model.ObjLoader (
     loadObjModel, loadObjFile
 ) where
 
 import System.IO
     (openFile, IOMode(..), hGetContents, hClose)
-import Data.List (isPrefixOf)
+import Data.List (isPrefixOf, intercalate)
 import Data.List.Split (splitOn)
 import Data.Maybe (isJust, fromJust)
 import Control.Monad (liftM)
@@ -33,17 +32,6 @@ loadObjModel objFile vert frag =
     let attrNames = ["position", "texCoord", "normal", "color", "textureId"]
     in do
     hasDatFile <- doesFileExist $ objFile ++ ".dat"
-{-
-    fileContents <- openFile objFile ReadMode >>= hGetContents
-    (mats, lib) <- loadObjMaterials fileContents
-    let obj = loadObj fileContents
-
-        dat = toArrays obj
-        materialDiffs = fromVec3M $ map matDiffuseColor mats
-        materialTexIds = map (fromIntegral . fromJustSafe . matTexId) mats
-
-        --totalData = dat ++ [materialDiffs, materialTexIds]
--}
     (totalData, mTextures) <-
         if hasDatFile
             then do
@@ -51,8 +39,11 @@ loadObjModel objFile vert frag =
                 textures <- mapM juicyLoadTexture images
                 return (totalDat, textures)
         else do
-            fileContents <- openFile objFile ReadMode >>= hGetContents
-            (mats, lib) <- loadObjMaterials fileContents
+            handle <- openFile objFile ReadMode
+            fileContents <- hGetContents handle
+            let directory = (intercalate "/" . init $ splitOn "/" objFile) ++ "/"
+            (mats, lib) <- loadObjMaterials directory $! fileContents
+            hClose handle
             let obj = loadObj fileContents
 
                 dat = toArrays obj
@@ -61,7 +52,7 @@ loadObjModel objFile vert frag =
                 total = dat ++ [materialDiffs, materialTexIds]
 
             images <- liftM concat $
-                mapM (\f -> liftM allImagesInFile (openFile f ReadMode >>= hGetContents)) $ allMtlsInObj fileContents
+                mapM (\f -> liftM allImagesInFile (openFile (directory ++ f) ReadMode >>= hGetContents)) $ allMtlsInObj fileContents
 
             writeDataToFile (objFile ++ ".dat") total images
 
@@ -73,9 +64,7 @@ loadObjModel objFile vert frag =
         [3, 2, 3, 3, 1]
         (fromIntegral (length . head $ totalData) `div` 3)
 
-    let mTexIds = replicate (length mTextures) 0 :: [GLint] --undefined --map (fromJust . matTexId) $ filter (isJust . matTexId) lib
-    --    mTextures = map (fromJust . matTexture) $ filter (isJust . matTexture) lib
-    --print mTextures
+    let mTexIds = replicate (length mTextures) 0 :: [GLint]
     return tmp{modelTextures =
         zip mTextures
             mTexIds}
@@ -207,16 +196,17 @@ parseLine :: Read a => String -> D.DList a
 parseLine = D.map read . D.tail . D.fromList . words
 {-# INLINE parseLine #-}
 
-loadObjMaterials :: String -> IO ([Material], [Material])
-loadObjMaterials contents = do
-    library <- loadObjMaterialLib contents
+loadObjMaterials :: String -> String -> IO ([Material], [Material])
+loadObjMaterials directory contents = do
+    library <- loadObjMaterialLib directory contents
 
     let listRet = listOfMats contents library emptyMaterial
+
     return (listRet, library)
 
-loadObjMaterialLib :: String -> IO [Material]
-loadObjMaterialLib =
-    liftM concat . mapM loadMtlFile . parseMtlLibs
+loadObjMaterialLib :: String -> String -> IO [Material]
+loadObjMaterialLib directory =
+    liftM concat . mapM (\x -> loadMtlFile (directory++x)) . parseMtlLibs
 {-# INLINE loadObjMaterialLib #-}
 
 parseMtlLibs :: String -> [FilePath]
@@ -229,7 +219,7 @@ getMaterialLibs (line:rest) =
                 getMaterialLibs rest
     else getMaterialLibs rest
 getMaterialLibs _ = []
-{-# INLINE getMaterialLibs #-}
+--{-# INLINE getMaterialLibs #-}
 
 listOfMats :: String -> [Material] -> Material -> [Material]
 listOfMats contents =

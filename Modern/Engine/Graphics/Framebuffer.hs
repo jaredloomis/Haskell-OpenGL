@@ -84,7 +84,7 @@ renderPostPass fb wState shader = do
 
     glDisableVertexAttribArray 0
 
-makeFrameBuffer :: (Int, Int) -> IO Framebuffer
+makeFrameBuffer :: (GLint, GLint) -> IO Framebuffer
 makeFrameBuffer (winW, winH) = do
     --let (winW, winH) = windowSize $ stateWindow wState
     -- Create framebuffer and bind it.
@@ -100,7 +100,7 @@ makeFrameBuffer (winW, winH) = do
     -- Create an image.
     glTexImage2D gl_TEXTURE_2D 0
         (fromIntegral gl_RGB)
-        (fromIntegral winW) (fromIntegral winH)
+        winW winH
         0 gl_RGB gl_UNSIGNED_BYTE GU.offset0
 
     -- Give texture paramenters.
@@ -118,7 +118,7 @@ makeFrameBuffer (winW, winH) = do
     glBindRenderbuffer gl_RENDERBUFFER depthRenderBuffer
 
     glRenderbufferStorage gl_RENDERBUFFER gl_DEPTH_COMPONENT
-        (fromIntegral winW) (fromIntegral winH)
+        winW winH
 
     glFramebufferRenderbuffer gl_FRAMEBUFFER gl_DEPTH_ATTACHMENT
         gl_RENDERBUFFER depthRenderBuffer
@@ -137,7 +137,7 @@ makeFrameBuffer (winW, winH) = do
 
     quadVB <- fillNewBuffer quadBufferData
 
-    return $ FB fbName fbTex (fromIntegral winW, fromIntegral winH)
+    return $ FB fbName fbTex (winW, winH)
                 quadVB depthRenderBuffer
 
 quadBufferData :: [GLfloat]

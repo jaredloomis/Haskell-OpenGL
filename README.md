@@ -37,9 +37,9 @@ Performance by GHC/GHCI command:
 
 <h4>Top</h4>
 - <b>General code cleanup, make it easier to use and clearer.</b>
-- <b>Framebuffer resizing.</b>
-- <b>Relative file loading in .mtl and .obj files.</b>
 - <b>Repair shadows.</b>
+- <b>A collision detection system for <i>dynamic</i> objects.</b>
+- Normal mapping.
 - Create a FRP module, making it optional. (Elerea)
 - AI / Pathfinding (A\*?).
 - Chunks or other methods to allow for infinite terrain.

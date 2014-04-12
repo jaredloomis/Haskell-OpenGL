@@ -6,11 +6,12 @@ module Engine.Graphics.Window (
 import System.Exit (exitSuccess)
 
 import qualified Graphics.UI.GLFW as GLFW
+import Graphics.Rendering.OpenGL.Raw
 
 data Window = Window {
     windowHints :: [GLFW.WindowHint],
     windowTitle :: String,
-    windowSize :: (Int, Int),
+    windowSize :: (GLint, GLint),
     windowInner :: Maybe GLFW.Window
 }
 
@@ -32,7 +33,7 @@ openWindow window =
     -- Apply window hints.
     mapM_ GLFW.windowHint $ windowHints window
 
-    Just win <- GLFW.createWindow w h (windowTitle window) Nothing Nothing
+    Just win <- GLFW.createWindow (fromIntegral w) (fromIntegral h) (windowTitle window) Nothing Nothing
     GLFW.setWindowPos win 100 50
     GLFW.makeContextCurrent (Just win)
 

@@ -14,10 +14,11 @@ import Engine.Object.GameObject
 import Engine.Core.World
 import Engine.Graphics.Shaders
 import Engine.Graphics.Framebuffer
+import Engine.Graphics.Window
 
 -- | Create a Framebuffer.
-makeShadowFrameBuffer :: IO Framebuffer
-makeShadowFrameBuffer = do
+makeShadowFrameBuffer :: (GLint, GLint) -> IO Framebuffer
+makeShadowFrameBuffer (width, height) = do
     fbName <- alloca (\p -> glGenFramebuffers 1 p >> peek p)
     glBindFramebuffer gl_FRAMEBUFFER fbName
 
@@ -26,7 +27,7 @@ makeShadowFrameBuffer = do
 
     glTexImage2D gl_TEXTURE_2D 0
         (fromIntegral gl_DEPTH_COMPONENT16)
-        800 600
+        width height
         0 gl_DEPTH_COMPONENT gl_FLOAT GU.offset0
 
     -- Give texture paramenters.
@@ -53,7 +54,7 @@ makeShadowFrameBuffer = do
             else "Framebuffer error")
 
     return $ FB fbName depthTexture
-            (800, 600)
+            (width, height)
             (-1)
             (-1)
 
@@ -89,9 +90,12 @@ renderWorldWithShadows world = do
         worldMats
         mvpMatrix
 
+    let win = stateWindow $ worldState world
+        (width, height) = windowSize win
+
     glBindFramebuffer gl_FRAMEBUFFER
         (fbufName . fst . graphicsPostProcessors . worldGraphics $ world)
-    glViewport 0 0 800 600
+    glViewport 0 0 (fromIntegral width) (fromIntegral height)
 
     glEnable gl_CULL_FACE
     glCullFace gl_BACK
@@ -99,7 +103,7 @@ renderWorldWithShadows world = do
     glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
 
     renderObjectsWithShadows world
-        (calculateMatricesFromPlayer (worldPlayer world) (800, 600))
+        (calculateMatricesFromPlayer (worldPlayer world) (fromIntegral width, fromIntegral height))
         depthMVP
         fbuf
         (worldEntities world)

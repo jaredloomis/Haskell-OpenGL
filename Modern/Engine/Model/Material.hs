@@ -5,10 +5,11 @@ module Engine.Model.Material (
 
 import System.IO (IOMode (ReadMode), Handle,
                   openFile, hIsEOF, hGetLine, hClose)
-import Data.List (isPrefixOf)
+import Data.List (isPrefixOf, intercalate)
 import Data.Maybe (isNothing)
 import Data.List.Split (splitOn)
 import Control.Monad (liftM)
+import Control.DeepSeq
 
 import qualified Graphics.Rendering.OpenGL as GL
 import Graphics.Rendering.OpenGL.Raw (GLfloat, GLuint, GLint)
@@ -25,14 +26,19 @@ data Material = Material {
     matTexId :: Maybe GLint
 } deriving (Show)
 
-loadMtlFile :: FilePath -> IO [Material]
-loadMtlFile file =
-    openFile file ReadMode >>= loadMtlMaterials
+instance NFData Material where
+    rnf (Material n ac dc sc t ti) = n `deepseq` ac `deepseq` dc `deepseq` sc `deepseq` t `seq` ti `seq` ()
 
-loadMtlMaterials :: Handle -> IO [Material]
-loadMtlMaterials handle =
+loadMtlFile :: FilePath -> IO [Material]
+loadMtlFile file = do
+    let directory = (intercalate "/" . init $ splitOn "/" file) ++ "/"
+    openFile file ReadMode >>= loadMtlMaterials directory
+
+
+loadMtlMaterials :: String -> Handle -> IO [Material]
+loadMtlMaterials directory handle =
     liftM (map applyDefualtMtl . tail)
-          (loadMtlMaterialsRec 0 handle emptyMaterial)
+          (loadMtlMaterialsRec directory 0 handle emptyMaterial)
 
 -- | Apply defualt values to attributes set to
 --   Nothing according to spec at
@@ -57,8 +63,8 @@ applyDefualtMtl mat@(Material _ amb diff spec _ texId) =
            matTexId = newTexId}
 
 -- | UNSAFE!! Use loadMtlMaterials instead.
-loadMtlMaterialsRec :: GLuint -> Handle -> Material -> IO [Material]
-loadMtlMaterialsRec textureCount handle start = do
+loadMtlMaterialsRec :: String -> GLuint -> Handle -> Material -> IO [Material]
+loadMtlMaterialsRec directory textureCount handle start = do
     eof <- hIsEOF handle
     if not eof
         then do 
@@ -69,7 +75,7 @@ loadMtlMaterialsRec textureCount handle start = do
             if "newmtl " `isPrefixOf` line
                 then do
                     let name = head $ rawMtlLine line
-                    rest <- loadMtlMaterialsRec textureCount handle
+                    rest <- loadMtlMaterialsRec directory textureCount handle
                                 (Material name Nothing Nothing Nothing Nothing Nothing)
                     return $ start : rest
             else if not $ null line
@@ -78,17 +84,17 @@ loadMtlMaterialsRec textureCount handle start = do
                 then
                     let origTex = matTexture start
                     in do
-                        newMat <- executeCommand line start textureCount
+                        newMat <- executeCommand directory line start textureCount
                         if matTexture newMat == origTex
-                            then loadMtlMaterialsRec textureCount handle newMat
-                        else loadMtlMaterialsRec (textureCount+1) handle newMat
-            else loadMtlMaterialsRec textureCount handle start
+                            then loadMtlMaterialsRec directory textureCount handle newMat
+                        else loadMtlMaterialsRec directory (textureCount+1) handle newMat
+            else loadMtlMaterialsRec directory textureCount handle start
     -- If it is End Of File, close the file and
     -- return the last Material.
     else hClose handle >> return [start]
 
-executeCommand :: String -> Material -> GLuint -> IO Material
-executeCommand command mat textureCount
+executeCommand :: String -> String -> Material -> GLuint -> IO Material
+executeCommand directory command mat textureCount
     | "Ka " `isPrefixOf` command =
         return mat{matAmbientColor = Just $ readMtlLineTriplet command}
     | "Kd " `isPrefixOf` command =
@@ -96,7 +102,7 @@ executeCommand command mat textureCount
     | "Ks " `isPrefixOf` command =
         return mat{matSpecularColor = Just $ readMtlLineTriplet command}
     | "map_Kd " `isPrefixOf` command = do
-        texture <- juicyLoadTexture $ head (rawMtlLine command)
+        texture <- juicyLoadTexture $ directory ++ head (rawMtlLine command)
         return mat{matTexture = Just texture,
                    matTexId = Just $ fromIntegral textureCount}
     | otherwise = return mat

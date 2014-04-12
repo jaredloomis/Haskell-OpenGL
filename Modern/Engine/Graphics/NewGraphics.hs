@@ -143,7 +143,8 @@ renderAllWithGlobal' info _ _ _ = return info
 renderWorldNew :: World t -> IO (World t)
 renderWorldNew world = do
     glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
-    _ <- renderAllWithGlobal (screenFramebuffer (800, 600))
+    let (width, height) = windowSize $ stateWindow $ worldState world
+    _ <- renderAllWithGlobal (screenFramebuffer (fromIntegral width, fromIntegral height))
                         world (worldEntities world) :: IO RenderInfo
     return world
 

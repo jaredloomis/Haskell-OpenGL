@@ -1,6 +1,6 @@
 # Blender v2.69 (sub 0) OBJ File: ''
 # www.blender.org
-mtllib res/objects/ibanez/ibanez.mtl
+mtllib ibanez.mtl
 o mesh24.012_mesh24-geometry
 v 55.605850 22.942848 15.650364
 v 56.437401 22.934711 18.629442

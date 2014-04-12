@@ -58,9 +58,10 @@ mkWorldFast = do
         "shaders/postprocessing/invert/invert.frag"
 -}
     let winDimensions = windowSize $ stateWindow state
+
     fb <- makeFrameBuffer winDimensions
 
-    sfb <- makeShadowFrameBuffer
+    sfb <- makeShadowFrameBuffer winDimensions
 
     shadowShader <- loadProgram
             "shaders/shadow/shadow.vert"

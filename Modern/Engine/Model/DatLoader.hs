@@ -1,6 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Engine.Model.DatLoader where
 
+import Data.List (intercalate)
+import Data.List.Split (splitOn)
 import System.IO (openFile, IOMode(..), hPutStr, hPutStrLn)
 import Data.Maybe (isJust)
 -- In all tests so far, the strict version is a bit faster.
@@ -77,7 +79,8 @@ loadData datFile = do
         colors = loadColors fileLines
         texCoords = loadTexCoords fileLines
         texIds = loadTexIds fileLines
-        textures = loadTextures fileLines
+        directory = B.pack $ (intercalate "/" . init $ splitOn "/" datFile) ++ "/" 
+        textures = loadTextures directory fileLines
     return ([verts, texCoords, norms, colors, texIds], map B.unpack textures)
 
 loadVerts :: [B.ByteString] -> [GLfloat]
@@ -100,9 +103,9 @@ loadTexIds :: [B.ByteString] -> [GLfloat]
 loadTexIds =
     readDataLine . takeFirst (B.isPrefixOf "ti ")
 
-loadTextures :: [B.ByteString] -> [B.ByteString]
-loadTextures =
-    parseDataLine . takeFirst (B.isPrefixOf "img ")
+loadTextures :: B.ByteString -> [B.ByteString] -> [B.ByteString]
+loadTextures prefix =
+    map (prefix `B.append`) . parseDataLine . takeFirst (B.isPrefixOf "img ")
 
 readDataLine :: B.ByteString -> [GLfloat]
 readDataLine = map parseBsFloat . parseDataLine

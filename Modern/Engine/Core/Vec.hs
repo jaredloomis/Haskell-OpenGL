@@ -4,11 +4,16 @@ module Engine.Core.Vec (
     crossVec3, vec4GetIndex, toArray3, toArray2
 ) where
 
+import Control.DeepSeq
+
 import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
 data Vec4 a = Vec4 !a !a !a !a deriving (Show, Eq)
 data Vec3 a = Vec3 !a !a !a deriving (Show, Eq)
 data Vec2 a = Vec2 !a !a deriving (Show, Eq)
+
+instance NFData (Vec3 a) where
+    rnf (Vec3 x y z) = x `seq` y `seq` z `seq` ()
 
 {-# INLINE vec3ToVec4 #-}
 vec3ToVec4 :: Vec3 a -> a -> Vec4 a
