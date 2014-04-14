@@ -1,21 +1,27 @@
 module Main where
 
 import Data.Time (diffUTCTime)
-import Control.Monad.State
+import Control.Monad.State (unless, evalState)
 
 import qualified Graphics.UI.GLFW as GLFW
 
-import Graphics.Rendering.OpenGL.Raw
+import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
 import Engine.Core.Types
+    (World(..), WorldState(..), Game(..),
+     GameObject(..), Input(..))
 import Engine.Graphics.Graphics
-import Engine.Core.Vec
+    (initGL, resizeScene, cleanupWorld,
+     cleanupObjects)
+import Engine.Core.Vec (Vec2(..))
 import Engine.Graphics.Window
-import Engine.Core.World
-import Engine.Object.Player
-import Engine.Object.GameObject
-import Engine.Graphics.NewGraphics
-import TestVals
+    (Window(..), defaultWindow,
+     openWindow, shutdown)
+import Engine.Core.World (getWorldTime, setWorldPlayer)
+import Engine.Object.Player (resetPlayerInput)
+import Engine.Object.GameObject (updateWorld)
+import Engine.Graphics.NewGraphics (renderWorldNewPost)
+import TestVals (mkWorldFast)
 
 main :: IO ()
 main = do

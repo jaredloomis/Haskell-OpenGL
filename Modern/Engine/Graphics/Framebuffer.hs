@@ -14,9 +14,9 @@ import Graphics.Rendering.OpenGL.Raw
 import qualified Graphics.GLUtil as GU
 
 import Engine.Core.Types
-import Engine.Graphics.Shaders
-import Engine.Graphics.GraphicsUtils
-import Engine.Graphics.Graphics
+import Engine.Graphics.Shaders (setUniforms)
+import Engine.Graphics.GraphicsUtils (fillNewBuffer)
+import Engine.Graphics.Graphics (renderWorldMat)
 
 -- | Render world with all postprocessing shaders defined by
 --   worldFramebuffer.
@@ -148,3 +148,4 @@ quadBufferData =
      -1.0,  1.0, 0.0,
      1.0, -1.0, 0.0,
      1.0,  1.0, 0.0]
+{-# INLINE quadBufferData #-}

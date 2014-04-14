@@ -1,5 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Engine.Model.DatLoader where
+module Engine.Model.DatLoader (
+    writeDataToFile, loadData
+) where
 
 import Data.List (intercalate)
 import Data.List.Split (splitOn)
@@ -13,7 +15,7 @@ import qualified Data.ByteString.Char8 as B
 
 import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
-import Engine.Core.Vec
+import Engine.Core.Vec (Vec4(..))
 
 writeDataToFile :: FilePath -> [[GLfloat]] -> [FilePath] -> IO ()
 writeDataToFile datFile [verts, coords, norms, colors, tids] =
@@ -66,7 +68,6 @@ listStringsToString (x:[]) =
     x
 listStringsToString [] =
     error "DatLoader.listStringsToString: argument is empty."
-
 
 --
 
@@ -140,7 +141,6 @@ parseBsFloat' bs
     | otherwise =
         let Just (val, rest) = B.readInt bs
         in (fromIntegral val, rest)
---{-# INLINE parseBsFloat' #-}
 
 takeFirst :: (a -> Bool) -> [a] -> a
 takeFirst func (x:xs)

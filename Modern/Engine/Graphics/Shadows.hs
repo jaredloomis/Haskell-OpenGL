@@ -1,4 +1,7 @@
-module Engine.Graphics.Shadows where
+module Engine.Graphics.Shadows (
+    makeShadowFrameBuffer, renderWorldWithShadows,
+    setMatrixUniformsBias 
+) where
 
 import Data.Bits ((.|.))
 

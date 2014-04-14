@@ -1,4 +1,3 @@
-{-# LANGUAGE RankNTypes #-}
 module Engine.Graphics.GraphicsUtils (
     createBufferIdAll, createBufferId,
     fillNewBuffer, withNewPtr, withNewPtrArray,
@@ -10,6 +9,10 @@ import Foreign
      alloca, peek, peekArray)
 
 import Graphics.Rendering.OpenGL.Raw
+    (GLuint, GLfloat, glGenVertexArrays,
+     glBindVertexArray, glGenBuffers,
+     glBindBuffer, gl_ARRAY_BUFFER,
+     glBufferData, gl_STATIC_DRAW)
 
 -- | Create an id for each buffer data.
 createBufferIdAll :: [[GLfloat]] -> IO [GLuint]
@@ -39,15 +42,15 @@ fillNewBuffer list = do
 
 -- | Perform IO action with a new pointer, returning the
 --   value in the pointer.
-withNewPtr :: forall b a. Storable b => (Ptr b -> IO a) -> IO b
+withNewPtr :: Storable b => (Ptr b -> IO a) -> IO b
 withNewPtr f = alloca (\p -> f p >> peek p)
 
 -- | Perform IO action with a new pointer array, returning the
 --   value in the pointer.
-withNewPtrArray :: forall b a. Storable b => (Ptr b -> IO a) -> Int -> IO [b]
+withNewPtrArray :: Storable b => (Ptr b -> IO a) -> Int -> IO [b]
 withNewPtrArray f size = alloca (\p -> f p >> peekArray size p)
 
 -- | Perform IO action with a new pointer, returning the
 --   pointer itself.
-useNewPtr :: forall a a1. Storable a => (Ptr a -> IO a1) -> IO (Ptr a)
+useNewPtr :: Storable a => (Ptr a -> IO a1) -> IO (Ptr a)
 useNewPtr f = alloca (\p -> f p >> return p)

@@ -1,6 +1,6 @@
 module Engine.Core.World (
-    setWorldPlayer, playerAABB, (~>~), (~>~>),
-    (~>), (~~), setWorldUniforms, getWorldDelta,
+    setWorldPlayer, playerAABB,
+    setWorldUniforms, getWorldDelta,
     getWorldTime
 ) where
 
@@ -9,51 +9,10 @@ import Data.Time (getCurrentTime, UTCTime)
 import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
 import Engine.Core.Types
-import Engine.Graphics.Shaders
+import Engine.Graphics.Shaders (setUniformsAndRemember)
 
 setWorldPlayer :: GameObject t -> World t -> World t
 setWorldPlayer player world = world{worldPlayer = player}
-
-actWithSeed ::
-    (a -> b -> b) ->
-    (a, b) ->
-    (a, b)
-actWithSeed func (world, obj) =
-    (world, func world obj)
-
-infixl ~>
-
-(~>) ::
-    (a, b) ->
-    (a -> b -> b) ->
-    (a, b)
-(~>) val func = actWithSeed func val
-
-infixl ~~
-
-(~~) ::
-    (a, b) ->
-    (a -> a) ->
-    (a, b)
-(~~) (applyVal, passVal) func =
-    (func applyVal, passVal)
-
-infixl ~>~
-
-(~>~) ::
-    (a, b) ->
-    (b -> a) ->
-    (a, b)
-(~>~) (_, pass) func =
-    (func pass, pass)
-
-infixl ~>~>
-
-(~>~>) ::
-    (a, b) ->
-    (a -> a, b -> b) ->
-    (a, b)
-(~>~>) (x, y) (fx, fy) = (fx x, fy y)
 
 -- | Set a world's uniforms to given shader.
 setWorldUniforms :: World t -> Shader -> IO Shader

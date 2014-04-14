@@ -1,12 +1,16 @@
-module Engine.Terrain.Generator where
+module Engine.Terrain.Generator (
+    genSimplexModel
+) where
 
 import qualified Data.DList as D
-import System.Random
+import System.Random (randomRIO)
 import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
 import Engine.Model.Model
+    (Model(..), createModel)
 import Engine.Terrain.Noise
-import Engine.Graphics.Textures
+    (Simplex(..), perm, getSimplexHeight)
+import Engine.Graphics.Textures (juicyLoadTexture)
 
 genSimplexModel :: FilePath -> FilePath ->
     GLfloat ->          -- ^ Width
@@ -96,6 +100,7 @@ makeSquare simplex x z =
 makePointFromXY :: Simplex -> GLfloat -> GLfloat -> D.DList GLfloat
 makePointFromXY simp x z = D.fromList [x, getSimplexHeight simp x z, z]
 
+{-
 createStripSimplex :: GLfloat -> GLfloat -> GLfloat -> GLfloat -> [GLfloat]
 createStripSimplex spacing len x i
     | i < len =
@@ -142,6 +147,7 @@ findY xf zf (xl:yl:zl:heights)
     | xf == xl && zf == zl = yl
     | otherwise = findY xf zf heights
 findY _ _ _ = -3.1415
+-}
 
 calculateNormals :: [GLfloat] -> [GLfloat]
 calculateNormals (x1:y1:z1:x2:y2:z2:x3:y3:z3:rest) =
@@ -160,6 +166,7 @@ calculateNormals (x1:y1:z1:x2:y2:z2:x3:y3:z3:rest) =
         repeatList i list = take (i*3) $ cycle list 
 calculateNormals _ = []
 
+{-
 heightsToCoords :: [[GLfloat]] -> GLfloat -> GLfloat -> [GLfloat]
 heightsToCoords (yi:restYs) z spacing =
     let completeLine (y:ys) x =
@@ -167,3 +174,4 @@ heightsToCoords (yi:restYs) z spacing =
         completeLine [] _ = []
     in completeLine yi 0 ++ heightsToCoords restYs (z + spacing) spacing
 heightsToCoords [] _ _ = []
+-}

@@ -1,6 +1,6 @@
 module Engine.Object.Player (
     mkPlayer, moveFromLook,
-    moveFromLookSlide, --applyTransformations,
+    moveFromLookSlide,
     resetPlayerInput
 ) where
 
@@ -11,11 +11,14 @@ import qualified Graphics.UI.GLFW as GLFW
 import Graphics.Rendering.OpenGL.Raw
 
 import Engine.Core.Types
-import Engine.Core.Util
-import Engine.Core.Vec
-import Engine.Core.World
+import Engine.Core.Util (sinDeg, cosDeg)
+import Engine.Core.Vec (Vec3(..), Vec2(..))
+import Engine.Core.World (getWorldDelta)
 import Engine.Object.GameObject
+    (moveObject, moveObjectSlideAllIntersecters,
+     moveObjectSlide, moveObjectSafe)
 import Engine.Model.AABB
+    (calculateNewWholeAABB)
 
 mkPlayer :: GameObject t
 mkPlayer = Player   (Vec3 0 20 0) (Vec3 0 0 0)

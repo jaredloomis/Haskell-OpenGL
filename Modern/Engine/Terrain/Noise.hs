@@ -1,4 +1,7 @@
-module Engine.Terrain.Noise where
+module Engine.Terrain.Noise (
+    Simplex(..), getSimplexHeight, simplexNoise,
+    perm
+) where
 
 import Data.Bits ((.&.))
 import System.Random.Shuffle (shuffle')
@@ -119,6 +122,7 @@ simplexNoise width spacing octaves wavelength intensity = do
                 y <- [0, spacing .. (fromIntegral $ width-1)]]
     return $ splitInterval raw width
 
+{-
 simplexNoiseSection :: (Int, Int) -> (Int, Int) -> Int -> GLfloat -> GLfloat -> IO [[GLfloat]]
 simplexNoiseSection (width, height) (startx, starty) octaves wavelength intensity = do
     seed <- randomRIO (0, 100)
@@ -129,6 +133,7 @@ simplexNoiseSection (width, height) (startx, starty) octaves wavelength intensit
                 x <- [startx .. (width-1)],
                 y <- [starty .. (height-1)]]
     return $ splitInterval raw width
+-}
 
 splitInterval :: [a] -> Int -> [[a]]
 splitInterval xs i

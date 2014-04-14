@@ -6,8 +6,9 @@ import Graphics.Rendering.OpenGL.Raw
 
 import Engine.Core.Types
 import Engine.Graphics.Shaders
-import Engine.Model.AABB
-import Engine.Graphics.GraphicsUtils
+    (loadProgram, getAttrLocs, createShaderAttribs)
+import Engine.Model.AABB (aabbByFace, aabbFromPoints)
+import Engine.Graphics.GraphicsUtils (createBufferIdAll)
 
 createModel ::
     FilePath ->     -- ^ Vertex Shader.

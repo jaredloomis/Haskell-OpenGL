@@ -1,17 +1,17 @@
-{-# OPTIONS_GHC -fno-warn-unused-binds #-}
 module Engine.Model.AABB (
     AABB(..), anyIntersect, anyIntersectGet,
     aabbFromPoints, aabbByFace, intersecting,
     createAABB, getObjectIntersecter, isIntersectingAny,
     calculateNewWholeAABB, aabbContainsPoint, objectsIntersect,
-    calculateNewAABBs
+    calculateNewAABBs, aabbsFromPointsGrouped,
+    moveAABB, aabbDimensions, mIntersecting
 ) where
 
 import Data.Maybe (isJust)
 
 import Graphics.Rendering.OpenGL.Raw
 
-import Engine.Core.Vec
+import Engine.Core.Vec (Vec3(..))
 import Engine.Core.Types
 
 

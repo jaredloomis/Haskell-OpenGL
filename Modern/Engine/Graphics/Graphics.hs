@@ -11,14 +11,19 @@ import Data.Maybe (fromJust)
 import qualified Graphics.UI.GLFW as GLFW
 
 import Graphics.Rendering.OpenGL.Raw
-import qualified Graphics.Rendering.OpenGL as GL
 
 import Engine.Core.Types
+    (World(..), WorldState(..), GameObject(..),
+     Model(..), HasPosition(..), HasRotation(..),
+     Shader(..), Framebuffer(..), Graphics(..))
 import Engine.Graphics.Shaders
-import Engine.Core.Vec
-import Engine.Object.GameObject
+    (setShaderAttribs, bindTextures, disableShaderAttribs)
+import Engine.Core.Vec (Vec3(..))
+import Engine.Object.GameObject (getModel)
 import Engine.Matrix.Matrix
-import Engine.Graphics.Window
+    (WorldMatrices(..), calculateMatricesFromPlayer,
+     gtranslationMatrix, grotationMatrix, setMatrixUniforms)
+import Engine.Graphics.Window (Window(..))
 
 renderWorldMat :: World t -> IO (World t)
 renderWorldMat world = do
@@ -155,7 +160,7 @@ cleanupObjects (object:rest) = do
 
     -- Delete textures.
     let model = getModel object
-        textures = map (\(GL.TextureObject tid, _) -> tid) $ modelTextures model
+        textures = map fst $ modelTextures model
     mapM_ (\x -> with x $ glDeleteTextures 1) textures
 
     -- Delete vertex arrays.

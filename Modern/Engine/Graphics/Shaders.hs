@@ -6,7 +6,7 @@ module Engine.Graphics.Shaders (
     printMatrix, setUniform, setUniformAndRemember,
     setUniformsAndRemember, findUniformLocation,
     findMaybeUniformLocation, findUniformLocationAndRemember,
-    loadShadersProgram, loadProgramComplete, emptyShader,
+    loadShadersProgram, emptyShader,
     wrapShader
 ) where
 
@@ -18,34 +18,21 @@ import Foreign
 import Foreign.C.String (withCString, peekCString)
 import Foreign.C.Types (CChar)
 
-import qualified Graphics.Rendering.OpenGL as GL
 import Graphics.Rendering.OpenGL.Raw
 
 import qualified Graphics.GLUtil as GU
 
 import Engine.Core.Types
-import Engine.Core.Vec
---import Engine.Graphics.Textures
-import Engine.Graphics.GraphicsUtils
-
-{-
-data Shader = Shader {
-    shaderId :: GLuint,
-    shaderUniforms :: [(String, GLint)]
-} deriving (Show)
--}
+import Engine.Core.Vec (Vec3(..))
+import Engine.Graphics.GraphicsUtils (withNewPtr, withNewPtrArray)
 
 emptyShader :: Shader
 emptyShader = Shader (-1) []
+{-# INLINE emptyShader #-}
 
 wrapShader :: GLuint -> Shader
 wrapShader program = Shader program []
-
--- | Attrib id, Buffer id, size of attrib.
---type ShaderAttrib = Vec3 GLuint
-
--- | Name, Location, Values
---type ShaderUniform = (String, IO [GLfloat])
+{-# INLINE wrapShader #-}
 
 -- | Simply pack the arguments together into an array of
 --   ShaderAttribs.
@@ -65,6 +52,7 @@ loadProgram vertFP fragFP =
         [(gl_VERTEX_SHADER,   vertFP),
          (gl_FRAGMENT_SHADER, fragFP)]
 
+{-
 loadProgramComplete ::
     FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> IO GLuint
 loadProgramComplete vertFP fragFP tessCFP tessEFP geomFP =
@@ -74,6 +62,7 @@ loadProgramComplete vertFP fragFP tessCFP tessEFP geomFP =
          (gl_TESS_CONTROL_SHADER, tessCFP),
          (gl_TESS_EVALUATION_SHADER, tessEFP),
          (gl_GEOMETRY_SHADER, geomFP)]
+-}
 
 loadShadersProgram :: [(GLuint, FilePath)] -> IO GLuint
 loadShadersProgram shaders = do
@@ -134,17 +123,15 @@ bindTextures :: [Texture] -> GLuint -> IO ()
 bindTextures textures shader =
     bindTexturesi shader textures 0
 
-    -- TODO reduce calls to quickGetUniform.
     where
-    bindTexturesi :: GLuint -> [(GL.TextureObject, GLint)] -> GLuint -> IO ()
-    bindTexturesi s ((GL.TextureObject tid, _):ts) i = do
-        --when (activeId >= 0) $ do
-            glActiveTexture $ gl_TEXTURE0 + i-- + fromIntegral activeId
-            glBindTexture gl_TEXTURE_2D tid
+    bindTexturesi :: GLuint -> [Texture] -> GLuint -> IO ()
+    bindTexturesi s ((tid, _):ts) i = do
+        glActiveTexture $ gl_TEXTURE0 + i
+        glBindTexture gl_TEXTURE_2D tid
 
-            loc <- quickGetUniform s $ "textures[" ++ show i ++ "]"
-            glUniform1i loc (fromIntegral i)
-            bindTexturesi s ts (i+1)
+        loc <- quickGetUniform s $ "textures[" ++ show i ++ "]"
+        glUniform1i loc (fromIntegral i)
+        bindTexturesi s ts (i+1)
     bindTexturesi _ [] _ = return ()
 
 -- | Clear out active textures. Call after drawing?
@@ -208,13 +195,8 @@ setUniformAndRemember shader (name, valsIo) = do
     let len = length vals
     
     loc <- let uniloc = findMaybeUniformLocation shader name
-          in maybe (withCString name $ glGetUniformLocation $ shaderId shader)
+           in maybe (withCString name $ glGetUniformLocation $ shaderId shader)
                     return uniloc
-{-
-          in if isJust uniloc
-                then return $ fromJust uniloc
-            else withCString name $ glGetUniformLocation $ shaderId shader
--}
 
     case len of
         1 -> glUniform1f loc $ head vals
@@ -256,7 +238,7 @@ findMaybeUniformLocation shader =
 -- | Calls glUniformxf on all Uniforms, given the
 --   shader.
 setUniforms :: GLuint -> [ShaderUniform] -> IO ()
-setUniforms shader = mapM_ $ setUniform shader
+setUniforms = mapM_ . setUniform
 
 setUniform :: GLuint -> ShaderUniform -> IO ()
 setUniform shader (name, valsIo) = do

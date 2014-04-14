@@ -21,13 +21,14 @@ import Graphics.Rendering.OpenGL.Raw
 
 import Engine.Core.Types
 import Engine.Graphics.Shaders
-import Engine.Core.Vec
+    (findUniformLocationAndRemember)
+import Engine.Core.Vec (Vec3(..))
 
 data WorldMatrices = WorldMatrices {
     matrixModel :: Matrix4x4,
     matrixView :: Matrix4x4,
     matrixProjection :: Matrix4x4
-}
+} deriving (Show)
 
 emptyMatrices :: WorldMatrices
 emptyMatrices = WorldMatrices 1 1 1

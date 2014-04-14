@@ -1,23 +1,38 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
-module Engine.Graphics.NewGraphics where
+module Engine.Graphics.NewGraphics (
+    RenderInfo(..), emptyInfo, Renderable(..),
+    totalRender, renderToFramebuffer, renderAllToFramebuffer,
+    renderWorldNewPost, renderWorldNew, withFramebuffer,
+    screenFramebuffer, bindFramebuffer, unbindFrameBuffer
+) where
 
 import Data.Bits ((.|.))
 
 import Graphics.Rendering.OpenGL.Raw
+    (GLint, glUseProgram, glDrawArrays, gl_TRIANGLES,
+     glClear, gl_COLOR_BUFFER_BIT, gl_DEPTH_BUFFER_BIT,
+     glBindFramebuffer, gl_FRAMEBUFFER)
 
 import Engine.Core.Types
-import Engine.Core.World
-import Engine.Core.Vec
+    (World(..), WorldState(..), Framebuffer(..),
+     Shader(..), GameObject(..), Model(..),
+     HasPosition(..), HasRotation(..), Graphics(..))
+import Engine.Core.World (setWorldUniforms)
+import Engine.Core.Vec (Vec3(..))
 import Engine.Graphics.Shaders
-import Engine.Object.GameObject
+    (emptyShader, setShaderAttribs, disableShaderAttribs,
+     bindTextures)
+import Engine.Object.GameObject (getModel)
 import Engine.Matrix.Matrix
-import Engine.Graphics.Window
-import Engine.Graphics.Framebuffer
+    (WorldMatrices(..), emptyMatrices, gtranslationMatrix,
+     grotationMatrix, setMatrixUniforms, calculateMatricesFromPlayer)
+import Engine.Graphics.Window (Window(..))
+import Engine.Graphics.Framebuffer (renderAllPasses)
 
 data RenderInfo = RenderInfo {
     renderInfoShader :: Shader,
     renderInfoMatrices :: WorldMatrices
-}
+} deriving (Show)
 
 emptyInfo :: RenderInfo
 emptyInfo = RenderInfo emptyShader emptyMatrices
@@ -124,7 +139,7 @@ renderAllWithGlobal fbuf g =
 renderAllWithGlobal' :: (Renderable t1 g, Renderable t2 g) =>
                         g -> Framebuffer -> t1 -> [t2] -> IO g
 renderAllWithGlobal' info fbuf global (x:xs) = do
-    bindFrameBuffer fbuf
+    bindFramebuffer fbuf
 
     newinfo <-
         renderBind x info >>=
@@ -160,12 +175,12 @@ renderWorldNewWithFramebuffer world fbuf = do
 renderWorldNewPost :: World t -> IO (World t)
 renderWorldNewPost world = do
     let effects = snd $ graphicsPostProcessors $ worldGraphics world
-        fb = fst $ graphicsPostProcessors $ worldGraphics world 
-    glBindFramebuffer gl_FRAMEBUFFER $
-        fbufName fb
-    ret <- renderWorldNewWithFramebuffer world fb
-    bindFrameBuffer fb
+        fb = fst $ graphicsPostProcessors $ worldGraphics world
 
+    bindFramebuffer fb
+    ret <- renderWorldNewWithFramebuffer world fb
+
+    bindFramebuffer fb
     renderAllPasses ret effects
     return ret
 
@@ -176,13 +191,13 @@ screenFramebuffer dimensions =
 
 withFramebuffer :: Framebuffer -> IO a -> IO a
 withFramebuffer fbuf func = do
-    bindFrameBuffer fbuf
+    bindFramebuffer fbuf
     ret <- func
     unbindFrameBuffer
     return ret
 
-bindFrameBuffer :: Framebuffer -> IO ()
-bindFrameBuffer = glBindFramebuffer gl_FRAMEBUFFER . fbufName
+bindFramebuffer :: Framebuffer -> IO ()
+bindFramebuffer = glBindFramebuffer gl_FRAMEBUFFER . fbufName
 
 unbindFrameBuffer :: IO ()
 unbindFrameBuffer = glBindFramebuffer gl_FRAMEBUFFER 0

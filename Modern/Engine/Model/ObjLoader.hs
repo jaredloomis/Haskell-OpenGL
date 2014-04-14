@@ -20,7 +20,7 @@ import Engine.Model.Material
 import Engine.Model.Model
     (Model(..), createModel)
 import Engine.Core.Vec (Vec3(..))
-import Engine.Model.DatLoader
+import Engine.Model.DatLoader (loadData, writeDataToFile)
 import Engine.Graphics.Textures (juicyLoadTexture)
 
 loadObjModel ::

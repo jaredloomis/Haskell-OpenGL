@@ -9,25 +9,26 @@ import Data.List (isPrefixOf, intercalate)
 import Data.Maybe (isNothing)
 import Data.List.Split (splitOn)
 import Control.Monad (liftM)
-import Control.DeepSeq
+import Control.DeepSeq (NFData(..), deepseq)
 
-import qualified Graphics.Rendering.OpenGL as GL
 import Graphics.Rendering.OpenGL.Raw (GLfloat, GLuint, GLint)
 
-import Engine.Core.Vec
-import Engine.Graphics.Textures
+import Engine.Core.Vec (Vec3(..))
+import Engine.Graphics.Textures (juicyLoadTexture)
 
 data Material = Material {
     matName :: String,
     matAmbientColor :: Maybe (Vec3 GLfloat),
     matDiffuseColor :: Maybe (Vec3 GLfloat),
     matSpecularColor :: Maybe (Vec3 GLfloat),
-    matTexture :: Maybe GL.TextureObject,
+    matTexture :: Maybe GLuint,
     matTexId :: Maybe GLint
 } deriving (Show)
 
 instance NFData Material where
-    rnf (Material n ac dc sc t ti) = n `deepseq` ac `deepseq` dc `deepseq` sc `deepseq` t `seq` ti `seq` ()
+    rnf (Material n ac dc sc t ti) =
+        n `deepseq` ac `deepseq` dc
+        `deepseq` sc `deepseq` t `seq` ti `seq` ()
 
 loadMtlFile :: FilePath -> IO [Material]
 loadMtlFile file = do

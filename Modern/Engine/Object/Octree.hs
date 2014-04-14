@@ -1,16 +1,22 @@
-module Engine.Object.Octree where
+module Engine.Object.Octree (
+    maxCapacity, createOctree, createOctreeFromAABBs,
+    findNearby, octInsert, subdivide
+) where
 
-import System.IO.Unsafe
+import System.IO.Unsafe (unsafePerformIO)
 
 import Engine.Model.AABB
+    (calculateNewAABBs, objectsIntersect)
 import Engine.Core.Types
-import Engine.Core.Vec
+import Engine.Core.Vec (Vec3(..))
 
 maxCapacity :: Int
 maxCapacity = 64
+{-# INLINE maxCapacity #-}
 
 createOctree :: HasAABB a => AABB -> Octree a
 createOctree aabb = OLeaf aabb [] 0
+{-# INLINE createOctree #-}
 
 createOctreeFromAABBs :: HasAABB a => AABB -> [a] -> Octree AABB
 createOctreeFromAABBs aabb =
@@ -20,8 +26,9 @@ createOctreeFromAABBs aabb =
 
 output :: String -> a -> a
 output msg = seq (unsafePerformIO $ putStrLn msg)
+{-# INLINE output #-}
 
-findNearby :: Octree a -> a -> [a]
+findNearby :: HasAABB a => Octree a -> a -> [a]
 findNearby (ONode _ children) val =
     let insertIntos = filter (checkOctant val) children
     in if null insertIntos
@@ -29,7 +36,7 @@ findNearby (ONode _ children) val =
         else concatMap (`findNearby` val) insertIntos
 findNearby (OLeaf _ contents _) _ = contents
 
-octInsert :: Show a => Octree a -> a -> Octree a
+octInsert :: (HasAABB a, Show a) => Octree a -> a -> Octree a
 octInsert tree@(ONode aabb children) val =
     let (insertIntos, others) = filterPartition (checkOctant val) children
     in if null insertIntos
@@ -43,7 +50,7 @@ octInsert leaf@(OLeaf aabb contents size) val =
         then OLeaf aabb (val : contents) (size+1)
     else octInsert (subdivide leaf) val
 
-subdivide :: Show a => Octree a -> Octree a
+subdivide :: (HasAABB a, Show a) => Octree a -> Octree a
 subdivide (OLeaf wholeAABB@(AABB minVec maxVec) contents _) =
     let halfVec@(Vec3 halfX halfY halfZ) = fmap (/2) (abs $ maxVec - minVec)
         newAABBTemplate = AABB minVec $ minVec + halfVec 
@@ -87,7 +94,7 @@ consTuple (Nothing, Just y) (xs, ys) = (xs, y:ys)
 consTuple _ _ =
     error "Octree.consTuple: invalid arguments."
 
-checkOctant :: a -> Octree a -> Bool
+checkOctant :: HasAABB a => a -> Octree a -> Bool
 checkOctant val (ONode aabb _) =
     objectsIntersect val aabb
 checkOctant val (OLeaf aabb _ _) =

@@ -1,39 +1,41 @@
 module Engine.Graphics.Textures (
-    juicyLoadImageRaw, juicyLoadTexture,
-    Image(..), Texture
+    juicyLoadImageRaw, juicyLoadTexture
 ) where
 
-import Control.Monad (liftM)
-import Data.Vector.Storable (unsafeWith)
---import Foreign (Word8)
+import Foreign
+import qualified Data.Vector.Storable as V
 
 import qualified Codec.Picture as Juicy
 import qualified Codec.Picture.Types as JTypes
 
-import qualified Graphics.Rendering.OpenGL as GL
---import Graphics.Rendering.OpenGL.Raw
-import Graphics.Rendering.OpenGL
-    (DataType(..), ($=), Size(..))
+import Graphics.Rendering.OpenGL.Raw
+    (GLuint,
+     glTexParameteri, gl_TEXTURE_2D,
+     gl_TEXTURE_MIN_FILTER, gl_NEAREST,
+     gl_TEXTURE_MAG_FILTER,
+     glBindTexture, glGenTextures,
+     glTexImage2D, gl_RGB, gl_UNSIGNED_BYTE)
 
-import Engine.Core.Types
-
-{-
-data Image = Image GL.Size (GL.PixelData Word8)
-    deriving (Show)
-
-type Texture = (GL.TextureObject, GLint)
--}
+import Engine.Core.Types (Image(..))
 
 -- | Load an image and turn it into something OpenGL can use.
-juicyLoadTexture :: FilePath -> IO GL.TextureObject
+juicyLoadTexture :: FilePath -> IO GLuint
 juicyLoadTexture file = do
-    (Image (Size w h) pd) <- juicyLoadImageRaw file
-    texName <- liftM head (GL.genObjectNames 1)
-    GL.textureBinding GL.Texture2D $= Just texName
-    GL.textureFilter GL.Texture2D $= ((GL.Nearest, Nothing), GL.Nearest)
-    GL.texImage2D GL.Texture2D GL.NoProxy
-        0
-        GL.RGB' (GL.TextureSize2D w h) 0 pd
+    (Image (w, h) pd) <- juicyLoadImageRaw file
+    texName <- alloca $ \buf -> do
+        glGenTextures 1 buf
+        peek buf
+
+    glBindTexture gl_TEXTURE_2D texName
+
+    glTexParameteri gl_TEXTURE_2D
+        gl_TEXTURE_MIN_FILTER (fromIntegral gl_NEAREST)
+    glTexParameteri gl_TEXTURE_2D
+        gl_TEXTURE_MAG_FILTER (fromIntegral gl_NEAREST)
+
+    glTexImage2D gl_TEXTURE_2D 0 (fromIntegral gl_RGB)
+                 w h 0 (fromIntegral gl_RGB) gl_UNSIGNED_BYTE pd
+
     return texName
 
 -- TODO: add support for all (most) colorspaces / formats.
@@ -43,16 +45,20 @@ juicyLoadImageRaw file = do
 
     case image of
         Left err -> error err
+
         Right (Juicy.ImageRGB8 (Juicy.Image w h dat)) ->
-            unsafeWith dat $ \ptr ->
-            return $ Image (GL.Size (fromIntegral w) (fromIntegral h))
-                            (GL.PixelData GL.RGB UnsignedByte ptr)
+            V.unsafeWith dat $ \ptr ->
+            return $ Image (fromIntegral w, fromIntegral h) ptr
         Right (Juicy.ImageYCbCr8 img) ->
             let (Juicy.Image w h dat) =
                     JTypes.convertImage img :: Juicy.Image Juicy.PixelRGB8
-            in unsafeWith dat $ \ptr ->
-                return $ Image (GL.Size (fromIntegral w) (fromIntegral h))
-                            (GL.PixelData GL.RGB UnsignedByte ptr)
+            in V.unsafeWith dat $ \ptr ->
+                return $ Image (fromIntegral w, fromIntegral h) ptr
+        Right (Juicy.ImageCMYK8 img) ->
+            let (Juicy.Image w h dat) =
+                    JTypes.convertImage img :: Juicy.Image Juicy.PixelRGB8
+            in V.unsafeWith dat $ \ptr ->
+                return $ Image (fromIntegral w, fromIntegral h) ptr 
         _ -> error $
             "Engine.Graphics.Texture.juicyLoadImage:"
                 ++ "bad image colorspace or format."

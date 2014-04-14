@@ -1,4 +1,6 @@
-module Engine.Core.Util where
+module Engine.Core.Util (
+    toRadians, sinDeg, cosDeg
+) where
 
 {-# INLINE toRadians #-}
 toRadians :: Floating a => a -> a

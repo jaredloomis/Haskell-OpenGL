@@ -8,8 +8,10 @@ import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Foreign (Word8)
 import Data.Maybe (fromMaybe)
 import Control.Monad.State
+    (State, StateT, MonadIO,
+     MonadState, get, put)
+import Foreign.Ptr
 
-import qualified Graphics.Rendering.OpenGL as GL
 import Graphics.Rendering.OpenGL.Raw (GLuint, GLfloat, GLint)
 import qualified Graphics.UI.GLFW as GLFW
 
@@ -166,8 +168,8 @@ emptyModel :: Model
 emptyModel = Model (Shader 0 []) [] [] 0 (Just [AABB 0 0]) (Just $ AABB 0 0)
 
 data Octree a where
-    ONode :: HasAABB a => AABB -> [Octree a] -> Octree a
-    OLeaf :: HasAABB a => AABB -> [a] -> Int -> Octree a
+    ONode :: AABB -> [Octree a] -> Octree a
+    OLeaf :: AABB -> [a] -> Int -> Octree a
 
 instance Show a => Show (Octree a) where
     show (ONode aabb children) =
@@ -223,7 +225,7 @@ type ShaderAttrib = Vec3 GLuint
 -- | Name, Values
 type ShaderUniform = (String, IO [GLfloat])
 
-data Image = Image !GL.Size !(GL.PixelData Word8)
+data Image = Image !(GLint, GLint) !(Ptr Word8)
     deriving (Show)
 
-type Texture = (GL.TextureObject, GLint)
+type Texture = (GLuint, GLint)
