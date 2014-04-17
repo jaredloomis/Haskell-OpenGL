@@ -6,14 +6,14 @@ module Engine.Graphics.Window (
 import System.Exit (exitSuccess)
 
 import qualified Graphics.UI.GLFW as GLFW
-import Graphics.Rendering.OpenGL.Raw
+import Graphics.Rendering.OpenGL.Raw (GLint)
 
 data Window = Window {
     windowHints :: [GLFW.WindowHint],
     windowTitle :: String,
     windowSize :: (GLint, GLint),
     windowInner :: Maybe GLFW.Window
-}
+} deriving (Show)
 
 defaultWindow :: Window
 defaultWindow =

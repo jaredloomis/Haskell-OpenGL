@@ -3,8 +3,10 @@ module Engine.Model.Model (
 ) where
 
 import Graphics.Rendering.OpenGL.Raw
+    (GLfloat, GLuint, GLint)
 
 import Engine.Core.Types
+    (Model(..), Shader(..))
 import Engine.Graphics.Shaders
     (loadProgram, getAttrLocs, createShaderAttribs)
 import Engine.Model.AABB (aabbByFace, aabbFromPoints)

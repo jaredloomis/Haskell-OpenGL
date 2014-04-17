@@ -8,16 +8,28 @@ import Data.Bits ((.|.))
 import Graphics.Rendering.OpenGL.Raw
 import Foreign (alloca, peek, withArray)
 
-import qualified Graphics.GLUtil as GU
-
 import Engine.Core.Types
+    (Framebuffer(..), World(..),
+     Graphics(..), WorldState(..),
+     GameObject(..), Model(..),
+     WorldMatrices(..),
+     Matrix4x4)
 import Engine.Matrix.Matrix
-import Engine.Core.Vec
+    (gorthoMatrix, glookAtMatrix,
+     gidentityMatrix, calculateMatricesFromPlayer,
+     gtranslationMatrix, toGLFormat)
+import Engine.Core.Vec (Vec3(..))
 import Engine.Object.GameObject
-import Engine.Core.World
+    (getModel, getPos)
+import Engine.Core.World (setWorldUniforms)
 import Engine.Graphics.Shaders
+    (Shader(..), quickGetUniform,
+     bindTextures, setShaderAttribs,
+     findUniformLocationAndRemember)
 import Engine.Graphics.Framebuffer
-import Engine.Graphics.Window
+    (renderAllPasses)
+import Engine.Graphics.GraphicsUtils (offset0)
+import Engine.Graphics.Window (Window(..))
 
 -- | Create a Framebuffer.
 makeShadowFrameBuffer :: (GLint, GLint) -> IO Framebuffer
@@ -31,7 +43,7 @@ makeShadowFrameBuffer (width, height) = do
     glTexImage2D gl_TEXTURE_2D 0
         (fromIntegral gl_DEPTH_COMPONENT16)
         width height
-        0 gl_DEPTH_COMPONENT gl_FLOAT GU.offset0
+        0 gl_DEPTH_COMPONENT gl_FLOAT offset0
 
     -- Give texture paramenters.
     glTexParameteri gl_TEXTURE_2D (fromIntegral gl_TEXTURE_MAG_FILTER)

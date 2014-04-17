@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -O2 #-}
 module Main where
 
 import Data.Time (diffUTCTime)
@@ -104,7 +105,7 @@ updateStepComplete win world = do
             setWorldPlayer (resetPlayerInput $ worldPlayer updatedWorld) updatedWorld
 
     -- Update the rest of the world.
-    return $ evalState (gameState updateWorld) updatedWorldWithUpdatedPlayer 
+    return $ evalState (gameState updateWorld) updatedWorldWithUpdatedPlayer
 
 updatePlayerInput :: GLFW.Window -> GameObject t -> IO (GameObject t)
 updatePlayerInput win player@(Player{}) = do

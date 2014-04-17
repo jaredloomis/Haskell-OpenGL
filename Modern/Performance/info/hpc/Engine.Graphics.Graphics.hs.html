@@ -1,0 +1,193 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<style type="text/css">
+span.lineno { color: white; background: #aaaaaa; border-right: solid white 12px }
+span.nottickedoff { background: yellow}
+span.istickedoff { background: white }
+span.tickonlyfalse { margin: -1px; border: 1px solid #f20913; background: #f20913 }
+span.tickonlytrue  { margin: -1px; border: 1px solid #60de51; background: #60de51 }
+span.funcount { font-size: small; color: orange; z-index: 2; position: absolute; right: 20 }
+span.decl { font-weight: bold }
+span.spaces    { background: white }
+</style>
+</head>
+<body>
+<pre>
+<span class="lineno">    1 </span>module Engine.Graphics.Graphics (
+<span class="lineno">    2 </span>    initGL, resizeScene,
+<span class="lineno">    3 </span>    cleanupObjects, renderWorldMat,
+<span class="lineno">    4 </span>    cleanupWorld, renderObjectsMat
+<span class="lineno">    5 </span>) where
+<span class="lineno">    6 </span>
+<span class="lineno">    7 </span>import Foreign.Marshal (with)
+<span class="lineno">    8 </span>import Data.Bits ((.|.))
+<span class="lineno">    9 </span>import Data.Maybe (fromJust)
+<span class="lineno">   10 </span>
+<span class="lineno">   11 </span>import qualified Graphics.UI.GLFW as GLFW
+<span class="lineno">   12 </span>
+<span class="lineno">   13 </span>import Graphics.Rendering.OpenGL.Raw
+<span class="lineno">   14 </span>
+<span class="lineno">   15 </span>import Engine.Core.Types
+<span class="lineno">   16 </span>    (World(..), WorldState(..), GameObject(..),
+<span class="lineno">   17 </span>     Model(..), HasPosition(..), HasRotation(..),
+<span class="lineno">   18 </span>     Shader(..), Framebuffer(..), Graphics(..),
+<span class="lineno">   19 </span>     WorldMatrices(..))
+<span class="lineno">   20 </span>import Engine.Graphics.Shaders
+<span class="lineno">   21 </span>    (setShaderAttribs, bindTextures, disableShaderAttribs)
+<span class="lineno">   22 </span>import Engine.Core.Vec (Vec3(..))
+<span class="lineno">   23 </span>import Engine.Object.GameObject (getModel)
+<span class="lineno">   24 </span>import Engine.Matrix.Matrix
+<span class="lineno">   25 </span>    (calculateMatricesFromPlayer,
+<span class="lineno">   26 </span>     gtranslationMatrix, grotationMatrix, setMatrixUniforms)
+<span class="lineno">   27 </span>import Engine.Graphics.Window (Window(..))
+<span class="lineno">   28 </span>
+<span class="lineno">   29 </span>renderWorldMat :: World t -&gt; IO (World t)
+<span class="lineno">   30 </span><span class="decl"><span class="nottickedoff">renderWorldMat world = do</span>
+<span class="lineno">   31 </span><span class="spaces">    </span><span class="nottickedoff">glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT</span>
+<span class="lineno">   32 </span><span class="spaces"></span><span class="nottickedoff"></span>
+<span class="lineno">   33 </span><span class="spaces">    </span><span class="nottickedoff">-- Get window dimensions from GLFW</span>
+<span class="lineno">   34 </span><span class="spaces">    </span><span class="nottickedoff">dimensions &lt;- GLFW.getWindowSize</span>
+<span class="lineno">   35 </span><span class="spaces">                </span><span class="nottickedoff">(fromJust $ windowInner $ stateWindow $ worldState world)</span>
+<span class="lineno">   36 </span><span class="spaces"></span><span class="nottickedoff"></span>
+<span class="lineno">   37 </span><span class="spaces">    </span><span class="nottickedoff">-- Update matrices.</span>
+<span class="lineno">   38 </span><span class="spaces">    </span><span class="nottickedoff">let worldMats = calculateMatricesFromPlayer</span>
+<span class="lineno">   39 </span><span class="spaces">                        </span><span class="nottickedoff">(worldPlayer world) dimensions</span>
+<span class="lineno">   40 </span><span class="spaces"></span><span class="nottickedoff"></span>
+<span class="lineno">   41 </span><span class="spaces">    </span><span class="nottickedoff">-- Render world with matrices.</span>
+<span class="lineno">   42 </span><span class="spaces">    </span><span class="nottickedoff">newEntites &lt;- renderObjectsMat world worldMats (worldEntities world)</span>
+<span class="lineno">   43 </span><span class="spaces">    </span><span class="nottickedoff">return world{worldEntities = newEntites}</span></span>
+<span class="lineno">   44 </span>
+<span class="lineno">   45 </span>renderObjectsMat :: World t -&gt; WorldMatrices -&gt; [GameObject t] -&gt; IO [GameObject t]
+<span class="lineno">   46 </span><span class="decl"><span class="nottickedoff">renderObjectsMat world wm (object:rest) = do</span>
+<span class="lineno">   47 </span><span class="spaces">    </span><span class="nottickedoff">let model = getModel object</span>
+<span class="lineno">   48 </span><span class="spaces">        </span><span class="nottickedoff">Vec3 objx objy objz = getPos object</span>
+<span class="lineno">   49 </span><span class="spaces">        </span><span class="nottickedoff">Vec3 objrx objry objrz = getRot object</span>
+<span class="lineno">   50 </span><span class="spaces">        </span><span class="nottickedoff">mShader = modelShader model</span>
+<span class="lineno">   51 </span><span class="spaces"></span><span class="nottickedoff"></span>
+<span class="lineno">   52 </span><span class="spaces">        </span><span class="nottickedoff">-- Move Object</span>
+<span class="lineno">   53 </span><span class="spaces">        </span><span class="nottickedoff">modelMat = gtranslationMatrix [objx, objy, objz] *</span>
+<span class="lineno">   54 </span><span class="spaces">                   </span><span class="nottickedoff">grotationMatrix [objrx, objry, objrz]</span>
+<span class="lineno">   55 </span><span class="spaces"></span><span class="nottickedoff"></span>
+<span class="lineno">   56 </span><span class="spaces">    </span><span class="nottickedoff">-- Use object's shader</span>
+<span class="lineno">   57 </span><span class="spaces">    </span><span class="nottickedoff">glUseProgram $ shaderId mShader</span>
+<span class="lineno">   58 </span><span class="spaces"></span><span class="nottickedoff"></span>
+<span class="lineno">   59 </span><span class="spaces">    </span><span class="nottickedoff">-- Set uniforms. (World uniforms and Matrices).</span>
+<span class="lineno">   60 </span><span class="spaces">    </span><span class="nottickedoff">newShader &lt;-</span>
+<span class="lineno">   61 </span><span class="spaces">        </span><span class="nottickedoff">setMatrixUniforms mShader wm{matrixModel = modelMat}</span>
+<span class="lineno">   62 </span><span class="spaces"></span><span class="nottickedoff"></span>
+<span class="lineno">   63 </span><span class="spaces">    </span><span class="nottickedoff">-- Bind buffers to variable names in shader.</span>
+<span class="lineno">   64 </span><span class="spaces">    </span><span class="nottickedoff">setShaderAttribs $ modelShaderVars model</span>
+<span class="lineno">   65 </span><span class="spaces">    </span><span class="nottickedoff">bindTextures (modelTextures model) $ shaderId newShader</span>
+<span class="lineno">   66 </span><span class="spaces"></span><span class="nottickedoff"></span>
+<span class="lineno">   67 </span><span class="spaces">    </span><span class="nottickedoff">-- Do the drawing.</span>
+<span class="lineno">   68 </span><span class="spaces">    </span><span class="nottickedoff">glDrawArrays gl_TRIANGLES 0 (modelVertCount model)</span>
+<span class="lineno">   69 </span><span class="spaces"></span><span class="nottickedoff"></span>
+<span class="lineno">   70 </span><span class="spaces">    </span><span class="nottickedoff">-- TODO: Remove if not necessary.</span>
+<span class="lineno">   71 </span><span class="spaces">    </span><span class="nottickedoff">-- Disable textures.</span>
+<span class="lineno">   72 </span><span class="spaces">    </span><span class="nottickedoff">--unBindTextures (fromIntegral . length . modelTextures $ model)</span>
+<span class="lineno">   73 </span><span class="spaces"></span><span class="nottickedoff"></span>
+<span class="lineno">   74 </span><span class="spaces">    </span><span class="nottickedoff">-- Turn off VBO/VAO</span>
+<span class="lineno">   75 </span><span class="spaces">    </span><span class="nottickedoff">disableShaderAttribs $ modelShaderVars model</span>
+<span class="lineno">   76 </span><span class="spaces"></span><span class="nottickedoff"></span>
+<span class="lineno">   77 </span><span class="spaces">    </span><span class="nottickedoff">-- Disable the object's shader.</span>
+<span class="lineno">   78 </span><span class="spaces">    </span><span class="nottickedoff">glUseProgram 0</span>
+<span class="lineno">   79 </span><span class="spaces"></span><span class="nottickedoff"></span>
+<span class="lineno">   80 </span><span class="spaces">    </span><span class="nottickedoff">-- Update the object's shader</span>
+<span class="lineno">   81 </span><span class="spaces">    </span><span class="nottickedoff">let newObject = object{entityModel =</span>
+<span class="lineno">   82 </span><span class="spaces">                    </span><span class="nottickedoff">(entityModel object){modelShader = newShader}}</span>
+<span class="lineno">   83 </span><span class="spaces"></span><span class="nottickedoff"></span>
+<span class="lineno">   84 </span><span class="spaces">    </span><span class="nottickedoff">restObjects &lt;- renderObjectsMat world wm rest</span>
+<span class="lineno">   85 </span><span class="spaces"></span><span class="nottickedoff"></span>
+<span class="lineno">   86 </span><span class="spaces">    </span><span class="nottickedoff">return $ newObject : restObjects</span>
+<span class="lineno">   87 </span><span class="spaces"></span><span class="nottickedoff">renderObjectsMat _ _ [] = return []</span></span>
+<span class="lineno">   88 </span>
+<span class="lineno">   89 </span>-------------------------------
+<span class="lineno">   90 </span>-- UTILITY / SETUP FUNCTIONS --
+<span class="lineno">   91 </span>-------------------------------
+<span class="lineno">   92 </span>
+<span class="lineno">   93 </span>initGL :: GLFW.Window -&gt; IO ()
+<span class="lineno">   94 </span><span class="decl"><span class="istickedoff">initGL win = do</span>
+<span class="lineno">   95 </span><span class="spaces">    </span><span class="istickedoff">-- Enables smooth color shading.</span>
+<span class="lineno">   96 </span><span class="spaces">    </span><span class="istickedoff">--glShadeModel gl_SMOOTH</span>
+<span class="lineno">   97 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   98 </span><span class="spaces">    </span><span class="istickedoff">-- Set &quot;background color&quot; to black</span>
+<span class="lineno">   99 </span><span class="spaces">    </span><span class="istickedoff">glClearColor 0 0 0 0</span>
+<span class="lineno">  100 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">  101 </span><span class="spaces">    </span><span class="istickedoff">-- Enables clearing of the depth buffer</span>
+<span class="lineno">  102 </span><span class="spaces">    </span><span class="istickedoff">glClearDepth 1</span>
+<span class="lineno">  103 </span><span class="spaces">    </span><span class="istickedoff">-- Allow depth testing (3D)</span>
+<span class="lineno">  104 </span><span class="spaces">    </span><span class="istickedoff">glEnable gl_DEPTH_TEST</span>
+<span class="lineno">  105 </span><span class="spaces">    </span><span class="istickedoff">-- Tells OpenGL how to deal with overlapping shapes</span>
+<span class="lineno">  106 </span><span class="spaces">    </span><span class="istickedoff">glDepthFunc gl_LESS</span>
+<span class="lineno">  107 </span><span class="spaces">    </span><span class="istickedoff">--glDepthFunc gl_LEQUAL</span>
+<span class="lineno">  108 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">  109 </span><span class="spaces">    </span><span class="istickedoff">-- Tell OpenGL to use the nicest perspective correction.</span>
+<span class="lineno">  110 </span><span class="spaces">    </span><span class="istickedoff">-- The other choices are gl_FASTEST and gl_DONT_CARE.</span>
+<span class="lineno">  111 </span><span class="spaces">    </span><span class="istickedoff">glHint gl_PERSPECTIVE_CORRECTION_HINT gl_NICEST</span>
+<span class="lineno">  112 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">  113 </span><span class="spaces">    </span><span class="istickedoff">-- Enable culling of faces.</span>
+<span class="lineno">  114 </span><span class="spaces">    </span><span class="istickedoff">glEnable gl_CULL_FACE</span>
+<span class="lineno">  115 </span><span class="spaces">    </span><span class="istickedoff">-- Do not render the backs of faces. Increases performance.</span>
+<span class="lineno">  116 </span><span class="spaces">    </span><span class="istickedoff">glCullFace gl_BACK</span>
+<span class="lineno">  117 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">  118 </span><span class="spaces">    </span><span class="istickedoff">-- Enable textures.</span>
+<span class="lineno">  119 </span><span class="spaces">    </span><span class="istickedoff">--glEnable gl_TEXTURE</span>
+<span class="lineno">  120 </span><span class="spaces">    </span><span class="istickedoff">glTexParameteri gl_TEXTURE_2D gl_TEXTURE_MAG_FILTER</span>
+<span class="lineno">  121 </span><span class="spaces">        </span><span class="istickedoff">(fromIntegral gl_LINEAR)</span>
+<span class="lineno">  122 </span><span class="spaces">    </span><span class="istickedoff">glTexParameteri gl_TEXTURE_2D gl_TEXTURE_MIN_FILTER</span>
+<span class="lineno">  123 </span><span class="spaces">        </span><span class="istickedoff">(fromIntegral gl_LINEAR_MIPMAP_LINEAR)</span>
+<span class="lineno">  124 </span><span class="spaces">    </span><span class="istickedoff">glTexParameteri gl_TEXTURE_2D gl_TEXTURE_WRAP_S</span>
+<span class="lineno">  125 </span><span class="spaces">        </span><span class="istickedoff">(fromIntegral gl_CLAMP_TO_EDGE)</span>
+<span class="lineno">  126 </span><span class="spaces">    </span><span class="istickedoff">glTexParameteri gl_TEXTURE_2D gl_TEXTURE_WRAP_T</span>
+<span class="lineno">  127 </span><span class="spaces">        </span><span class="istickedoff">(fromIntegral gl_CLAMP_TO_EDGE)</span>
+<span class="lineno">  128 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">  129 </span><span class="spaces">    </span><span class="istickedoff">-- Call resize function.</span>
+<span class="lineno">  130 </span><span class="spaces">    </span><span class="istickedoff">(w,h) &lt;- GLFW.getFramebufferSize win</span>
+<span class="lineno">  131 </span><span class="spaces">    </span><span class="istickedoff">resizeScene <span class="nottickedoff">win</span> w h</span></span> 
+<span class="lineno">  132 </span>
+<span class="lineno">  133 </span>resizeScene :: GLFW.WindowSizeCallback
+<span class="lineno">  134 </span>-- Prevent divide by 0
+<span class="lineno">  135 </span><span class="decl"><span class="istickedoff">resizeScene win w 0 = <span class="nottickedoff">resizeScene win w 1</span></span>
+<span class="lineno">  136 </span><span class="spaces"></span><span class="istickedoff">resizeScene _ width height =</span>
+<span class="lineno">  137 </span><span class="spaces">    </span><span class="istickedoff">-- Make viewport the same size as the window.</span>
+<span class="lineno">  138 </span><span class="spaces">    </span><span class="istickedoff">glViewport 0 0 (fromIntegral width) (fromIntegral height)</span></span>
+<span class="lineno">  139 </span>
+<span class="lineno">  140 </span>cleanupWorld :: World t -&gt; IO ()
+<span class="lineno">  141 </span><span class="decl"><span class="istickedoff">cleanupWorld world = do</span>
+<span class="lineno">  142 </span><span class="spaces">    </span><span class="istickedoff">let fb = fst $ graphicsPostProcessors $ worldGraphics world</span>
+<span class="lineno">  143 </span><span class="spaces">        </span><span class="istickedoff">shaders = snd $ graphicsPostProcessors $ worldGraphics world</span>
+<span class="lineno">  144 </span><span class="spaces">    </span><span class="istickedoff">with (fbufName fb) $ glDeleteFramebuffers 1</span>
+<span class="lineno">  145 </span><span class="spaces">    </span><span class="istickedoff">with (fbufTexture fb) $ glDeleteTextures 1</span>
+<span class="lineno">  146 </span><span class="spaces">    </span><span class="istickedoff">with (fbufVBO fb) $ glDeleteVertexArrays 1</span>
+<span class="lineno">  147 </span><span class="spaces">    </span><span class="istickedoff">mapM_ glDeleteProgram shaders</span>
+<span class="lineno">  148 </span><span class="spaces">    </span><span class="istickedoff">with (fbufRenderBuffer fb) $ glDeleteRenderbuffers 1</span></span>
+<span class="lineno">  149 </span>
+<span class="lineno">  150 </span>cleanupObjects :: [GameObject t] -&gt; IO ()
+<span class="lineno">  151 </span><span class="decl"><span class="istickedoff">cleanupObjects (object:rest) = do</span>
+<span class="lineno">  152 </span><span class="spaces">    </span><span class="istickedoff">-- Delete buffers.</span>
+<span class="lineno">  153 </span><span class="spaces">    </span><span class="istickedoff">let shaderVarAttrIds = map (\(Vec3 attrId _ _) -&gt; attrId)</span>
+<span class="lineno">  154 </span><span class="spaces">                              </span><span class="istickedoff">(modelShaderVars $ getModel object)</span>
+<span class="lineno">  155 </span><span class="spaces">        </span><span class="istickedoff">shaderVarBufIds = map (\(Vec3 _ bufId _) -&gt; bufId)</span>
+<span class="lineno">  156 </span><span class="spaces">                              </span><span class="istickedoff">(modelShaderVars $ getModel object)</span>
+<span class="lineno">  157 </span><span class="spaces">    </span><span class="istickedoff">mapM_ (\x -&gt; with x $ glDeleteBuffers 1) shaderVarBufIds</span>
+<span class="lineno">  158 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">  159 </span><span class="spaces">    </span><span class="istickedoff">-- Delete shader.</span>
+<span class="lineno">  160 </span><span class="spaces">    </span><span class="istickedoff">glDeleteProgram (shaderId $ modelShader $ getModel object)</span>
+<span class="lineno">  161 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">  162 </span><span class="spaces">    </span><span class="istickedoff">-- Delete textures.</span>
+<span class="lineno">  163 </span><span class="spaces">    </span><span class="istickedoff">let model = getModel object</span>
+<span class="lineno">  164 </span><span class="spaces">        </span><span class="istickedoff">textures = map fst $ modelTextures model</span>
+<span class="lineno">  165 </span><span class="spaces">    </span><span class="istickedoff">mapM_ (\x -&gt; with x $ glDeleteTextures 1) textures</span>
+<span class="lineno">  166 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">  167 </span><span class="spaces">    </span><span class="istickedoff">-- Delete vertex arrays.</span>
+<span class="lineno">  168 </span><span class="spaces">    </span><span class="istickedoff">mapM_ (\x -&gt; with x $ glDeleteVertexArrays 1) shaderVarAttrIds</span>
+<span class="lineno">  169 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">  170 </span><span class="spaces">    </span><span class="istickedoff">print &quot;cleanup&quot;</span>
+<span class="lineno">  171 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">  172 </span><span class="spaces">    </span><span class="istickedoff">cleanupObjects rest</span>
+<span class="lineno">  173 </span><span class="spaces"></span><span class="istickedoff">cleanupObjects [] = return <span class="nottickedoff">()</span></span></span>
+
+</pre>
+</body>
+</html>

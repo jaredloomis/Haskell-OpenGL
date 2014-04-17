@@ -2,7 +2,7 @@ module Engine.Graphics.Textures (
     juicyLoadImageRaw, juicyLoadTexture
 ) where
 
-import Foreign
+import Foreign (alloca, peek)
 import qualified Data.Vector.Storable as V
 
 import qualified Codec.Picture as Juicy

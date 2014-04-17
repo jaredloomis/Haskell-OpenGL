@@ -1,27 +1,35 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Engine.Model.ObjLoader (
     loadObjModel, loadObjFile
 ) where
 
 import System.IO
-    (openFile, IOMode(..), hGetContents, hClose)
-import Data.List (isPrefixOf, intercalate)
+    (openFile, IOMode(..), hClose)
+import Data.List (intercalate)
 import Data.List.Split (splitOn)
 import Data.Maybe (isJust, fromJust)
 import Control.Monad (liftM)
 import System.Directory (doesFileExist)
+import Control.DeepSeq (deepseq)
 
+import qualified Data.ByteString.Char8 as B
 import qualified Data.Vector.Storable as V
+    (Vector, fromList, splitAt, toList,
+     take)
 import qualified Data.DList as D
+    (DList, toList, fromList, append,
+     replicate, empty, concat, map,
+     tail)
 
 import Graphics.Rendering.OpenGL.Raw (GLfloat, GLint)
 
 import Engine.Model.Material
-    (Material(..), emptyMaterial, loadMtlFile, allImagesInFile)
+    (Material(..), emptyMaterial, loadMtlFile)
 import Engine.Model.Model
     (Model(..), createModel)
 import Engine.Core.Vec (Vec3(..))
-import Engine.Model.DatLoader (loadData, writeDataToFile)
-import Engine.Graphics.Textures (juicyLoadTexture)
+import Engine.Model.DatLoader
+    (writeDataToFile, loadDatModel)
 
 loadObjModel ::
     FilePath ->
@@ -31,43 +39,51 @@ loadObjModel ::
 loadObjModel objFile vert frag =
     let attrNames = ["position", "texCoord", "normal", "color", "textureId"]
     in do
-    hasDatFile <- doesFileExist $ objFile ++ ".dat"
-    (totalData, mTextures) <-
+        hasDatFile <- doesFileExist $ objFile ++ ".dat"
         if hasDatFile
-            then do
-                (totalDat, images) <- loadData (objFile ++ ".dat")
-                textures <- mapM juicyLoadTexture images
-                return (totalDat, textures)
+            then loadDatModel (objFile ++ ".dat") vert frag
         else do
-            handle <- openFile objFile ReadMode
-            fileContents <- hGetContents handle
-            let directory = (intercalate "/" . init $ splitOn "/" objFile) ++ "/"
-            (mats, lib) <- loadObjMaterials directory $! fileContents
-            hClose handle
-            let obj = loadObj fileContents
+            fileContents <- getContentsSafe objFile
+            let directory = directoryOfFile objFile
 
-                dat = toArrays obj
-                materialDiffs = fromVec3M $ map matDiffuseColor mats
-                materialTexIds = map (fromIntegral . fromJustSafe . matTexId) mats
-                total = dat ++ [materialDiffs, materialTexIds]
+            (mats, lib) <- loadObjMaterials directory fileContents
 
-            images <- liftM concat $
-                mapM (\f -> liftM allImagesInFile (openFile (directory ++ f) ReadMode >>= hGetContents)) $ allMtlsInObj fileContents
+            let total = totalObjData fileContents mats
+                images = concatMap matTexturePaths lib
 
             writeDataToFile (objFile ++ ".dat") total images
 
-            return (total, map (fromJust . matTexture) $ filter (isJust . matTexture) lib)
+            let (totalData, mTextures) =
+                    (total, map (fromJust . matTexture) $ filter (isJust . matTexture) lib)
 
-    tmp <- createModel vert frag
-        attrNames
-        totalData
-        [3, 2, 3, 3, 1]
-        (fromIntegral (length . head $ totalData) `div` 3)
+            tmp <- createModel vert frag
+                attrNames
+                totalData
+                [3, 2, 3, 3, 1]
+                (fromIntegral (length . head $ totalData) `div` 3)
 
-    let mTexIds = replicate (length mTextures) 0 :: [GLint]
-    return tmp{modelTextures =
-        zip mTextures
-            mTexIds}
+            let mTexIds = replicate (length mTextures) 0 :: [GLint]
+            return tmp{modelTextures =
+                zip mTextures
+                    mTexIds}
+
+totalObjData :: B.ByteString -> [Material] -> [[GLfloat]]
+totalObjData contents mats =
+    let obj = loadObj contents
+        dat = toArrays obj
+        materialDiffs = fromVec3M $ map matDiffuseColor mats
+        materialTexIds = map (fromIntegral . fromJustSafe . matTexId) mats
+    in dat ++ [materialDiffs, materialTexIds] 
+
+getContentsSafe :: FilePath -> IO B.ByteString
+getContentsSafe f = do
+    handle <- openFile f ReadMode
+    fileContents <- B.hGetContents handle
+    fileContents `deepseq` hClose handle
+    return fileContents
+
+directoryOfFile :: FilePath -> FilePath
+directoryOfFile = (++"/") . intercalate "/" . init . splitOn "/"
 
 -- | Parse an .obj file and return a Vec3 [GLfloat]
 --   containing the vertices, texture coordinates,
@@ -75,7 +91,7 @@ loadObjModel objFile vert frag =
 loadObjFile :: FilePath -> IO (Vec3 [GLfloat])
 loadObjFile file = do
     handle <- openFile file ReadMode
-    objData <- liftM loadObj $! hGetContents handle
+    objData <- liftM loadObj $! B.hGetContents handle
     hClose handle
     return objData
 
@@ -83,7 +99,7 @@ loadObjFile file = do
 --   for an .obj model and return a Vec3 [GLfloat]
 --   containing the vertices, texture coordinates,
 --   and normals, in that order.
-loadObj :: String -> Vec3 [GLfloat]
+loadObj :: B.ByteString -> Vec3 [GLfloat]
 loadObj text =
     let verts = parseVertices text
         norms = parseNormals text
@@ -142,39 +158,40 @@ takeEvery3 offset (x:y:z:rest)
 takeEvery3 _ _ = []
 {-# INLINE takeEvery3 #-}
 
-parseFaces :: String -> D.DList (Maybe Int)
-parseFaces = D.concat . map faceLineCheck . lines
+parseFaces :: B.ByteString -> D.DList (Maybe Int)
+parseFaces = D.concat . map faceLineCheck . B.lines
     where
     faceLineCheck line =
-        if "f " `isPrefixOf` line
+        if "f " `B.isPrefixOf` line
             then parseFaceLine line
         else D.empty
 
-parseFaceLine :: String -> D.DList (Maybe Int)
+parseFaceLine :: B.ByteString -> D.DList (Maybe Int)
 parseFaceLine =
-    D.concat . map parseFaceGroup . tail . words
+    D.concat . map parseFaceGroup . tail . B.words
 {-# INLINE parseFaceLine #-}
 
-parseFaceGroup :: String -> D.DList (Maybe Int)
+parseFaceGroup :: B.ByteString -> D.DList (Maybe Int)
 parseFaceGroup =
-    D.fromList . map retrieveData . splitOn "/"
+    D.fromList . map retrieveData . B.split '/'
     where
     retrieveData text =
-        if null text
+        if B.null text
             then Nothing
-        else Just $ read text
+        else Just $ (floor . parseBsFloat) text
 {-# INLINE parseFaceGroup #-}
 
-parseVertices :: String -> D.DList GLfloat
+parseVertices :: B.ByteString -> D.DList GLfloat
 parseVertices = parsePrefix "v "
-parseNormals :: String -> D.DList GLfloat
+parseNormals :: B.ByteString -> D.DList GLfloat
 parseNormals = parsePrefix "vn "
-parseTextures :: String -> D.DList GLfloat
+parseTextures :: B.ByteString -> D.DList GLfloat
 parseTextures =
-    D.concat . map lineCheck . lines
+    D.concat . map lineCheck . B.lines
     where
+    lineCheck :: B.ByteString -> D.DList GLfloat
     lineCheck line =
-        if "vt " `isPrefixOf` line
+        if "vt " `B.isPrefixOf` line
             then
                 let [x, y] = D.toList $ parseLine line
                 in D.fromList [x, 1-y]
@@ -182,21 +199,21 @@ parseTextures =
 
 -- | Call parseLine on all lines with the given prefix
 --   in given String.
-parsePrefix :: Read a => String -> String -> D.DList a
+parsePrefix :: B.ByteString -> B.ByteString -> D.DList GLfloat
 parsePrefix prefix =
-    D.concat . map lineCheck . lines
+    D.concat . map lineCheck . B.lines
     where
     lineCheck line =
-        if prefix `isPrefixOf` line
+        if prefix `B.isPrefixOf` line
             then parseLine line
         else D.empty
     {-# INLINE lineCheck #-}
 
-parseLine :: Read a => String -> D.DList a
-parseLine = D.map read . D.tail . D.fromList . words
+parseLine :: B.ByteString -> D.DList GLfloat
+parseLine = D.map parseBsFloat . D.tail . D.fromList . B.words
 {-# INLINE parseLine #-}
 
-loadObjMaterials :: String -> String -> IO ([Material], [Material])
+loadObjMaterials :: String -> B.ByteString -> IO ([Material], [Material])
 loadObjMaterials directory contents = do
     library <- loadObjMaterialLib directory contents
 
@@ -204,48 +221,44 @@ loadObjMaterials directory contents = do
 
     return (listRet, library)
 
-loadObjMaterialLib :: String -> String -> IO [Material]
+loadObjMaterialLib :: String -> B.ByteString -> IO [Material]
 loadObjMaterialLib directory =
-    liftM concat . mapM (\x -> loadMtlFile (directory++x)) . parseMtlLibs
+    liftM concat . mapM (\x -> loadMtlFile (directory++B.unpack x)) . parseMtlLibs
 {-# INLINE loadObjMaterialLib #-}
 
-parseMtlLibs :: String -> [FilePath]
-parseMtlLibs = getMaterialLibs . lines
+parseMtlLibs :: B.ByteString -> [B.ByteString]
+parseMtlLibs = getMaterialLibs . B.lines
 
-getMaterialLibs :: [String] -> [FilePath]
+getMaterialLibs :: [B.ByteString] -> [B.ByteString]
 getMaterialLibs (line:rest) =
-    if "mtllib " `isPrefixOf` line
-        then (last . words $ line) :
+    if "mtllib " `B.isPrefixOf` line
+        then (last . B.words $ line) :
                 getMaterialLibs rest
     else getMaterialLibs rest
 getMaterialLibs _ = []
---{-# INLINE getMaterialLibs #-}
 
-listOfMats :: String -> [Material] -> Material -> [Material]
+listOfMats :: B.ByteString -> [Material] -> Material -> [Material]
 listOfMats contents =
-    lineAction (lines contents)
+    lineAction (B.lines contents)
     where
-    lineAction :: [String] -> [Material] -> Material -> [Material]
+    lineAction :: [B.ByteString] -> [Material] -> Material -> [Material]
     lineAction (line:rest) library currentMat
-        | "usemtl " `isPrefixOf` line =
-            let mat = findMaterial (last . words $ line) library
+        | "usemtl " `B.isPrefixOf` line =
+            let mat = findMaterial (last . B.words $ line) library
             in lineAction rest library mat
-        | "f " `isPrefixOf` line =
+        | "f " `B.isPrefixOf` line =
             replicate 3 currentMat ++
                 lineAction rest library currentMat
         | otherwise = lineAction rest library currentMat
     lineAction _ _ _ = []
 
-allMtlsInObj :: String -> [FilePath]
-allMtlsInObj =
-    map (last . filter (not . null) . splitOn " ") . filter (isPrefixOf "mtllib ") . lines
-
-findMaterial :: String -> [Material] -> Material
+findMaterial :: B.ByteString -> [Material] -> Material
 findMaterial name library = head $ filter (\x -> matName x == name) library
 {-# INLINE findMaterial #-}
 
 toArrays :: Vec3 [a] -> [[a]]
 toArrays (Vec3 x y z) = [x, y, z]
+{-# INLINE toArrays #-}
 
 fromVec3M :: [Maybe (Vec3 a)] -> [a]
 fromVec3M (Just (Vec3 x y z) : xs) =
@@ -257,3 +270,31 @@ fromJustSafe :: Num a => Maybe a -> a
 fromJustSafe (Just x) = x
 fromJustSafe Nothing = 0
 {-# INLINE fromJustSafe #-}
+
+parseBsFloat :: B.ByteString -> GLfloat
+parseBsFloat = fst . parseBsFloat'
+
+parseBsFloat' :: B.ByteString -> (GLfloat, B.ByteString)
+parseBsFloat' bs
+    | isJust ('e' `B.elemIndex` bs) =
+        let [baseBs, expBs] = B.splitWith (=='e') bs
+            (base, _) = parseBsFloat' baseBs
+            (expon, rest) = parseBsFloat' expBs
+        in (base * (10.0 ** expon), rest)
+
+    | isJust ('.' `B.elemIndex` bs) =
+        let negative = B.head bs == '-'
+            Just (whole, decimalBS) = B.readInt $
+                if negative
+                    then B.tail bs
+                else bs
+            Just (decimal, rest) = B.readInt $ B.tail decimalBS
+        in if negative
+                then (negate $ fromIntegral whole +
+                    (fromIntegral decimal / 10 ^ (B.length decimalBS - 1)), rest)
+            else (fromIntegral whole +
+                (fromIntegral decimal / 10 ^ (B.length decimalBS - 1)), rest)
+
+    | otherwise =
+        let Just (val, rest) = B.readInt bs
+        in (fromIntegral val, rest)

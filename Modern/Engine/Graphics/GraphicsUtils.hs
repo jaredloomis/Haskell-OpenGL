@@ -1,12 +1,12 @@
 module Engine.Graphics.GraphicsUtils (
     createBufferIdAll, createBufferId,
     fillNewBuffer, withNewPtr, withNewPtrArray,
-    useNewPtr
+    useNewPtr, offsetPtr, offset0
 ) where
 
 import Foreign
     (Ptr, Storable, withArrayLen, sizeOf,
-     alloca, peek, peekArray)
+     alloca, peek, peekArray, wordPtrToPtr)
 
 import Graphics.Rendering.OpenGL.Raw
     (GLuint, GLfloat, glGenVertexArrays,
@@ -54,3 +54,12 @@ withNewPtrArray f size = alloca (\p -> f p >> peekArray size p)
 --   pointer itself.
 useNewPtr :: Storable a => (Ptr a -> IO a1) -> IO (Ptr a)
 useNewPtr f = alloca (\p -> f p >> return p)
+
+-- | Produce a 'Ptr' value to be used as an offset of the given number
+--   of bytes.
+offsetPtr :: Int -> Ptr a
+offsetPtr = wordPtrToPtr . fromIntegral
+
+-- | A zero-offset 'Ptr'.
+offset0 :: Ptr a
+offset0 = offsetPtr 0

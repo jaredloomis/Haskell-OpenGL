@@ -1,0 +1,197 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<style type="text/css">
+span.lineno { color: white; background: #aaaaaa; border-right: solid white 12px }
+span.nottickedoff { background: yellow}
+span.istickedoff { background: white }
+span.tickonlyfalse { margin: -1px; border: 1px solid #f20913; background: #f20913 }
+span.tickonlytrue  { margin: -1px; border: 1px solid #60de51; background: #60de51 }
+span.funcount { font-size: small; color: orange; z-index: 2; position: absolute; right: 20 }
+span.decl { font-weight: bold }
+span.spaces    { background: white }
+</style>
+</head>
+<body>
+<pre>
+<span class="lineno">    1 </span>{-# LANGUAGE OverloadedStrings #-}
+<span class="lineno">    2 </span>module Engine.Model.DatLoader (
+<span class="lineno">    3 </span>    writeDataToFile, loadData,
+<span class="lineno">    4 </span>    loadDatModel
+<span class="lineno">    5 </span>) where
+<span class="lineno">    6 </span>
+<span class="lineno">    7 </span>import Data.List (intercalate)
+<span class="lineno">    8 </span>import Data.List.Split (splitOn)
+<span class="lineno">    9 </span>import System.IO (openFile, IOMode(..), hPutStrLn)
+<span class="lineno">   10 </span>import Data.Maybe (isJust)
+<span class="lineno">   11 </span>-- In all tests so far, the strict version is a bit faster.
+<span class="lineno">   12 </span>-- It may be necessary to switch to the lazy version
+<span class="lineno">   13 </span>-- depending on the user's RAM and the size of the file being
+<span class="lineno">   14 </span>-- loaded, as the strict one loads the file directly into memory.
+<span class="lineno">   15 </span>import qualified Data.ByteString.Char8 as B
+<span class="lineno">   16 </span>    (ByteString, lines, hGetContents, pack,
+<span class="lineno">   17 </span>     unpack, isPrefixOf, append, split,
+<span class="lineno">   18 </span>     words, splitWith, head, readInt,
+<span class="lineno">   19 </span>     elemIndex, tail, length, hPutStrLn,
+<span class="lineno">   20 </span>     hPutStr)
+<span class="lineno">   21 </span>
+<span class="lineno">   22 </span>import Graphics.Rendering.OpenGL.Raw (GLfloat, GLint)
+<span class="lineno">   23 </span>
+<span class="lineno">   24 </span>import Engine.Core.Vec (Vec4(..))
+<span class="lineno">   25 </span>import Engine.Model.Model (Model(..), createModel)
+<span class="lineno">   26 </span>import Engine.Graphics.Textures (juicyLoadTexture)
+<span class="lineno">   27 </span>
+<span class="lineno">   28 </span>writeDataToFile :: FilePath -&gt; [[GLfloat]] -&gt; [B.ByteString] -&gt; IO ()
+<span class="lineno">   29 </span><span class="decl"><span class="nottickedoff">writeDataToFile datFile [verts, coords, norms, colors, tids] =</span>
+<span class="lineno">   30 </span><span class="spaces">    </span><span class="nottickedoff">writeVntToDat datFile (Vec4 verts norms coords tids) colors</span>
+<span class="lineno">   31 </span><span class="spaces"></span><span class="nottickedoff">writeDataToFile _ _ =</span>
+<span class="lineno">   32 </span><span class="spaces">    </span><span class="nottickedoff">error $ &quot;DatLoader.writeDataToFile:&quot; ++</span>
+<span class="lineno">   33 </span><span class="spaces">            </span><span class="nottickedoff">&quot;arguments not properly formatted.&quot;</span></span>
+<span class="lineno">   34 </span>
+<span class="lineno">   35 </span>writeVntToDat :: FilePath -&gt; Vec4 [GLfloat] -&gt; [GLfloat] -&gt; [B.ByteString] -&gt; IO ()
+<span class="lineno">   36 </span><span class="decl"><span class="nottickedoff">writeVntToDat datFile (Vec4 verts norms texCoords texIds) colors images =</span>
+<span class="lineno">   37 </span><span class="spaces">    </span><span class="nottickedoff">let vertStr = listToString verts</span>
+<span class="lineno">   38 </span><span class="spaces">        </span><span class="nottickedoff">normStr = listToString norms</span>
+<span class="lineno">   39 </span><span class="spaces">        </span><span class="nottickedoff">texcStr = listToString texCoords</span>
+<span class="lineno">   40 </span><span class="spaces">        </span><span class="nottickedoff">texiStr = listToString texIds</span>
+<span class="lineno">   41 </span><span class="spaces">        </span><span class="nottickedoff">colsStr = listToString colors</span>
+<span class="lineno">   42 </span><span class="spaces">        </span><span class="nottickedoff">imgsStr = listStringsToString images</span>
+<span class="lineno">   43 </span><span class="spaces"></span><span class="nottickedoff"></span>
+<span class="lineno">   44 </span><span class="spaces">    </span><span class="nottickedoff">in do</span>
+<span class="lineno">   45 </span><span class="spaces">        </span><span class="nottickedoff">handle &lt;- openFile datFile WriteMode</span>
+<span class="lineno">   46 </span><span class="spaces">        </span><span class="nottickedoff">B.hPutStr handle &quot;v &quot;</span>
+<span class="lineno">   47 </span><span class="spaces">        </span><span class="nottickedoff">hPutStrLn handle vertStr</span>
+<span class="lineno">   48 </span><span class="spaces"></span><span class="nottickedoff"></span>
+<span class="lineno">   49 </span><span class="spaces">        </span><span class="nottickedoff">B.hPutStr handle &quot;n &quot;</span>
+<span class="lineno">   50 </span><span class="spaces">        </span><span class="nottickedoff">hPutStrLn handle normStr</span>
+<span class="lineno">   51 </span><span class="spaces"></span><span class="nottickedoff"></span>
+<span class="lineno">   52 </span><span class="spaces">        </span><span class="nottickedoff">B.hPutStr handle &quot;tc &quot;</span>
+<span class="lineno">   53 </span><span class="spaces">        </span><span class="nottickedoff">hPutStrLn handle texcStr</span>
+<span class="lineno">   54 </span><span class="spaces"></span><span class="nottickedoff"></span>
+<span class="lineno">   55 </span><span class="spaces">        </span><span class="nottickedoff">B.hPutStr handle &quot;ti &quot;</span>
+<span class="lineno">   56 </span><span class="spaces">        </span><span class="nottickedoff">hPutStrLn handle texiStr</span>
+<span class="lineno">   57 </span><span class="spaces"></span><span class="nottickedoff"></span>
+<span class="lineno">   58 </span><span class="spaces">        </span><span class="nottickedoff">B.hPutStr handle &quot;img &quot;</span>
+<span class="lineno">   59 </span><span class="spaces">        </span><span class="nottickedoff">B.hPutStrLn handle imgsStr</span>
+<span class="lineno">   60 </span><span class="spaces"></span><span class="nottickedoff"></span>
+<span class="lineno">   61 </span><span class="spaces">        </span><span class="nottickedoff">B.hPutStr handle &quot;rgb &quot;</span>
+<span class="lineno">   62 </span><span class="spaces">        </span><span class="nottickedoff">hPutStrLn handle colsStr</span></span>
+<span class="lineno">   63 </span>
+<span class="lineno">   64 </span>listToString :: Show a =&gt; [a] -&gt; String
+<span class="lineno">   65 </span><span class="decl"><span class="nottickedoff">listToString (x:y:xs) =</span>
+<span class="lineno">   66 </span><span class="spaces">    </span><span class="nottickedoff">show x ++ &quot;,&quot; ++ listToString (y:xs)</span>
+<span class="lineno">   67 </span><span class="spaces"></span><span class="nottickedoff">listToString (x:[]) =</span>
+<span class="lineno">   68 </span><span class="spaces">    </span><span class="nottickedoff">show x</span>
+<span class="lineno">   69 </span><span class="spaces"></span><span class="nottickedoff">listToString [] =</span>
+<span class="lineno">   70 </span><span class="spaces">    </span><span class="nottickedoff">error &quot;DatLoader.listToString: argument is empty.&quot;</span></span>
+<span class="lineno">   71 </span>
+<span class="lineno">   72 </span>
+<span class="lineno">   73 </span>-- TODO: VERY SLOW!
+<span class="lineno">   74 </span>listStringsToString :: [B.ByteString] -&gt; B.ByteString
+<span class="lineno">   75 </span><span class="decl"><span class="nottickedoff">listStringsToString (x:y:xs) =</span>
+<span class="lineno">   76 </span><span class="spaces">    </span><span class="nottickedoff">x `B.append` &quot;,&quot; `B.append` listStringsToString (y:xs)</span>
+<span class="lineno">   77 </span><span class="spaces"></span><span class="nottickedoff">listStringsToString (x:[]) =</span>
+<span class="lineno">   78 </span><span class="spaces">    </span><span class="nottickedoff">x</span>
+<span class="lineno">   79 </span><span class="spaces"></span><span class="nottickedoff">listStringsToString [] =</span>
+<span class="lineno">   80 </span><span class="spaces">    </span><span class="nottickedoff">error &quot;DatLoader.listStringsToString: argument is empty.&quot;</span></span>
+<span class="lineno">   81 </span>
+<span class="lineno">   82 </span>--
+<span class="lineno">   83 </span>
+<span class="lineno">   84 </span>loadDatModel :: FilePath -&gt; FilePath -&gt; FilePath -&gt; IO Model
+<span class="lineno">   85 </span><span class="decl"><span class="istickedoff">loadDatModel f vert frag =</span>
+<span class="lineno">   86 </span><span class="spaces">    </span><span class="istickedoff">let attrNames = [&quot;position&quot;, &quot;texCoord&quot;, &quot;normal&quot;, &quot;color&quot;, &quot;textureId&quot;]</span>
+<span class="lineno">   87 </span><span class="spaces">    </span><span class="istickedoff">in do</span>
+<span class="lineno">   88 </span><span class="spaces">        </span><span class="istickedoff">(totalDat, images) &lt;- loadData f</span>
+<span class="lineno">   89 </span><span class="spaces">        </span><span class="istickedoff">textures &lt;- mapM juicyLoadTexture images</span>
+<span class="lineno">   90 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   91 </span><span class="spaces">        </span><span class="istickedoff">tmp &lt;- createModel vert frag</span>
+<span class="lineno">   92 </span><span class="spaces">            </span><span class="istickedoff">attrNames</span>
+<span class="lineno">   93 </span><span class="spaces">            </span><span class="istickedoff">totalDat</span>
+<span class="lineno">   94 </span><span class="spaces">            </span><span class="istickedoff">[3, 2, 3, 3, 1]</span>
+<span class="lineno">   95 </span><span class="spaces">            </span><span class="istickedoff">(fromIntegral (length . head $ totalDat) `div` 3)</span>
+<span class="lineno">   96 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   97 </span><span class="spaces">        </span><span class="istickedoff">let mTexIds = replicate (length textures) <span class="nottickedoff">0</span> :: [GLint]</span>
+<span class="lineno">   98 </span><span class="spaces">        </span><span class="istickedoff">return tmp{modelTextures =</span>
+<span class="lineno">   99 </span><span class="spaces">            </span><span class="istickedoff">zip textures mTexIds}</span></span> 
+<span class="lineno">  100 </span>
+<span class="lineno">  101 </span>loadData :: FilePath -&gt; IO ([[GLfloat]], [FilePath])
+<span class="lineno">  102 </span><span class="decl"><span class="istickedoff">loadData datFile = do</span>
+<span class="lineno">  103 </span><span class="spaces">    </span><span class="istickedoff">fileContents &lt;- openFile datFile ReadMode &gt;&gt;= B.hGetContents</span>
+<span class="lineno">  104 </span><span class="spaces">    </span><span class="istickedoff">let fileLines = B.lines fileContents</span>
+<span class="lineno">  105 </span><span class="spaces">        </span><span class="istickedoff">verts = loadVerts fileLines</span>
+<span class="lineno">  106 </span><span class="spaces">        </span><span class="istickedoff">norms = loadNormals fileLines</span>
+<span class="lineno">  107 </span><span class="spaces">        </span><span class="istickedoff">colors = loadColors fileLines</span>
+<span class="lineno">  108 </span><span class="spaces">        </span><span class="istickedoff">texCoords = loadTexCoords fileLines</span>
+<span class="lineno">  109 </span><span class="spaces">        </span><span class="istickedoff">texIds = loadTexIds fileLines</span>
+<span class="lineno">  110 </span><span class="spaces">        </span><span class="istickedoff">directory = B.pack $ (intercalate &quot;/&quot; . init $ splitOn &quot;/&quot; datFile) ++ &quot;/&quot; </span>
+<span class="lineno">  111 </span><span class="spaces">        </span><span class="istickedoff">textures = loadTextures directory fileLines</span>
+<span class="lineno">  112 </span><span class="spaces">    </span><span class="istickedoff">return ([verts, texCoords, norms, colors, texIds], map B.unpack textures)</span></span>
+<span class="lineno">  113 </span>
+<span class="lineno">  114 </span>loadVerts :: [B.ByteString] -&gt; [GLfloat]
+<span class="lineno">  115 </span><span class="decl"><span class="istickedoff">loadVerts =</span>
+<span class="lineno">  116 </span><span class="spaces">    </span><span class="istickedoff">readDataLine . takeFirst (B.isPrefixOf &quot;v &quot;)</span></span>
+<span class="lineno">  117 </span>
+<span class="lineno">  118 </span>loadNormals :: [B.ByteString] -&gt; [GLfloat]
+<span class="lineno">  119 </span><span class="decl"><span class="istickedoff">loadNormals =</span>
+<span class="lineno">  120 </span><span class="spaces">    </span><span class="istickedoff">readDataLine . takeFirst (B.isPrefixOf &quot;n &quot;)</span></span>
+<span class="lineno">  121 </span>
+<span class="lineno">  122 </span>loadColors :: [B.ByteString] -&gt; [GLfloat]
+<span class="lineno">  123 </span><span class="decl"><span class="istickedoff">loadColors =</span>
+<span class="lineno">  124 </span><span class="spaces">    </span><span class="istickedoff">readDataLine . takeFirst (B.isPrefixOf &quot;rgb &quot;)</span></span>
+<span class="lineno">  125 </span>
+<span class="lineno">  126 </span>loadTexCoords :: [B.ByteString] -&gt; [GLfloat]
+<span class="lineno">  127 </span><span class="decl"><span class="istickedoff">loadTexCoords =</span>
+<span class="lineno">  128 </span><span class="spaces">    </span><span class="istickedoff">readDataLine . takeFirst (B.isPrefixOf &quot;tc &quot;)</span></span>
+<span class="lineno">  129 </span>
+<span class="lineno">  130 </span>loadTexIds :: [B.ByteString] -&gt; [GLfloat]
+<span class="lineno">  131 </span><span class="decl"><span class="istickedoff">loadTexIds =</span>
+<span class="lineno">  132 </span><span class="spaces">    </span><span class="istickedoff">readDataLine . takeFirst (B.isPrefixOf &quot;ti &quot;)</span></span>
+<span class="lineno">  133 </span>
+<span class="lineno">  134 </span>loadTextures :: B.ByteString -&gt; [B.ByteString] -&gt; [B.ByteString]
+<span class="lineno">  135 </span><span class="decl"><span class="istickedoff">loadTextures prefix =</span>
+<span class="lineno">  136 </span><span class="spaces">    </span><span class="istickedoff">map (prefix `B.append`) . parseDataLine . takeFirst (B.isPrefixOf &quot;img &quot;)</span></span>
+<span class="lineno">  137 </span>
+<span class="lineno">  138 </span>readDataLine :: B.ByteString -&gt; [GLfloat]
+<span class="lineno">  139 </span><span class="decl"><span class="istickedoff">readDataLine = map parseBsFloat . parseDataLine</span></span>
+<span class="lineno">  140 </span>
+<span class="lineno">  141 </span>parseDataLine :: B.ByteString -&gt; [B.ByteString]
+<span class="lineno">  142 </span><span class="decl"><span class="istickedoff">parseDataLine = B.split ',' . last . B.words</span></span>
+<span class="lineno">  143 </span>
+<span class="lineno">  144 </span>parseBsFloat :: B.ByteString -&gt; GLfloat
+<span class="lineno">  145 </span><span class="decl"><span class="istickedoff">parseBsFloat = fst . parseBsFloat'</span></span>
+<span class="lineno">  146 </span>
+<span class="lineno">  147 </span>parseBsFloat' :: B.ByteString -&gt; (GLfloat, B.ByteString)
+<span class="lineno">  148 </span><span class="decl"><span class="istickedoff">parseBsFloat' bs</span>
+<span class="lineno">  149 </span><span class="spaces">    </span><span class="istickedoff">| isJust ('e' `B.elemIndex` bs) =</span>
+<span class="lineno">  150 </span><span class="spaces">        </span><span class="istickedoff">let [baseBs, expBs] = B.splitWith (=='e') bs</span>
+<span class="lineno">  151 </span><span class="spaces">            </span><span class="istickedoff">(base, _) = parseBsFloat' baseBs</span>
+<span class="lineno">  152 </span><span class="spaces">            </span><span class="istickedoff">(expon, rest) = parseBsFloat' expBs</span>
+<span class="lineno">  153 </span><span class="spaces">        </span><span class="istickedoff">in (base * (10.0 ** expon), <span class="nottickedoff">rest</span>)</span>
+<span class="lineno">  154 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">  155 </span><span class="spaces">    </span><span class="istickedoff">| isJust ('.' `B.elemIndex` bs) =</span>
+<span class="lineno">  156 </span><span class="spaces">        </span><span class="istickedoff">let negative = B.head bs == '-'</span>
+<span class="lineno">  157 </span><span class="spaces">            </span><span class="istickedoff">Just (whole, decimalBS) = B.readInt $</span>
+<span class="lineno">  158 </span><span class="spaces">                </span><span class="istickedoff">if negative</span>
+<span class="lineno">  159 </span><span class="spaces">                    </span><span class="istickedoff">then B.tail bs</span>
+<span class="lineno">  160 </span><span class="spaces">                </span><span class="istickedoff">else bs</span>
+<span class="lineno">  161 </span><span class="spaces">            </span><span class="istickedoff">Just (decimal, rest) = B.readInt $ B.tail decimalBS</span>
+<span class="lineno">  162 </span><span class="spaces">        </span><span class="istickedoff">in if negative</span>
+<span class="lineno">  163 </span><span class="spaces">                </span><span class="istickedoff">then (negate $ fromIntegral whole +</span>
+<span class="lineno">  164 </span><span class="spaces">                    </span><span class="istickedoff">(fromIntegral decimal / 10 ^ (B.length decimalBS - 1)), <span class="nottickedoff">rest</span>)</span>
+<span class="lineno">  165 </span><span class="spaces">            </span><span class="istickedoff">else (fromIntegral whole +</span>
+<span class="lineno">  166 </span><span class="spaces">                </span><span class="istickedoff">(fromIntegral decimal / 10 ^ (B.length decimalBS - 1)), <span class="nottickedoff">rest</span>)</span>
+<span class="lineno">  167 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">  168 </span><span class="spaces">    </span><span class="istickedoff">| <span class="tickonlytrue">otherwise</span> =</span>
+<span class="lineno">  169 </span><span class="spaces">        </span><span class="istickedoff">let Just (val, rest) = B.readInt bs</span>
+<span class="lineno">  170 </span><span class="spaces">        </span><span class="istickedoff">in (fromIntegral val, <span class="nottickedoff">rest</span>)</span></span>
+<span class="lineno">  171 </span>
+<span class="lineno">  172 </span>takeFirst :: (a -&gt; Bool) -&gt; [a] -&gt; a
+<span class="lineno">  173 </span><span class="decl"><span class="istickedoff">takeFirst func (x:xs)</span>
+<span class="lineno">  174 </span><span class="spaces">    </span><span class="istickedoff">| func x = x</span>
+<span class="lineno">  175 </span><span class="spaces">    </span><span class="istickedoff">| <span class="tickonlytrue">otherwise</span> = takeFirst func xs</span>
+<span class="lineno">  176 </span><span class="spaces"></span><span class="istickedoff">takeFirst _ _ = <span class="nottickedoff">error &quot;DatLoader.takeFirst: pattern not matched.&quot;</span></span></span>
+<span class="lineno">  177 </span>{-# INLINE takeFirst #-}
+
+</pre>
+</body>
+</html>

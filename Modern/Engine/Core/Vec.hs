@@ -9,8 +9,8 @@ import Control.DeepSeq (NFData(..))
 import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
 data Vec4 a = Vec4 !a !a !a !a deriving (Show, Eq)
-data Vec3 a = Vec3 !a !a !a deriving (Show, Eq)
-data Vec2 a = Vec2 !a !a deriving (Show, Eq)
+data Vec3 a = Vec3 a a a deriving (Show, Eq)
+data Vec2 a = Vec2 a a deriving (Show, Eq)
 
 instance Functor Vec4 where
     fmap f (Vec4 x y z w) = Vec4 (f x) (f y) (f z) (f w)

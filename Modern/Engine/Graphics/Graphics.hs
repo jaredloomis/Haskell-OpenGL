@@ -15,13 +15,14 @@ import Graphics.Rendering.OpenGL.Raw
 import Engine.Core.Types
     (World(..), WorldState(..), GameObject(..),
      Model(..), HasPosition(..), HasRotation(..),
-     Shader(..), Framebuffer(..), Graphics(..))
+     Shader(..), Framebuffer(..), Graphics(..),
+     WorldMatrices(..))
 import Engine.Graphics.Shaders
     (setShaderAttribs, bindTextures, disableShaderAttribs)
 import Engine.Core.Vec (Vec3(..))
 import Engine.Object.GameObject (getModel)
 import Engine.Matrix.Matrix
-    (WorldMatrices(..), calculateMatricesFromPlayer,
+    (calculateMatricesFromPlayer,
      gtranslationMatrix, grotationMatrix, setMatrixUniforms)
 import Engine.Graphics.Window (Window(..))
 

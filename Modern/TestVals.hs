@@ -77,18 +77,18 @@ mkWorld :: Framebuffer -> Framebuffer -> GLuint -> [GLuint] -> IO (World ())
 mkWorld fb shadowFb shadowShader shaders = do
     state <- mkWorldState
     obja <- mkObj
-    objb <- mkObj2
+--    objb <- mkObj2
     objc <- mkObj3
-    let octree = mkOctree [obja, objb, objc]
+    let octree = mkOctree [obja, objc]
 
     --print octree
 
-    return $ World mkPlayer [obja, objb, objc] octree
+    return $ World mkPlayer [obja, objc] octree
             (mkGraphics fb shadowFb shadowShader shaders)
             state
 
 mkOctree :: [GameObject t] -> Octree AABB
-mkOctree = createOctreeFromAABBs (AABB (-5) 200)
+mkOctree = createOctreeFromAABBs (AABB (-20) 200)
 
 mkGraphics :: Framebuffer -> Framebuffer -> GLuint -> [GLuint] -> Graphics t
 mkGraphics fb shadowFb shadowShader shaders =
@@ -110,7 +110,7 @@ mkObj2 =
 
 mkObj3 :: IO (GameObject ())
 mkObj3 =
-    Entity (Vec3 0 (-20) 0) (Vec3 0 0 0) idUpdate <$> mkModel3 <*> return ()
+    Entity (Vec3 (-20) (-20) (-5)) (Vec3 0 0 0) idUpdate <$> mkModel3 <*> return ()
     --Entity (Vec3 (-700) (-480) 1016) id <$> mkModel3 <*> return ()
 
 

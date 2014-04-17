@@ -1,9 +1,0 @@
--O2 -funfolding-use-threshold=16
-size 200x200, octree (-3, 200), depth 64
-1-2%
-403 MiB
-
--O2 -fllvm -funfolding-use-threshold=16
-size 200x200, octree (-3, 200), depth 64
-1-2%
-313 MiB

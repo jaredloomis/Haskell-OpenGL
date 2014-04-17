@@ -16,19 +16,22 @@ import Graphics.Rendering.OpenGL.Raw
 import Engine.Core.Types
     (World(..), WorldState(..), Framebuffer(..),
      Shader(..), GameObject(..), Model(..),
-     HasPosition(..), HasRotation(..), Graphics(..))
+     HasPosition(..), HasRotation(..), Graphics(..),
+     WorldMatrices(..), RenderInfo(..),
+     emptyInfo)
 import Engine.Core.World (setWorldUniforms)
 import Engine.Core.Vec (Vec3(..))
 import Engine.Graphics.Shaders
-    (emptyShader, setShaderAttribs, disableShaderAttribs,
+    (setShaderAttribs, disableShaderAttribs,
      bindTextures)
 import Engine.Object.GameObject (getModel)
 import Engine.Matrix.Matrix
-    (WorldMatrices(..), emptyMatrices, gtranslationMatrix,
-     grotationMatrix, setMatrixUniforms, calculateMatricesFromPlayer)
+    (gtranslationMatrix, grotationMatrix,
+     setMatrixUniforms, calculateMatricesFromPlayer)
 import Engine.Graphics.Window (Window(..))
 import Engine.Graphics.Framebuffer (renderAllPasses)
 
+{-
 data RenderInfo = RenderInfo {
     renderInfoShader :: Shader,
     renderInfoMatrices :: WorldMatrices
@@ -36,6 +39,7 @@ data RenderInfo = RenderInfo {
 
 emptyInfo :: RenderInfo
 emptyInfo = RenderInfo emptyShader emptyMatrices
+-}
 
 -- | A class for things that can be rendered to
 --   the screen &| Framebuffers.

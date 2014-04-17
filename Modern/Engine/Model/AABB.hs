@@ -9,11 +9,11 @@ module Engine.Model.AABB (
 
 import Data.Maybe (isJust)
 
-import Graphics.Rendering.OpenGL.Raw
+import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
-import Engine.Core.Vec (Vec3(..))
 import Engine.Core.Types
-
+    (AABB(..), HasAABB(..), HasPosition(..))
+import Engine.Core.Vec (Vec3(..))
 
 -- | Test if two objects intersect.
 objectsIntersect :: (HasAABB a, HasAABB b) => a -> b -> Bool

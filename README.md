@@ -75,7 +75,6 @@ Performance by GHC/GHCI command:
 <h2>Used libraries Include</h2>
 - [OpenGL](http://hackage.haskell.org/package/OpenGL)
 - [GLFW-b](http://hackage.haskell.org/package/GLFW-b-1.4.3)
-- [GLUtil](https://github.com/acowley/GLUtil)
 - [JuicyPixels](http://hackage.haskell.org/package/JuicyPixels)
 
 <h2>Copyright</h2>

@@ -1,0 +1,268 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<style type="text/css">
+span.lineno { color: white; background: #aaaaaa; border-right: solid white 12px }
+span.nottickedoff { background: yellow}
+span.istickedoff { background: white }
+span.tickonlyfalse { margin: -1px; border: 1px solid #f20913; background: #f20913 }
+span.tickonlytrue  { margin: -1px; border: 1px solid #60de51; background: #60de51 }
+span.funcount { font-size: small; color: orange; z-index: 2; position: absolute; right: 20 }
+span.decl { font-weight: bold }
+span.spaces    { background: white }
+</style>
+</head>
+<body>
+<pre>
+<span class="lineno">    1 </span>{-# LANGUAGE FlexibleInstances #-}
+<span class="lineno">    2 </span>{-# LANGUAGE MultiParamTypeClasses #-}
+<span class="lineno">    3 </span>{-# OPTIONS_GHC -fno-warn-orphans #-}
+<span class="lineno">    4 </span>module Engine.Terrain.Generator (
+<span class="lineno">    5 </span>    genSimplexModel,
+<span class="lineno">    6 </span>    generateTerrain
+<span class="lineno">    7 </span>) where
+<span class="lineno">    8 </span>
+<span class="lineno">    9 </span>import qualified Data.DList as D
+<span class="lineno">   10 </span>import System.Random (randomRIO)
+<span class="lineno">   11 </span>
+<span class="lineno">   12 </span>import Graphics.Rendering.OpenGL.Raw
+<span class="lineno">   13 </span>    (GLfloat, GLint, GLuint)
+<span class="lineno">   14 </span>
+<span class="lineno">   15 </span>import Engine.Graphics.Shaders
+<span class="lineno">   16 </span>    (loadProgram, getAttrLocs, createShaderAttribs)
+<span class="lineno">   17 </span>import Engine.Model.AABB (aabbFromPoints)
+<span class="lineno">   18 </span>import Engine.Graphics.GraphicsUtils (createBufferIdAll)
+<span class="lineno">   19 </span>import Engine.Core.Types
+<span class="lineno">   20 </span>import Engine.Core.Vec (Vec3(..))
+<span class="lineno">   21 </span>import Engine.Model.Model
+<span class="lineno">   22 </span>    (createModel)
+<span class="lineno">   23 </span>import Engine.Terrain.Noise
+<span class="lineno">   24 </span>    (perm, getSimplexHeight)
+<span class="lineno">   25 </span>import Engine.Graphics.Textures (juicyLoadTexture)
+<span class="lineno">   26 </span>
+<span class="lineno">   27 </span>instance HasAABB a =&gt; Intersect Terrain a where
+<span class="lineno">   28 </span>    <span class="decl"><span class="nottickedoff">getIntersecting terrain collider =</span>
+<span class="lineno">   29 </span><span class="spaces">        </span><span class="nottickedoff">let simplex = terrainSimplex terrain</span>
+<span class="lineno">   30 </span><span class="spaces">            </span><span class="nottickedoff">Vec3 x y z = getPos collider</span>
+<span class="lineno">   31 </span><span class="spaces">            </span><span class="nottickedoff">simplexHeight = getSimplexHeight simplex x z</span>
+<span class="lineno">   32 </span><span class="spaces">        </span><span class="nottickedoff">in y &lt;= simplexHeight</span></span>
+<span class="lineno">   33 </span>
+<span class="lineno">   34 </span>generateTerrain :: FilePath -&gt; FilePath -&gt;
+<span class="lineno">   35 </span>    GLfloat -&gt;          -- ^ Width
+<span class="lineno">   36 </span>    GLfloat -&gt;          -- ^ Spacing
+<span class="lineno">   37 </span>    Int -&gt;              -- ^ Octaves
+<span class="lineno">   38 </span>    GLfloat -&gt;          -- ^ Wavelength
+<span class="lineno">   39 </span>    GLfloat -&gt;          -- ^ Waveheight / intensity
+<span class="lineno">   40 </span>    Maybe FilePath -&gt;   -- ^ The texture (Maybe)
+<span class="lineno">   41 </span>    IO Terrain
+<span class="lineno">   42 </span><span class="decl"><span class="nottickedoff">generateTerrain vert frag w spacing octaves wavelength intensity texture = do</span>
+<span class="lineno">   43 </span><span class="spaces">    </span><span class="nottickedoff">seed &lt;- randomRIO (0, 2048)</span>
+<span class="lineno">   44 </span><span class="spaces">    </span><span class="nottickedoff">let simplex = Simplex seed (floor w, floor w) (0, 0) spacing octaves wavelength intensity (perm seed)</span>
+<span class="lineno">   45 </span><span class="spaces">        </span><span class="nottickedoff">vertices = D.toList $ createSimplexTerrain simplex</span>
+<span class="lineno">   46 </span><span class="spaces">        </span><span class="nottickedoff">normals = calculateNormals vertices</span>
+<span class="lineno">   47 </span><span class="spaces"></span><span class="nottickedoff"></span>
+<span class="lineno">   48 </span><span class="spaces">    </span><span class="nottickedoff">maybe</span>
+<span class="lineno">   49 </span><span class="spaces">        </span><span class="nottickedoff">(loadTerrainWithTexture' simplex vert frag vertices normals undefined)</span>
+<span class="lineno">   50 </span><span class="spaces">        </span><span class="nottickedoff">(loadTerrainWithTexture' simplex vert frag vertices normals)</span>
+<span class="lineno">   51 </span><span class="spaces">        </span><span class="nottickedoff">texture</span></span>
+<span class="lineno">   52 </span>
+<span class="lineno">   53 </span>loadTerrainWithTexture' :: Simplex -&gt; FilePath -&gt; FilePath -&gt; [GLfloat] -&gt; [GLfloat] -&gt; FilePath -&gt; IO Terrain
+<span class="lineno">   54 </span><span class="decl"><span class="nottickedoff">loadTerrainWithTexture' simplex vert frag vertices normals texture =</span>
+<span class="lineno">   55 </span><span class="spaces">    </span><span class="nottickedoff">let lengthVertices = length vertices</span>
+<span class="lineno">   56 </span><span class="spaces">    </span><span class="nottickedoff">in do</span>
+<span class="lineno">   57 </span><span class="spaces">        </span><span class="nottickedoff">loadedTerrain &lt;- createTerrain simplex vert frag</span>
+<span class="lineno">   58 </span><span class="spaces">            </span><span class="nottickedoff">[&quot;position&quot;, &quot;normal&quot;, &quot;color&quot;, &quot;texCoord&quot;, &quot;textureId&quot;]</span>
+<span class="lineno">   59 </span><span class="spaces">            </span><span class="nottickedoff">[vertices, normals, take (lengthVertices * 3) (cycle [0, 1, 0]),</span>
+<span class="lineno">   60 </span><span class="spaces">            </span><span class="nottickedoff">take (lengthVertices * 3) $ cycle [0, 0, 1, 0, 0, 1],</span>
+<span class="lineno">   61 </span><span class="spaces">            </span><span class="nottickedoff">replicate lengthVertices 0]</span>
+<span class="lineno">   62 </span><span class="spaces">            </span><span class="nottickedoff">[3, 3, 3, 2, 1]</span>
+<span class="lineno">   63 </span><span class="spaces">            </span><span class="nottickedoff">(fromIntegral $ lengthVertices `div` 3)</span>
+<span class="lineno">   64 </span><span class="spaces">        </span><span class="nottickedoff">textureData &lt;- juicyLoadTexture texture</span>
+<span class="lineno">   65 </span><span class="spaces">        </span><span class="nottickedoff">return $ loadedTerrain{terrainTextures = [(textureData, 1)]}</span></span>
+<span class="lineno">   66 </span>
+<span class="lineno">   67 </span>createTerrain ::
+<span class="lineno">   68 </span>    Simplex -&gt;      -- ^ Simplex info.
+<span class="lineno">   69 </span>    FilePath -&gt;     -- ^ Vertex Shader.
+<span class="lineno">   70 </span>    FilePath -&gt;     -- ^ Fragment Shader.
+<span class="lineno">   71 </span>    [String] -&gt;     -- ^ Attribute Variable names.
+<span class="lineno">   72 </span>    [[GLfloat]] -&gt;  -- ^ List containing all the lists of values.
+<span class="lineno">   73 </span>                   --   (vertices, normals, etc).
+<span class="lineno">   74 </span>    [GLuint] -&gt;     -- ^ Size of each value.
+<span class="lineno">   75 </span>    GLint -&gt;        -- ^ Number of vertices.
+<span class="lineno">   76 </span>    IO Terrain
+<span class="lineno">   77 </span><span class="decl"><span class="nottickedoff">createTerrain simplex vert frag attrNames buffData valLens vertCount = do</span>
+<span class="lineno">   78 </span><span class="spaces">    </span><span class="nottickedoff">program &lt;- loadProgram vert frag</span>
+<span class="lineno">   79 </span><span class="spaces">    </span><span class="nottickedoff">attribs &lt;- getAttrLocs program attrNames</span>
+<span class="lineno">   80 </span><span class="spaces">    </span><span class="nottickedoff">ids &lt;- createBufferIdAll buffData</span>
+<span class="lineno">   81 </span><span class="spaces"></span><span class="nottickedoff"></span>
+<span class="lineno">   82 </span><span class="spaces">    </span><span class="nottickedoff">let sAttribs = createShaderAttribs attribs ids valLens</span>
+<span class="lineno">   83 </span><span class="spaces">    </span><span class="nottickedoff">return $ Terrain simplex (Shader program []) sAttribs [] vertCount</span>
+<span class="lineno">   84 </span><span class="spaces">            </span><span class="nottickedoff">$ aabbFromPoints (head buffData)</span></span>
+<span class="lineno">   85 </span>
+<span class="lineno">   86 </span>genSimplexModel :: FilePath -&gt; FilePath -&gt;
+<span class="lineno">   87 </span>    GLfloat -&gt;          -- ^ Width
+<span class="lineno">   88 </span>    GLfloat -&gt;          -- ^ Spacing
+<span class="lineno">   89 </span>    Int -&gt;              -- ^ Octaves
+<span class="lineno">   90 </span>    GLfloat -&gt;          -- ^ Wavelength
+<span class="lineno">   91 </span>    GLfloat -&gt;          -- ^ Waveheight / intensity
+<span class="lineno">   92 </span>    Maybe FilePath -&gt;   -- ^ The texture (Maybe)
+<span class="lineno">   93 </span>    IO Model
+<span class="lineno">   94 </span><span class="decl"><span class="nottickedoff">genSimplexModel vert frag w spacing octaves wavelength intensity texture = do</span>
+<span class="lineno">   95 </span><span class="spaces">    </span><span class="nottickedoff">seed &lt;- randomRIO (0, 2048)</span>
+<span class="lineno">   96 </span><span class="spaces">    </span><span class="nottickedoff">let simplex = Simplex seed (floor w, floor w) (0, 0) spacing octaves wavelength intensity (perm seed)</span>
+<span class="lineno">   97 </span><span class="spaces">        </span><span class="nottickedoff">vertices = D.toList $ createSimplexTerrain simplex</span>
+<span class="lineno">   98 </span><span class="spaces">        </span><span class="nottickedoff">normals = calculateNormals vertices</span>
+<span class="lineno">   99 </span><span class="spaces"></span><span class="nottickedoff"></span>
+<span class="lineno">  100 </span><span class="spaces">    </span><span class="nottickedoff">maybe</span>
+<span class="lineno">  101 </span><span class="spaces">        </span><span class="nottickedoff">(loadTerrainNoTexture vert frag vertices normals)</span>
+<span class="lineno">  102 </span><span class="spaces">        </span><span class="nottickedoff">(loadTerrainWithTexture vert frag vertices normals)</span>
+<span class="lineno">  103 </span><span class="spaces">        </span><span class="nottickedoff">texture</span></span>
+<span class="lineno">  104 </span>
+<span class="lineno">  105 </span>loadTerrainWithTexture :: FilePath -&gt; FilePath -&gt; [GLfloat] -&gt; [GLfloat] -&gt; FilePath -&gt; IO Model
+<span class="lineno">  106 </span><span class="decl"><span class="nottickedoff">loadTerrainWithTexture vert frag vertices normals texture =</span>
+<span class="lineno">  107 </span><span class="spaces">    </span><span class="nottickedoff">let lengthVertices = length vertices</span>
+<span class="lineno">  108 </span><span class="spaces">    </span><span class="nottickedoff">in do</span>
+<span class="lineno">  109 </span><span class="spaces">        </span><span class="nottickedoff">loadedModel &lt;- createModel vert frag</span>
+<span class="lineno">  110 </span><span class="spaces">            </span><span class="nottickedoff">[&quot;position&quot;, &quot;normal&quot;, &quot;color&quot;, &quot;texCoord&quot;, &quot;textureId&quot;]</span>
+<span class="lineno">  111 </span><span class="spaces">            </span><span class="nottickedoff">[vertices, normals, take (lengthVertices * 3) (cycle [0, 1, 0]),</span>
+<span class="lineno">  112 </span><span class="spaces">            </span><span class="nottickedoff">take (lengthVertices * 3) $ cycle [0, 0, 1, 0, 0, 1],</span>
+<span class="lineno">  113 </span><span class="spaces">            </span><span class="nottickedoff">replicate lengthVertices 0]</span>
+<span class="lineno">  114 </span><span class="spaces">            </span><span class="nottickedoff">[3, 3, 3, 2, 1]</span>
+<span class="lineno">  115 </span><span class="spaces">            </span><span class="nottickedoff">(fromIntegral $ lengthVertices `div` 3)</span>
+<span class="lineno">  116 </span><span class="spaces">        </span><span class="nottickedoff">textureData &lt;- juicyLoadTexture texture</span>
+<span class="lineno">  117 </span><span class="spaces">        </span><span class="nottickedoff">return $ loadedModel{modelTextures = [(textureData, 1)]}</span></span>
+<span class="lineno">  118 </span>
+<span class="lineno">  119 </span>loadTerrainNoTexture :: FilePath -&gt; FilePath -&gt; [GLfloat] -&gt; [GLfloat] -&gt; IO Model
+<span class="lineno">  120 </span><span class="decl"><span class="nottickedoff">loadTerrainNoTexture vert frag vertices normals =</span>
+<span class="lineno">  121 </span><span class="spaces">    </span><span class="nottickedoff">let lengthVertices = length vertices</span>
+<span class="lineno">  122 </span><span class="spaces">    </span><span class="nottickedoff">in createModel vert frag</span>
+<span class="lineno">  123 </span><span class="spaces">            </span><span class="nottickedoff">[&quot;position&quot;, &quot;normal&quot;, &quot;color&quot;, &quot;texCoord&quot;, &quot;textureId&quot;]</span>
+<span class="lineno">  124 </span><span class="spaces">            </span><span class="nottickedoff">[vertices, normals, take (lengthVertices * 3) (cycle [0, 1, 0]),</span>
+<span class="lineno">  125 </span><span class="spaces">            </span><span class="nottickedoff">replicate (lengthVertices * 3) 0,</span>
+<span class="lineno">  126 </span><span class="spaces">            </span><span class="nottickedoff">replicate lengthVertices (-1)]</span>
+<span class="lineno">  127 </span><span class="spaces">            </span><span class="nottickedoff">[3, 3, 3, 2, 1]</span>
+<span class="lineno">  128 </span><span class="spaces">            </span><span class="nottickedoff">(fromIntegral $ lengthVertices `div` 3)</span></span>
+<span class="lineno">  129 </span>
+<span class="lineno">  130 </span>createSimplexTerrain :: Simplex -&gt; D.DList GLfloat
+<span class="lineno">  131 </span><span class="decl"><span class="nottickedoff">createSimplexTerrain simplex =</span>
+<span class="lineno">  132 </span><span class="spaces">    </span><span class="nottickedoff">concatMapD (\x -&gt; concatMapD (makeSquare simplex x) $ allYs simplex) $ allXs simplex</span></span>
+<span class="lineno">  133 </span>
+<span class="lineno">  134 </span>concatMapD :: (a -&gt; D.DList b) -&gt; D.DList a -&gt; D.DList b
+<span class="lineno">  135 </span><span class="decl"><span class="nottickedoff">concatMapD f = D.foldr (D.append . f) D.empty</span></span>
+<span class="lineno">  136 </span>
+<span class="lineno">  137 </span>allXs :: Simplex -&gt; D.DList GLfloat
+<span class="lineno">  138 </span><span class="decl"><span class="nottickedoff">allXs simplex =</span>
+<span class="lineno">  139 </span><span class="spaces">    </span><span class="nottickedoff">let first = fromIntegral $ fst $ simpStartXY simplex :: GLfloat</span>
+<span class="lineno">  140 </span><span class="spaces">    </span><span class="nottickedoff">in first `D.cons` allXs' simplex first 0</span>
+<span class="lineno">  141 </span><span class="spaces">    </span><span class="nottickedoff">where</span>
+<span class="lineno">  142 </span><span class="spaces">        </span><span class="nottickedoff">allXs' :: Simplex -&gt; GLfloat -&gt; Int -&gt; D.DList GLfloat</span>
+<span class="lineno">  143 </span><span class="spaces">        </span><span class="nottickedoff">allXs' s i j</span>
+<span class="lineno">  144 </span><span class="spaces">            </span><span class="nottickedoff">| j &lt; fst (simpDimensions s) =</span>
+<span class="lineno">  145 </span><span class="spaces">                </span><span class="nottickedoff">let cur = i + simpSpacing s</span>
+<span class="lineno">  146 </span><span class="spaces">                </span><span class="nottickedoff">in cur `D.cons` allXs' simplex cur (j+1)</span>
+<span class="lineno">  147 </span><span class="spaces">            </span><span class="nottickedoff">| otherwise = D.empty</span></span>
+<span class="lineno">  148 </span>
+<span class="lineno">  149 </span>allYs :: Simplex -&gt; D.DList GLfloat
+<span class="lineno">  150 </span><span class="decl"><span class="nottickedoff">allYs simplex =</span>
+<span class="lineno">  151 </span><span class="spaces">    </span><span class="nottickedoff">let first = fromIntegral $ snd $ simpStartXY simplex :: GLfloat</span>
+<span class="lineno">  152 </span><span class="spaces">    </span><span class="nottickedoff">in first `D.cons` allYs' simplex first 0</span>
+<span class="lineno">  153 </span><span class="spaces">    </span><span class="nottickedoff">where</span>
+<span class="lineno">  154 </span><span class="spaces">        </span><span class="nottickedoff">allYs' :: Simplex -&gt; GLfloat -&gt; Int -&gt; D.DList GLfloat</span>
+<span class="lineno">  155 </span><span class="spaces">        </span><span class="nottickedoff">allYs' s i j</span>
+<span class="lineno">  156 </span><span class="spaces">            </span><span class="nottickedoff">| j &lt; snd (simpDimensions s) =</span>
+<span class="lineno">  157 </span><span class="spaces">                </span><span class="nottickedoff">let cur = i + simpSpacing s</span>
+<span class="lineno">  158 </span><span class="spaces">                </span><span class="nottickedoff">in cur `D.cons` allYs' simplex cur (j+1)</span>
+<span class="lineno">  159 </span><span class="spaces">            </span><span class="nottickedoff">| otherwise = D.empty</span></span>
+<span class="lineno">  160 </span>
+<span class="lineno">  161 </span>makeSquare :: Simplex -&gt; GLfloat -&gt; GLfloat -&gt; D.DList GLfloat
+<span class="lineno">  162 </span><span class="decl"><span class="nottickedoff">makeSquare simplex x z =</span>
+<span class="lineno">  163 </span><span class="spaces">    </span><span class="nottickedoff">let spacing = simpSpacing simplex</span>
+<span class="lineno">  164 </span><span class="spaces">    </span><span class="nottickedoff">in makePointFromXY simplex x z `D.append`</span>
+<span class="lineno">  165 </span><span class="spaces">        </span><span class="nottickedoff">makePointFromXY simplex x (z+spacing) `D.append`</span>
+<span class="lineno">  166 </span><span class="spaces">        </span><span class="nottickedoff">makePointFromXY simplex (x+spacing) z `D.append`</span>
+<span class="lineno">  167 </span><span class="spaces">        </span><span class="nottickedoff">makePointFromXY simplex (x+spacing) z `D.append`</span>
+<span class="lineno">  168 </span><span class="spaces">        </span><span class="nottickedoff">makePointFromXY simplex x (z+spacing) `D.append`</span>
+<span class="lineno">  169 </span><span class="spaces">        </span><span class="nottickedoff">makePointFromXY simplex (x+spacing) (z+spacing)</span></span>
+<span class="lineno">  170 </span>
+<span class="lineno">  171 </span>makePointFromXY :: Simplex -&gt; GLfloat -&gt; GLfloat -&gt; D.DList GLfloat
+<span class="lineno">  172 </span><span class="decl"><span class="nottickedoff">makePointFromXY simp x z = D.fromList [x, getSimplexHeight simp x z, z]</span></span>
+<span class="lineno">  173 </span>
+<span class="lineno">  174 </span>{-
+<span class="lineno">  175 </span>createStripSimplex :: GLfloat -&gt; GLfloat -&gt; GLfloat -&gt; GLfloat -&gt; [GLfloat]
+<span class="lineno">  176 </span>createStripSimplex spacing len x i
+<span class="lineno">  177 </span>    | i &lt; len =
+<span class="lineno">  178 </span>        [x, 0, i,
+<span class="lineno">  179 </span>         x, 0, i+spacing,
+<span class="lineno">  180 </span>         x+spacing, 0, i,
+<span class="lineno">  181 </span>         x+spacing, 0, i,
+<span class="lineno">  182 </span>         x, 0, i+spacing,
+<span class="lineno">  183 </span>         x+spacing, 0, i+spacing] ++ createStripSimplex spacing len x (i+spacing)
+<span class="lineno">  184 </span>    | otherwise = []
+<span class="lineno">  185 </span>
+<span class="lineno">  186 </span>createFlat :: GLfloat -&gt; GLfloat -&gt; [GLfloat]
+<span class="lineno">  187 </span>createFlat spacing width =
+<span class="lineno">  188 </span>    createFlatRaw spacing width 0
+<span class="lineno">  189 </span>
+<span class="lineno">  190 </span>    where
+<span class="lineno">  191 </span>        createFlatRaw s w x =
+<span class="lineno">  192 </span>            createStrip s w x 0 ++
+<span class="lineno">  193 </span>                if x &lt; w 
+<span class="lineno">  194 </span>                    then createFlatRaw s w (x+spacing)
+<span class="lineno">  195 </span>                else []
+<span class="lineno">  196 </span>
+<span class="lineno">  197 </span>createStrip :: GLfloat -&gt; GLfloat -&gt; GLfloat -&gt; GLfloat -&gt; [GLfloat]
+<span class="lineno">  198 </span>createStrip spacing len x i
+<span class="lineno">  199 </span>    | i &lt; len =
+<span class="lineno">  200 </span>        [x, 0, i,
+<span class="lineno">  201 </span>         x, 0, i+spacing,
+<span class="lineno">  202 </span>         x+spacing, 0, i,
+<span class="lineno">  203 </span>         x+spacing, 0, i,
+<span class="lineno">  204 </span>         x, 0, i+spacing,
+<span class="lineno">  205 </span>         x+spacing, 0, i+spacing] ++ createStrip spacing len x (i+spacing)
+<span class="lineno">  206 </span>    | otherwise = []
+<span class="lineno">  207 </span>
+<span class="lineno">  208 </span>applyHeights :: [GLfloat] -&gt; [GLfloat] -&gt; [GLfloat]
+<span class="lineno">  209 </span>applyHeights (x:y:z:coords) ref =
+<span class="lineno">  210 </span>    let foundY = findY x z ref
+<span class="lineno">  211 </span>    in x : (if foundY == -3.1415
+<span class="lineno">  212 </span>        then y
+<span class="lineno">  213 </span>    else foundY) : z : applyHeights coords ref
+<span class="lineno">  214 </span>applyHeights _ _ = []
+<span class="lineno">  215 </span>
+<span class="lineno">  216 </span>findY :: GLfloat -&gt; GLfloat -&gt; [GLfloat] -&gt; GLfloat
+<span class="lineno">  217 </span>findY xf zf (xl:yl:zl:heights)
+<span class="lineno">  218 </span>    | xf == xl &amp;&amp; zf == zl = yl
+<span class="lineno">  219 </span>    | otherwise = findY xf zf heights
+<span class="lineno">  220 </span>findY _ _ _ = -3.1415
+<span class="lineno">  221 </span>-}
+<span class="lineno">  222 </span>
+<span class="lineno">  223 </span>calculateNormals :: [GLfloat] -&gt; [GLfloat]
+<span class="lineno">  224 </span><span class="decl"><span class="nottickedoff">calculateNormals (x1:y1:z1:x2:y2:z2:x3:y3:z3:rest) =</span>
+<span class="lineno">  225 </span><span class="spaces">    </span><span class="nottickedoff">let (ux, uy, uz) = (x2 - x1, y2 - y1, z2 - z1)</span>
+<span class="lineno">  226 </span><span class="spaces">        </span><span class="nottickedoff">(vx, vy, vz) = (x3 - x1, y3 - y1, z3 - z1)</span>
+<span class="lineno">  227 </span><span class="spaces">        </span><span class="nottickedoff">nx = (uy * vz) - (uz * vy)</span>
+<span class="lineno">  228 </span><span class="spaces">        </span><span class="nottickedoff">ny = (uz * vx) - (ux * vz)</span>
+<span class="lineno">  229 </span><span class="spaces">        </span><span class="nottickedoff">nz = (ux * vy) - (uy * vx)</span>
+<span class="lineno">  230 </span><span class="spaces">        </span><span class="nottickedoff">-- Repeat this normal for 6 points (3 points for this half</span>
+<span class="lineno">  231 </span><span class="spaces">        </span><span class="nottickedoff">-- of the square, 3 points for the other half). Drop the next</span>
+<span class="lineno">  232 </span><span class="spaces">        </span><span class="nottickedoff">-- 3 points (9 floats) - the next triangle.</span>
+<span class="lineno">  233 </span><span class="spaces">    </span><span class="nottickedoff">in repeatList 6 [nx, if ny &gt; 0 then ny else -ny, nz] ++</span>
+<span class="lineno">  234 </span><span class="spaces">            </span><span class="nottickedoff">calculateNormals (drop 9 rest)</span>
+<span class="lineno">  235 </span><span class="spaces">    </span><span class="nottickedoff">where</span>
+<span class="lineno">  236 </span><span class="spaces">        </span><span class="nottickedoff">repeatList :: Int -&gt; [a] -&gt; [a]</span>
+<span class="lineno">  237 </span><span class="spaces">        </span><span class="nottickedoff">repeatList i list = take (i*3) $ cycle list </span>
+<span class="lineno">  238 </span><span class="spaces"></span><span class="nottickedoff">calculateNormals _ = []</span></span>
+<span class="lineno">  239 </span>
+<span class="lineno">  240 </span>{-
+<span class="lineno">  241 </span>heightsToCoords :: [[GLfloat]] -&gt; GLfloat -&gt; GLfloat -&gt; [GLfloat]
+<span class="lineno">  242 </span>heightsToCoords (yi:restYs) z spacing =
+<span class="lineno">  243 </span>    let completeLine (y:ys) x =
+<span class="lineno">  244 </span>            [x, y, z] ++ completeLine ys (x + spacing)
+<span class="lineno">  245 </span>        completeLine [] _ = []
+<span class="lineno">  246 </span>    in completeLine yi 0 ++ heightsToCoords restYs (z + spacing) spacing
+<span class="lineno">  247 </span>heightsToCoords [] _ _ = []
+<span class="lineno">  248 </span>-}
+
+</pre>
+</body>
+</html>

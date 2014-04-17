@@ -1,15 +1,17 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Engine.Model.Material (
-    Material(..), loadMtlFile, emptyMaterial,
-    allImagesInFile
+    Material(..), loadMtlFile, emptyMaterial
 ) where
 
 import System.IO (IOMode (ReadMode), Handle,
-                  openFile, hIsEOF, hGetLine, hClose)
-import Data.List (isPrefixOf, intercalate)
-import Data.Maybe (isNothing)
+                  openFile, hIsEOF, hClose)
+import Data.List (intercalate)
+import Data.Maybe (isNothing, isJust)
 import Data.List.Split (splitOn)
 import Control.Monad (liftM)
 import Control.DeepSeq (NFData(..), deepseq)
+
+import qualified Data.ByteString.Char8 as B
 
 import Graphics.Rendering.OpenGL.Raw (GLfloat, GLuint, GLint)
 
@@ -17,18 +19,19 @@ import Engine.Core.Vec (Vec3(..))
 import Engine.Graphics.Textures (juicyLoadTexture)
 
 data Material = Material {
-    matName :: String,
+    matName :: B.ByteString,
     matAmbientColor :: Maybe (Vec3 GLfloat),
     matDiffuseColor :: Maybe (Vec3 GLfloat),
     matSpecularColor :: Maybe (Vec3 GLfloat),
     matTexture :: Maybe GLuint,
-    matTexId :: Maybe GLint
+    matTexId :: Maybe GLint,
+    matTexturePaths :: [B.ByteString]
 } deriving (Show)
 
 instance NFData Material where
-    rnf (Material n ac dc sc t ti) =
+    rnf (Material n ac dc sc t ti tps) =
         n `deepseq` ac `deepseq` dc
-        `deepseq` sc `deepseq` t `seq` ti `seq` ()
+        `deepseq` sc `deepseq` t `seq` ti `seq` tps `deepseq` ()
 
 loadMtlFile :: FilePath -> IO [Material]
 loadMtlFile file = do
@@ -36,7 +39,7 @@ loadMtlFile file = do
     openFile file ReadMode >>= loadMtlMaterials directory
 
 
-loadMtlMaterials :: String -> Handle -> IO [Material]
+loadMtlMaterials :: FilePath -> Handle -> IO [Material]
 loadMtlMaterials directory handle =
     liftM (map applyDefualtMtl . tail)
           (loadMtlMaterialsRec directory 0 handle emptyMaterial)
@@ -45,7 +48,7 @@ loadMtlMaterials directory handle =
 --   Nothing according to spec at
 --   http://people.sc.fsu.edu/~jburkardt/data/mtl/mtl.html
 applyDefualtMtl :: Material -> Material
-applyDefualtMtl mat@(Material _ amb diff spec _ texId) =
+applyDefualtMtl mat@(Material _ amb diff spec _ texId _) =
     let newAmb = if isNothing amb
                     then Just $ Vec3 0.2 0.2 0.2
                 else amb
@@ -64,22 +67,22 @@ applyDefualtMtl mat@(Material _ amb diff spec _ texId) =
            matTexId = newTexId}
 
 -- | UNSAFE!! Use loadMtlMaterials instead.
-loadMtlMaterialsRec :: String -> GLuint -> Handle -> Material -> IO [Material]
+loadMtlMaterialsRec :: FilePath -> GLuint -> Handle -> Material -> IO [Material]
 loadMtlMaterialsRec directory textureCount handle start = do
     eof <- hIsEOF handle
     if not eof
         then do 
-            line <- hGetLine handle
+            line <- B.hGetLine handle
             -- If there is a declaration of a new Material,
             -- "add the current mat to the list" and start
             -- on a new Material.
-            if "newmtl " `isPrefixOf` line
+            if "newmtl " `B.isPrefixOf` line
                 then do
                     let name = head $ rawMtlLine line
                     rest <- loadMtlMaterialsRec directory textureCount handle
-                                (Material name Nothing Nothing Nothing Nothing Nothing)
+                                (Material name Nothing Nothing Nothing Nothing Nothing [])
                     return $ start : rest
-            else if not $ null line
+            else if not $ B.null line
                 -- Call executeCommand on current line and Material
                 -- and then continue adding attributes to that Material.
                 then
@@ -94,32 +97,35 @@ loadMtlMaterialsRec directory textureCount handle start = do
     -- return the last Material.
     else hClose handle >> return [start]
 
-executeCommand :: String -> String -> Material -> GLuint -> IO Material
+executeCommand :: FilePath -> B.ByteString -> Material -> GLuint -> IO Material
 executeCommand directory command mat textureCount
-    | "Ka " `isPrefixOf` command =
+    | "Ka " `B.isPrefixOf` command =
         return mat{matAmbientColor = Just $ readMtlLineTriplet command}
-    | "Kd " `isPrefixOf` command =
+    | "Kd " `B.isPrefixOf` command =
         return mat{matDiffuseColor = Just $ readMtlLineTriplet command}
-    | "Ks " `isPrefixOf` command =
+    | "Ks " `B.isPrefixOf` command =
         return mat{matSpecularColor = Just $ readMtlLineTriplet command}
-    | "map_Kd " `isPrefixOf` command = do
-        texture <- juicyLoadTexture $ directory ++ head (rawMtlLine command)
+    | "map_Kd " `B.isPrefixOf` command = do
+        texture <- juicyLoadTexture $ directory ++ B.unpack (head $ rawMtlLine command)
         return mat{matTexture = Just texture,
-                   matTexId = Just $ fromIntegral textureCount}
+                   matTexId = Just $ fromIntegral textureCount,
+                   matTexturePaths = head (rawMtlLine command) : matTexturePaths mat}
     | otherwise = return mat
 
+{-
 allImagesInFile :: String -> [FilePath]
 allImagesInFile =
     map (last . filter (not . null) . splitOn " ") . filter (isPrefixOf "map_Kd ") . lines
+-}
 
-readMtlLineTriplet :: String -> Vec3 GLfloat
+readMtlLineTriplet :: B.ByteString -> Vec3 GLfloat
 readMtlLineTriplet = toTripletMtl . readMtlLine
 
-readMtlLine :: String -> [GLfloat]
-readMtlLine = map read . tail . filter (not . null) . splitOn " "
+readMtlLine :: B.ByteString -> [GLfloat]
+readMtlLine = map parseBsFloat . tail . filter (not . B.null) . B.split ' '
 
-rawMtlLine :: String -> [String]
-rawMtlLine = tail . filter (not . null) . splitOn " "
+rawMtlLine :: B.ByteString -> [B.ByteString]
+rawMtlLine = tail . filter (not . B.null) . B.split ' '
 
 toTripletMtl :: [a] -> Vec3 a
 toTripletMtl xs
@@ -127,4 +133,32 @@ toTripletMtl xs
     | otherwise = error "Material.toTripletMtl"
 
 emptyMaterial :: Material
-emptyMaterial = Material "" Nothing Nothing Nothing Nothing Nothing
+emptyMaterial = Material "" Nothing Nothing Nothing Nothing Nothing []
+
+parseBsFloat :: B.ByteString -> GLfloat
+parseBsFloat = fst . parseBsFloat'
+
+parseBsFloat' :: B.ByteString -> (GLfloat, B.ByteString)
+parseBsFloat' bs
+    | isJust ('e' `B.elemIndex` bs) =
+        let [baseBs, expBs] = B.splitWith (=='e') bs
+            (base, _) = parseBsFloat' baseBs
+            (expon, rest) = parseBsFloat' expBs
+        in (base * (10.0 ** expon), rest)
+
+    | isJust ('.' `B.elemIndex` bs) =
+        let negative = B.head bs == '-'
+            Just (whole, decimalBS) = B.readInt $
+                if negative
+                    then B.tail bs
+                else bs
+            Just (decimal, rest) = B.readInt $ B.tail decimalBS
+        in if negative
+                then (negate $ fromIntegral whole +
+                    (fromIntegral decimal / 10 ^ (B.length decimalBS - 1)), rest)
+            else (fromIntegral whole +
+                (fromIntegral decimal / 10 ^ (B.length decimalBS - 1)), rest)
+
+    | otherwise =
+        let Just (val, rest) = B.readInt bs
+        in (fromIntegral val, rest)

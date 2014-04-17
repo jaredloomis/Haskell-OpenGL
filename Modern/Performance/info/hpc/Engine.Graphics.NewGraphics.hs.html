@@ -1,0 +1,227 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<style type="text/css">
+span.lineno { color: white; background: #aaaaaa; border-right: solid white 12px }
+span.nottickedoff { background: yellow}
+span.istickedoff { background: white }
+span.tickonlyfalse { margin: -1px; border: 1px solid #f20913; background: #f20913 }
+span.tickonlytrue  { margin: -1px; border: 1px solid #60de51; background: #60de51 }
+span.funcount { font-size: small; color: orange; z-index: 2; position: absolute; right: 20 }
+span.decl { font-weight: bold }
+span.spaces    { background: white }
+</style>
+</head>
+<body>
+<pre>
+<span class="lineno">    1 </span>{-# LANGUAGE MultiParamTypeClasses #-}
+<span class="lineno">    2 </span>module Engine.Graphics.NewGraphics (
+<span class="lineno">    3 </span>    RenderInfo(..), emptyInfo, Renderable(..),
+<span class="lineno">    4 </span>    totalRender, renderToFramebuffer, renderAllToFramebuffer,
+<span class="lineno">    5 </span>    renderWorldNewPost, renderWorldNew, withFramebuffer,
+<span class="lineno">    6 </span>    screenFramebuffer, bindFramebuffer, unbindFrameBuffer
+<span class="lineno">    7 </span>) where
+<span class="lineno">    8 </span>
+<span class="lineno">    9 </span>import Data.Bits ((.|.))
+<span class="lineno">   10 </span>
+<span class="lineno">   11 </span>import Graphics.Rendering.OpenGL.Raw
+<span class="lineno">   12 </span>    (GLint, glUseProgram, glDrawArrays, gl_TRIANGLES,
+<span class="lineno">   13 </span>     glClear, gl_COLOR_BUFFER_BIT, gl_DEPTH_BUFFER_BIT,
+<span class="lineno">   14 </span>     glBindFramebuffer, gl_FRAMEBUFFER)
+<span class="lineno">   15 </span>
+<span class="lineno">   16 </span>import Engine.Core.Types
+<span class="lineno">   17 </span>    (World(..), WorldState(..), Framebuffer(..),
+<span class="lineno">   18 </span>     Shader(..), GameObject(..), Model(..),
+<span class="lineno">   19 </span>     HasPosition(..), HasRotation(..), Graphics(..),
+<span class="lineno">   20 </span>     WorldMatrices(..), RenderInfo(..),
+<span class="lineno">   21 </span>     emptyInfo)
+<span class="lineno">   22 </span>import Engine.Core.World (setWorldUniforms)
+<span class="lineno">   23 </span>import Engine.Core.Vec (Vec3(..))
+<span class="lineno">   24 </span>import Engine.Graphics.Shaders
+<span class="lineno">   25 </span>    (setShaderAttribs, disableShaderAttribs,
+<span class="lineno">   26 </span>     bindTextures)
+<span class="lineno">   27 </span>import Engine.Object.GameObject (getModel)
+<span class="lineno">   28 </span>import Engine.Matrix.Matrix
+<span class="lineno">   29 </span>    (gtranslationMatrix, grotationMatrix,
+<span class="lineno">   30 </span>     setMatrixUniforms, calculateMatricesFromPlayer)
+<span class="lineno">   31 </span>import Engine.Graphics.Window (Window(..))
+<span class="lineno">   32 </span>import Engine.Graphics.Framebuffer (renderAllPasses)
+<span class="lineno">   33 </span>
+<span class="lineno">   34 </span>{-
+<span class="lineno">   35 </span>data RenderInfo = RenderInfo {
+<span class="lineno">   36 </span>    renderInfoShader :: Shader,
+<span class="lineno">   37 </span>    renderInfoMatrices :: WorldMatrices
+<span class="lineno">   38 </span>} deriving (Show)
+<span class="lineno">   39 </span>
+<span class="lineno">   40 </span>emptyInfo :: RenderInfo
+<span class="lineno">   41 </span>emptyInfo = RenderInfo emptyShader emptyMatrices
+<span class="lineno">   42 </span>-}
+<span class="lineno">   43 </span>
+<span class="lineno">   44 </span>-- | A class for things that can be rendered to
+<span class="lineno">   45 </span>--   the screen &amp;| Framebuffers.
+<span class="lineno">   46 </span>--   Contains 3 functions:
+<span class="lineno">   47 </span>--      Bind:
+<span class="lineno">   48 </span>--          This is usually where shaders are set,
+<span class="lineno">   49 </span>--          or the currently bound shader is
+<span class="lineno">   50 </span>--          modified.
+<span class="lineno">   51 </span>--      Draw:
+<span class="lineno">   52 </span>--          This is the draw action. A Framebuffer
+<span class="lineno">   53 </span>--          is bound before calling this, so there is
+<span class="lineno">   54 </span>--          no need to bind your own.
+<span class="lineno">   55 </span>--      Cleanup:
+<span class="lineno">   56 </span>--          Any cleanup necessary.
+<span class="lineno">   57 </span>class Renderable t g where
+<span class="lineno">   58 </span>    renderBind :: t -&gt; g -&gt; IO g
+<span class="lineno">   59 </span>    <span class="decl"><span class="nottickedoff">renderBind _ = return</span></span>
+<span class="lineno">   60 </span>    renderDraw :: t -&gt; g -&gt; IO g
+<span class="lineno">   61 </span>    <span class="decl"><span class="istickedoff">renderDraw _ = return</span></span>
+<span class="lineno">   62 </span>    renderCleanup :: t -&gt; g -&gt; IO g
+<span class="lineno">   63 </span>    <span class="decl"><span class="istickedoff">renderCleanup _ = return</span></span>
+<span class="lineno">   64 </span>    defaultGlobal :: t -&gt; g
+<span class="lineno">   65 </span>
+<span class="lineno">   66 </span>instance Renderable (GameObject t) RenderInfo where
+<span class="lineno">   67 </span>    <span class="decl"><span class="istickedoff">renderBind obj info =</span>
+<span class="lineno">   68 </span><span class="spaces">        </span><span class="istickedoff">let shader = modelShader $ getModel obj</span>
+<span class="lineno">   69 </span><span class="spaces">        </span><span class="istickedoff">in do</span>
+<span class="lineno">   70 </span><span class="spaces">            </span><span class="istickedoff">glUseProgram $ shaderId shader</span>
+<span class="lineno">   71 </span><span class="spaces">            </span><span class="istickedoff">return info{renderInfoShader = shader}</span></span>
+<span class="lineno">   72 </span>
+<span class="lineno">   73 </span>    <span class="decl"><span class="istickedoff">renderDraw object info = do</span>
+<span class="lineno">   74 </span><span class="spaces">        </span><span class="istickedoff">let model = getModel object</span>
+<span class="lineno">   75 </span><span class="spaces">            </span><span class="istickedoff">Vec3 objx objy objz = getPos object</span>
+<span class="lineno">   76 </span><span class="spaces">            </span><span class="istickedoff">Vec3 objrx objry objrz = getRot object</span>
+<span class="lineno">   77 </span><span class="spaces">            </span><span class="istickedoff">mShader = renderInfoShader info</span>
+<span class="lineno">   78 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   79 </span><span class="spaces">            </span><span class="istickedoff">-- Move Object</span>
+<span class="lineno">   80 </span><span class="spaces">            </span><span class="istickedoff">modelMat = gtranslationMatrix [objx, objy, objz] *</span>
+<span class="lineno">   81 </span><span class="spaces">                       </span><span class="istickedoff">grotationMatrix [objrx, objry, objrz]</span>
+<span class="lineno">   82 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   83 </span><span class="spaces">            </span><span class="istickedoff">newMatrices = (renderInfoMatrices info){matrixModel = modelMat}</span>
+<span class="lineno">   84 </span><span class="spaces">        </span><span class="istickedoff">-- Set uniforms. (World uniforms and Matrices).</span>
+<span class="lineno">   85 </span><span class="spaces">        </span><span class="istickedoff">newShader &lt;-</span>
+<span class="lineno">   86 </span><span class="spaces">            </span><span class="istickedoff">setMatrixUniforms mShader newMatrices</span>
+<span class="lineno">   87 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   88 </span><span class="spaces">        </span><span class="istickedoff">-- Bind buffers to variable names in shader.</span>
+<span class="lineno">   89 </span><span class="spaces">        </span><span class="istickedoff">setShaderAttribs $ modelShaderVars model</span>
+<span class="lineno">   90 </span><span class="spaces">        </span><span class="istickedoff">bindTextures (modelTextures model) $ shaderId newShader</span>
+<span class="lineno">   91 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   92 </span><span class="spaces">        </span><span class="istickedoff">glDrawArrays gl_TRIANGLES 0 (modelVertCount model)</span>
+<span class="lineno">   93 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   94 </span><span class="spaces">        </span><span class="istickedoff">return $ <span class="nottickedoff">RenderInfo newShader newMatrices</span></span></span>
+<span class="lineno">   95 </span>
+<span class="lineno">   96 </span>    <span class="decl"><span class="istickedoff">renderCleanup object _ = do</span>
+<span class="lineno">   97 </span><span class="spaces">        </span><span class="istickedoff">let model = getModel object</span>
+<span class="lineno">   98 </span><span class="spaces">        </span><span class="istickedoff">-- Necessary?</span>
+<span class="lineno">   99 </span><span class="spaces">        </span><span class="istickedoff">disableShaderAttribs $ modelShaderVars model</span>
+<span class="lineno">  100 </span><span class="spaces">        </span><span class="istickedoff">-- Disable the object's shader.</span>
+<span class="lineno">  101 </span><span class="spaces">        </span><span class="istickedoff">glUseProgram 0</span>
+<span class="lineno">  102 </span><span class="spaces">        </span><span class="istickedoff">return emptyInfo</span></span>
+<span class="lineno">  103 </span>    <span class="decl"><span class="nottickedoff">defaultGlobal _ = emptyInfo</span></span>
+<span class="lineno">  104 </span>
+<span class="lineno">  105 </span>instance Renderable (World t) RenderInfo where
+<span class="lineno">  106 </span>    <span class="decl"><span class="istickedoff">renderBind world info = do</span>
+<span class="lineno">  107 </span><span class="spaces">        </span><span class="istickedoff">let (winW, winH) = windowSize $ stateWindow $ worldState world</span>
+<span class="lineno">  108 </span><span class="spaces">            </span><span class="istickedoff">worldMats = calculateMatricesFromPlayer</span>
+<span class="lineno">  109 </span><span class="spaces">                        </span><span class="istickedoff">(worldPlayer world) (fromIntegral winW, fromIntegral winH)</span>
+<span class="lineno">  110 </span><span class="spaces">        </span><span class="istickedoff">newShader &lt;-</span>
+<span class="lineno">  111 </span><span class="spaces">            </span><span class="istickedoff">setWorldUniforms world (renderInfoShader info)</span>
+<span class="lineno">  112 </span><span class="spaces">        </span><span class="istickedoff">return info{renderInfoShader = newShader,</span>
+<span class="lineno">  113 </span><span class="spaces">                    </span><span class="istickedoff">renderInfoMatrices = worldMats}</span></span>
+<span class="lineno">  114 </span>    <span class="decl"><span class="istickedoff">defaultGlobal _ = emptyInfo</span></span>
+<span class="lineno">  115 </span>        
+<span class="lineno">  116 </span>
+<span class="lineno">  117 </span>totalRender :: Renderable t g =&gt; t -&gt; g -&gt; IO g
+<span class="lineno">  118 </span><span class="decl"><span class="nottickedoff">totalRender r s =</span>
+<span class="lineno">  119 </span><span class="spaces">    </span><span class="nottickedoff">renderBind r s &gt;&gt;=</span>
+<span class="lineno">  120 </span><span class="spaces">    </span><span class="nottickedoff">renderDraw r &gt;&gt;=</span>
+<span class="lineno">  121 </span><span class="spaces">    </span><span class="nottickedoff">renderCleanup r</span></span>
+<span class="lineno">  122 </span>
+<span class="lineno">  123 </span>
+<span class="lineno">  124 </span>renderToFramebuffer :: Renderable t g =&gt; Framebuffer -&gt; t -&gt; IO g
+<span class="lineno">  125 </span><span class="decl"><span class="nottickedoff">renderToFramebuffer fbuf rend =</span>
+<span class="lineno">  126 </span><span class="spaces">    </span><span class="nottickedoff">withFramebuffer fbuf $ totalRender rend (defaultGlobal rend)</span></span>
+<span class="lineno">  127 </span>
+<span class="lineno">  128 </span>renderAllToFramebuffer :: Renderable t g =&gt; Framebuffer -&gt; [t] -&gt; IO g
+<span class="lineno">  129 </span><span class="decl"><span class="nottickedoff">renderAllToFramebuffer fbuf xs =</span>
+<span class="lineno">  130 </span><span class="spaces">    </span><span class="nottickedoff">withFramebuffer fbuf $</span>
+<span class="lineno">  131 </span><span class="spaces">        </span><span class="nottickedoff">renderAll xs (defaultGlobal $ head xs)</span>
+<span class="lineno">  132 </span><span class="spaces">    </span><span class="nottickedoff">where</span>
+<span class="lineno">  133 </span><span class="spaces">        </span><span class="nottickedoff">renderAll :: Renderable t g =&gt; [t] -&gt; g -&gt; IO g</span>
+<span class="lineno">  134 </span><span class="spaces">        </span><span class="nottickedoff">renderAll (x:xs') info =</span>
+<span class="lineno">  135 </span><span class="spaces">            </span><span class="nottickedoff">totalRender x info &gt;&gt;= renderAll xs'</span>
+<span class="lineno">  136 </span><span class="spaces">        </span><span class="nottickedoff">renderAll [] info = return info</span></span>
+<span class="lineno">  137 </span>
+<span class="lineno">  138 </span>renderAllWithGlobal :: (Renderable t1 g, Renderable t2 g) =&gt;
+<span class="lineno">  139 </span>                        Framebuffer -&gt; t1 -&gt; [t2] -&gt; IO g
+<span class="lineno">  140 </span><span class="decl"><span class="istickedoff">renderAllWithGlobal fbuf g =</span>
+<span class="lineno">  141 </span><span class="spaces">    </span><span class="istickedoff">renderAllWithGlobal' (defaultGlobal <span class="nottickedoff">g</span>) fbuf g</span></span>
+<span class="lineno">  142 </span>
+<span class="lineno">  143 </span>renderAllWithGlobal' :: (Renderable t1 g, Renderable t2 g) =&gt;
+<span class="lineno">  144 </span>                        g -&gt; Framebuffer -&gt; t1 -&gt; [t2] -&gt; IO g
+<span class="lineno">  145 </span><span class="decl"><span class="istickedoff">renderAllWithGlobal' info fbuf global (x:xs) = do</span>
+<span class="lineno">  146 </span><span class="spaces">    </span><span class="istickedoff">bindFramebuffer fbuf</span>
+<span class="lineno">  147 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">  148 </span><span class="spaces">    </span><span class="istickedoff">newinfo &lt;-</span>
+<span class="lineno">  149 </span><span class="spaces">        </span><span class="istickedoff">renderBind x info &gt;&gt;=</span>
+<span class="lineno">  150 </span><span class="spaces">        </span><span class="istickedoff">renderBind global &gt;&gt;=</span>
+<span class="lineno">  151 </span><span class="spaces">        </span><span class="istickedoff">renderDraw <span class="nottickedoff">global</span> &gt;&gt;=</span>
+<span class="lineno">  152 </span><span class="spaces">        </span><span class="istickedoff">renderDraw x &gt;&gt;=</span>
+<span class="lineno">  153 </span><span class="spaces">        </span><span class="istickedoff">renderCleanup x &gt;&gt;=</span>
+<span class="lineno">  154 </span><span class="spaces">        </span><span class="istickedoff">renderCleanup <span class="nottickedoff">global</span></span>
+<span class="lineno">  155 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">  156 </span><span class="spaces">    </span><span class="istickedoff">unbindFrameBuffer</span>
+<span class="lineno">  157 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">  158 </span><span class="spaces">    </span><span class="istickedoff">renderAllWithGlobal' newinfo fbuf global xs</span>
+<span class="lineno">  159 </span><span class="spaces"></span><span class="istickedoff">renderAllWithGlobal' info _ _ _ = return <span class="nottickedoff">info</span></span></span>
+<span class="lineno">  160 </span>
+<span class="lineno">  161 </span>
+<span class="lineno">  162 </span>renderWorldNew :: World t -&gt; IO (World t)
+<span class="lineno">  163 </span><span class="decl"><span class="nottickedoff">renderWorldNew world = do</span>
+<span class="lineno">  164 </span><span class="spaces">    </span><span class="nottickedoff">glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT</span>
+<span class="lineno">  165 </span><span class="spaces">    </span><span class="nottickedoff">let (width, height) = windowSize $ stateWindow $ worldState world</span>
+<span class="lineno">  166 </span><span class="spaces">    </span><span class="nottickedoff">_ &lt;- renderAllWithGlobal (screenFramebuffer (fromIntegral width, fromIntegral height))</span>
+<span class="lineno">  167 </span><span class="spaces">                        </span><span class="nottickedoff">world (worldEntities world) :: IO RenderInfo</span>
+<span class="lineno">  168 </span><span class="spaces">    </span><span class="nottickedoff">return world</span></span>
+<span class="lineno">  169 </span>
+<span class="lineno">  170 </span>renderWorldNewWithFramebuffer :: World t -&gt; Framebuffer -&gt; IO (World t)
+<span class="lineno">  171 </span><span class="decl"><span class="istickedoff">renderWorldNewWithFramebuffer world fbuf = do</span>
+<span class="lineno">  172 </span><span class="spaces">    </span><span class="istickedoff">glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT</span>
+<span class="lineno">  173 </span><span class="spaces">    </span><span class="istickedoff">_ &lt;- renderAllWithGlobal fbuf world (worldEntities world) :: IO RenderInfo</span>
+<span class="lineno">  174 </span><span class="spaces">    </span><span class="istickedoff">return world</span></span>
+<span class="lineno">  175 </span>    
+<span class="lineno">  176 </span>
+<span class="lineno">  177 </span>-- | Render world with all postprocessing shaders defined by
+<span class="lineno">  178 </span>--   worldFramebuffer.
+<span class="lineno">  179 </span>renderWorldNewPost :: World t -&gt; IO (World t)
+<span class="lineno">  180 </span><span class="decl"><span class="istickedoff">renderWorldNewPost world = do</span>
+<span class="lineno">  181 </span><span class="spaces">    </span><span class="istickedoff">let effects = snd $ graphicsPostProcessors $ worldGraphics world</span>
+<span class="lineno">  182 </span><span class="spaces">        </span><span class="istickedoff">fb = fst $ graphicsPostProcessors $ worldGraphics world</span>
+<span class="lineno">  183 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">  184 </span><span class="spaces">    </span><span class="istickedoff">bindFramebuffer fb</span>
+<span class="lineno">  185 </span><span class="spaces">    </span><span class="istickedoff">ret &lt;- renderWorldNewWithFramebuffer world fb</span>
+<span class="lineno">  186 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">  187 </span><span class="spaces">    </span><span class="istickedoff">bindFramebuffer fb</span>
+<span class="lineno">  188 </span><span class="spaces">    </span><span class="istickedoff">renderAllPasses ret effects</span>
+<span class="lineno">  189 </span><span class="spaces">    </span><span class="istickedoff">return ret</span></span>
+<span class="lineno">  190 </span>
+<span class="lineno">  191 </span>
+<span class="lineno">  192 </span>screenFramebuffer :: (GLint, GLint) -&gt; Framebuffer
+<span class="lineno">  193 </span><span class="decl"><span class="nottickedoff">screenFramebuffer dimensions =</span>
+<span class="lineno">  194 </span><span class="spaces">    </span><span class="nottickedoff">FB 0 0 dimensions 0 0</span></span>
+<span class="lineno">  195 </span>
+<span class="lineno">  196 </span>withFramebuffer :: Framebuffer -&gt; IO a -&gt; IO a
+<span class="lineno">  197 </span><span class="decl"><span class="nottickedoff">withFramebuffer fbuf func = do</span>
+<span class="lineno">  198 </span><span class="spaces">    </span><span class="nottickedoff">bindFramebuffer fbuf</span>
+<span class="lineno">  199 </span><span class="spaces">    </span><span class="nottickedoff">ret &lt;- func</span>
+<span class="lineno">  200 </span><span class="spaces">    </span><span class="nottickedoff">unbindFrameBuffer</span>
+<span class="lineno">  201 </span><span class="spaces">    </span><span class="nottickedoff">return ret</span></span>
+<span class="lineno">  202 </span>
+<span class="lineno">  203 </span>bindFramebuffer :: Framebuffer -&gt; IO ()
+<span class="lineno">  204 </span><span class="decl"><span class="istickedoff">bindFramebuffer = glBindFramebuffer gl_FRAMEBUFFER . fbufName</span></span>
+<span class="lineno">  205 </span>
+<span class="lineno">  206 </span>unbindFrameBuffer :: IO ()
+<span class="lineno">  207 </span><span class="decl"><span class="istickedoff">unbindFrameBuffer = glBindFramebuffer gl_FRAMEBUFFER 0</span></span>
+
+</pre>
+</body>
+</html>

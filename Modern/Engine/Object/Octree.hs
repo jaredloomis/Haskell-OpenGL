@@ -8,6 +8,8 @@ import System.IO.Unsafe (unsafePerformIO)
 import Engine.Model.AABB
     (calculateNewAABBs, objectsIntersect)
 import Engine.Core.Types
+    (HasAABB(..), AABB(..), Octree(..),
+     HasPosition(..))
 import Engine.Core.Vec (Vec3(..))
 
 maxCapacity :: Int

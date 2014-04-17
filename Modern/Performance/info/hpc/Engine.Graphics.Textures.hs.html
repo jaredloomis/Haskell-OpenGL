@@ -1,0 +1,84 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<style type="text/css">
+span.lineno { color: white; background: #aaaaaa; border-right: solid white 12px }
+span.nottickedoff { background: yellow}
+span.istickedoff { background: white }
+span.tickonlyfalse { margin: -1px; border: 1px solid #f20913; background: #f20913 }
+span.tickonlytrue  { margin: -1px; border: 1px solid #60de51; background: #60de51 }
+span.funcount { font-size: small; color: orange; z-index: 2; position: absolute; right: 20 }
+span.decl { font-weight: bold }
+span.spaces    { background: white }
+</style>
+</head>
+<body>
+<pre>
+<span class="lineno">    1 </span>module Engine.Graphics.Textures (
+<span class="lineno">    2 </span>    juicyLoadImageRaw, juicyLoadTexture
+<span class="lineno">    3 </span>) where
+<span class="lineno">    4 </span>
+<span class="lineno">    5 </span>import Foreign (alloca, peek)
+<span class="lineno">    6 </span>import qualified Data.Vector.Storable as V
+<span class="lineno">    7 </span>
+<span class="lineno">    8 </span>import qualified Codec.Picture as Juicy
+<span class="lineno">    9 </span>import qualified Codec.Picture.Types as JTypes
+<span class="lineno">   10 </span>
+<span class="lineno">   11 </span>import Graphics.Rendering.OpenGL.Raw
+<span class="lineno">   12 </span>    (GLuint,
+<span class="lineno">   13 </span>     glTexParameteri, gl_TEXTURE_2D,
+<span class="lineno">   14 </span>     gl_TEXTURE_MIN_FILTER, gl_NEAREST,
+<span class="lineno">   15 </span>     gl_TEXTURE_MAG_FILTER,
+<span class="lineno">   16 </span>     glBindTexture, glGenTextures,
+<span class="lineno">   17 </span>     glTexImage2D, gl_RGB, gl_UNSIGNED_BYTE)
+<span class="lineno">   18 </span>
+<span class="lineno">   19 </span>import Engine.Core.Types (Image(..))
+<span class="lineno">   20 </span>
+<span class="lineno">   21 </span>-- | Load an image and turn it into something OpenGL can use.
+<span class="lineno">   22 </span>juicyLoadTexture :: FilePath -&gt; IO GLuint
+<span class="lineno">   23 </span><span class="decl"><span class="istickedoff">juicyLoadTexture file = do</span>
+<span class="lineno">   24 </span><span class="spaces">    </span><span class="istickedoff">(Image (w, h) pd) &lt;- juicyLoadImageRaw file</span>
+<span class="lineno">   25 </span><span class="spaces">    </span><span class="istickedoff">texName &lt;- alloca $ \buf -&gt; do</span>
+<span class="lineno">   26 </span><span class="spaces">        </span><span class="istickedoff">glGenTextures 1 buf</span>
+<span class="lineno">   27 </span><span class="spaces">        </span><span class="istickedoff">peek buf</span>
+<span class="lineno">   28 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   29 </span><span class="spaces">    </span><span class="istickedoff">glBindTexture gl_TEXTURE_2D texName</span>
+<span class="lineno">   30 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   31 </span><span class="spaces">    </span><span class="istickedoff">glTexParameteri gl_TEXTURE_2D</span>
+<span class="lineno">   32 </span><span class="spaces">        </span><span class="istickedoff">gl_TEXTURE_MIN_FILTER (fromIntegral gl_NEAREST)</span>
+<span class="lineno">   33 </span><span class="spaces">    </span><span class="istickedoff">glTexParameteri gl_TEXTURE_2D</span>
+<span class="lineno">   34 </span><span class="spaces">        </span><span class="istickedoff">gl_TEXTURE_MAG_FILTER (fromIntegral gl_NEAREST)</span>
+<span class="lineno">   35 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   36 </span><span class="spaces">    </span><span class="istickedoff">glTexImage2D gl_TEXTURE_2D 0 (fromIntegral gl_RGB)</span>
+<span class="lineno">   37 </span><span class="spaces">                 </span><span class="istickedoff">w h 0 (fromIntegral gl_RGB) gl_UNSIGNED_BYTE pd</span>
+<span class="lineno">   38 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   39 </span><span class="spaces">    </span><span class="istickedoff">return texName</span></span>
+<span class="lineno">   40 </span>
+<span class="lineno">   41 </span>-- TODO: add support for all (most) colorspaces / formats.
+<span class="lineno">   42 </span>juicyLoadImageRaw :: FilePath -&gt; IO Image
+<span class="lineno">   43 </span><span class="decl"><span class="istickedoff">juicyLoadImageRaw file = do</span>
+<span class="lineno">   44 </span><span class="spaces">    </span><span class="istickedoff">image &lt;- Juicy.readImage file</span>
+<span class="lineno">   45 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   46 </span><span class="spaces">    </span><span class="istickedoff">case image of</span>
+<span class="lineno">   47 </span><span class="spaces">        </span><span class="istickedoff">Left err -&gt; <span class="nottickedoff">error err</span></span>
+<span class="lineno">   48 </span><span class="spaces"></span><span class="istickedoff"></span>
+<span class="lineno">   49 </span><span class="spaces">        </span><span class="istickedoff">Right (Juicy.ImageRGB8 (Juicy.Image w h dat)) -&gt;</span>
+<span class="lineno">   50 </span><span class="spaces">            </span><span class="istickedoff"><span class="nottickedoff">V.unsafeWith dat $ \ptr -&gt;</span></span>
+<span class="lineno">   51 </span><span class="spaces">            </span><span class="istickedoff"><span class="nottickedoff">return $ Image (fromIntegral w, fromIntegral h) ptr</span></span>
+<span class="lineno">   52 </span><span class="spaces">        </span><span class="istickedoff">Right (Juicy.ImageYCbCr8 img) -&gt;</span>
+<span class="lineno">   53 </span><span class="spaces">            </span><span class="istickedoff">let (Juicy.Image w h dat) =</span>
+<span class="lineno">   54 </span><span class="spaces">                    </span><span class="istickedoff">JTypes.convertImage img :: Juicy.Image Juicy.PixelRGB8</span>
+<span class="lineno">   55 </span><span class="spaces">            </span><span class="istickedoff">in V.unsafeWith dat $ \ptr -&gt;</span>
+<span class="lineno">   56 </span><span class="spaces">                </span><span class="istickedoff">return $ Image (fromIntegral w, fromIntegral h) ptr</span>
+<span class="lineno">   57 </span><span class="spaces">        </span><span class="istickedoff">Right (Juicy.ImageCMYK8 img) -&gt;</span>
+<span class="lineno">   58 </span><span class="spaces">            </span><span class="istickedoff"><span class="nottickedoff">let (Juicy.Image w h dat) =</span></span>
+<span class="lineno">   59 </span><span class="spaces">                    </span><span class="istickedoff"><span class="nottickedoff">JTypes.convertImage img :: Juicy.Image Juicy.PixelRGB8</span></span>
+<span class="lineno">   60 </span><span class="spaces">            </span><span class="istickedoff"><span class="nottickedoff">in V.unsafeWith dat $ \ptr -&gt;</span></span>
+<span class="lineno">   61 </span><span class="spaces">                </span><span class="istickedoff"><span class="nottickedoff">return $ Image (fromIntegral w, fromIntegral h) ptr</span> </span>
+<span class="lineno">   62 </span><span class="spaces">        </span><span class="istickedoff">_ -&gt; <span class="nottickedoff">error $</span></span>
+<span class="lineno">   63 </span><span class="spaces">            </span><span class="istickedoff"><span class="nottickedoff">&quot;Engine.Graphics.Texture.juicyLoadImage:&quot;</span></span>
+<span class="lineno">   64 </span><span class="spaces">                </span><span class="istickedoff"><span class="nottickedoff">++ &quot;bad image colorspace or format.&quot;</span></span></span>
+
+</pre>
+</body>
+</html>

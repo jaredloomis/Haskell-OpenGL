@@ -1,0 +1,85 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<style type="text/css">
+span.lineno { color: white; background: #aaaaaa; border-right: solid white 12px }
+span.nottickedoff { background: yellow}
+span.istickedoff { background: white }
+span.tickonlyfalse { margin: -1px; border: 1px solid #f20913; background: #f20913 }
+span.tickonlytrue  { margin: -1px; border: 1px solid #60de51; background: #60de51 }
+span.funcount { font-size: small; color: orange; z-index: 2; position: absolute; right: 20 }
+span.decl { font-weight: bold }
+span.spaces    { background: white }
+</style>
+</head>
+<body>
+<pre>
+<span class="lineno">    1 </span>module Engine.Graphics.GraphicsUtils (
+<span class="lineno">    2 </span>    createBufferIdAll, createBufferId,
+<span class="lineno">    3 </span>    fillNewBuffer, withNewPtr, withNewPtrArray,
+<span class="lineno">    4 </span>    useNewPtr, offsetPtr, offset0
+<span class="lineno">    5 </span>) where
+<span class="lineno">    6 </span>
+<span class="lineno">    7 </span>import Foreign
+<span class="lineno">    8 </span>    (Ptr, Storable, withArrayLen, sizeOf,
+<span class="lineno">    9 </span>     alloca, peek, peekArray, wordPtrToPtr)
+<span class="lineno">   10 </span>
+<span class="lineno">   11 </span>import Graphics.Rendering.OpenGL.Raw
+<span class="lineno">   12 </span>    (GLuint, GLfloat, glGenVertexArrays,
+<span class="lineno">   13 </span>     glBindVertexArray, glGenBuffers,
+<span class="lineno">   14 </span>     glBindBuffer, gl_ARRAY_BUFFER,
+<span class="lineno">   15 </span>     glBufferData, gl_STATIC_DRAW)
+<span class="lineno">   16 </span>
+<span class="lineno">   17 </span>-- | Create an id for each buffer data.
+<span class="lineno">   18 </span>createBufferIdAll :: [[GLfloat]] -&gt; IO [GLuint]
+<span class="lineno">   19 </span><span class="decl"><span class="istickedoff">createBufferIdAll (cur:others) = do</span>
+<span class="lineno">   20 </span><span class="spaces">    </span><span class="istickedoff">currentId &lt;- createBufferId cur</span>
+<span class="lineno">   21 </span><span class="spaces">    </span><span class="istickedoff">otherId &lt;- createBufferIdAll others</span>
+<span class="lineno">   22 </span><span class="spaces">    </span><span class="istickedoff">return $ currentId:otherId</span>
+<span class="lineno">   23 </span><span class="spaces"></span><span class="istickedoff">createBufferIdAll [] = return []</span></span>
+<span class="lineno">   24 </span>
+<span class="lineno">   25 </span>-- | Create a buffer id for the information.
+<span class="lineno">   26 </span>createBufferId :: [GLfloat] -&gt; IO GLuint
+<span class="lineno">   27 </span><span class="decl"><span class="istickedoff">createBufferId info = do</span>
+<span class="lineno">   28 </span><span class="spaces">    </span><span class="istickedoff">vertexArrayId &lt;- withNewPtr (glGenVertexArrays 1)</span>
+<span class="lineno">   29 </span><span class="spaces">    </span><span class="istickedoff">glBindVertexArray vertexArrayId</span>
+<span class="lineno">   30 </span><span class="spaces">    </span><span class="istickedoff">fillNewBuffer info</span></span>
+<span class="lineno">   31 </span>
+<span class="lineno">   32 </span>-- | Fill buffer with data.
+<span class="lineno">   33 </span>fillNewBuffer :: [GLfloat] -&gt; IO GLuint
+<span class="lineno">   34 </span><span class="decl"><span class="istickedoff">fillNewBuffer list = do</span>
+<span class="lineno">   35 </span><span class="spaces">    </span><span class="istickedoff">bufId &lt;- withNewPtr (glGenBuffers 1)</span>
+<span class="lineno">   36 </span><span class="spaces">    </span><span class="istickedoff">glBindBuffer gl_ARRAY_BUFFER bufId</span>
+<span class="lineno">   37 </span><span class="spaces">    </span><span class="istickedoff">withArrayLen list $ \len ptr -&gt;</span>
+<span class="lineno">   38 </span><span class="spaces">        </span><span class="istickedoff">glBufferData gl_ARRAY_BUFFER</span>
+<span class="lineno">   39 </span><span class="spaces">            </span><span class="istickedoff">(fromIntegral (len * sizeOf <span class="nottickedoff">(undefined :: GLfloat)</span>))</span>
+<span class="lineno">   40 </span><span class="spaces">            </span><span class="istickedoff">(ptr :: Ptr GLfloat) gl_STATIC_DRAW</span>
+<span class="lineno">   41 </span><span class="spaces">    </span><span class="istickedoff">return bufId</span></span>
+<span class="lineno">   42 </span>
+<span class="lineno">   43 </span>-- | Perform IO action with a new pointer, returning the
+<span class="lineno">   44 </span>--   value in the pointer.
+<span class="lineno">   45 </span>withNewPtr :: Storable b =&gt; (Ptr b -&gt; IO a) -&gt; IO b
+<span class="lineno">   46 </span><span class="decl"><span class="istickedoff">withNewPtr f = alloca (\p -&gt; f p &gt;&gt; peek p)</span></span>
+<span class="lineno">   47 </span>
+<span class="lineno">   48 </span>-- | Perform IO action with a new pointer array, returning the
+<span class="lineno">   49 </span>--   value in the pointer.
+<span class="lineno">   50 </span>withNewPtrArray :: Storable b =&gt; (Ptr b -&gt; IO a) -&gt; Int -&gt; IO [b]
+<span class="lineno">   51 </span><span class="decl"><span class="nottickedoff">withNewPtrArray f size = alloca (\p -&gt; f p &gt;&gt; peekArray size p)</span></span>
+<span class="lineno">   52 </span>
+<span class="lineno">   53 </span>-- | Perform IO action with a new pointer, returning the
+<span class="lineno">   54 </span>--   pointer itself.
+<span class="lineno">   55 </span>useNewPtr :: Storable a =&gt; (Ptr a -&gt; IO a1) -&gt; IO (Ptr a)
+<span class="lineno">   56 </span><span class="decl"><span class="nottickedoff">useNewPtr f = alloca (\p -&gt; f p &gt;&gt; return p)</span></span>
+<span class="lineno">   57 </span>
+<span class="lineno">   58 </span>-- | Produce a 'Ptr' value to be used as an offset of the given number
+<span class="lineno">   59 </span>--   of bytes.
+<span class="lineno">   60 </span>offsetPtr :: Int -&gt; Ptr a
+<span class="lineno">   61 </span><span class="decl"><span class="istickedoff">offsetPtr = wordPtrToPtr . fromIntegral</span></span>
+<span class="lineno">   62 </span>
+<span class="lineno">   63 </span>-- | A zero-offset 'Ptr'.
+<span class="lineno">   64 </span>offset0 :: Ptr a
+<span class="lineno">   65 </span><span class="decl"><span class="istickedoff">offset0 = offsetPtr 0</span></span>
+
+</pre>
+</body>
+</html>

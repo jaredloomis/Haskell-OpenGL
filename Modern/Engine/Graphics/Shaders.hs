@@ -20,11 +20,10 @@ import Foreign.C.Types (CChar)
 
 import Graphics.Rendering.OpenGL.Raw
 
-import qualified Graphics.GLUtil as GU
-
 import Engine.Core.Types
 import Engine.Core.Vec (Vec3(..))
-import Engine.Graphics.GraphicsUtils (withNewPtr, withNewPtrArray)
+import Engine.Graphics.GraphicsUtils
+    (withNewPtr, withNewPtrArray, offset0)
 
 emptyShader :: Shader
 emptyShader = Shader (-1) []
@@ -51,18 +50,6 @@ loadProgram vertFP fragFP =
     loadShadersProgram
         [(gl_VERTEX_SHADER,   vertFP),
          (gl_FRAGMENT_SHADER, fragFP)]
-
-{-
-loadProgramComplete ::
-    FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> IO GLuint
-loadProgramComplete vertFP fragFP tessCFP tessEFP geomFP =
-    loadShadersProgram
-        [(gl_VERTEX_SHADER, vertFP),
-         (gl_FRAGMENT_SHADER, fragFP),
-         (gl_TESS_CONTROL_SHADER, tessCFP),
-         (gl_TESS_EVALUATION_SHADER, tessEFP),
-         (gl_GEOMETRY_SHADER, geomFP)]
--}
 
 loadShadersProgram :: [(GLuint, FilePath)] -> IO GLuint
 loadShadersProgram shaders = do
@@ -154,7 +141,7 @@ setShaderAttribs (Vec3 attr buf len : rest) = do
     -- Give OpenGL the information.
     glBindBuffer gl_ARRAY_BUFFER buf
     -- Tell OpenGL about the info.
-    glVertexAttribPointer attr (fromIntegral len) gl_FLOAT 0 0 GU.offset0
+    glVertexAttribPointer attr (fromIntegral len) gl_FLOAT 0 0 offset0
     setShaderAttribs rest
 setShaderAttribs [] = return ()
 

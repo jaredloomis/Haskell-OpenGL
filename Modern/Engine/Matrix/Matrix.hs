@@ -6,11 +6,10 @@
 {-# OPTIONS_GHC -fno-warn-unused-binds #-}
 module Engine.Matrix.Matrix (
     calculateMatricesFromPlayer,
-    WorldMatrices(..), gtranslationMatrix,
+    gtranslationMatrix,
     setMatrixUniforms, gfrustumMatrix,
     gidentityMatrix, glookAtMatrix, toGLFormat,
-    Matrix4x4, gorthoMatrix, emptyMatrices,
-    grotationMatrix
+    gorthoMatrix, grotationMatrix
 ) where
 
 import Data.List (transpose)
@@ -18,56 +17,15 @@ import Foreign.Marshal.Array (withArray)
 
 import qualified Graphics.Rendering.OpenGL as GL
 import Graphics.Rendering.OpenGL.Raw
+    (GLfloat, glUniformMatrix4fv, gl_FALSE)
 
 import Engine.Core.Types
+    (GameObject(..), Shader(..),
+     WorldMatrices(..), Matrix4x4,
+     Vector4, Matrix3x3, Vector3)
 import Engine.Graphics.Shaders
     (findUniformLocationAndRemember)
 import Engine.Core.Vec (Vec3(..))
-
-data WorldMatrices = WorldMatrices {
-    matrixModel :: Matrix4x4,
-    matrixView :: Matrix4x4,
-    matrixProjection :: Matrix4x4
-} deriving (Show)
-
-emptyMatrices :: WorldMatrices
-emptyMatrices = WorldMatrices 1 1 1
-
--- | 4x4 Matrix in the OpenGL orientation:
---   translation column is the last 4 elements.
-type Matrix4x4 = [[GLfloat]]
--- | 3x3 Matrix in the OpenGL orientation.
-type Matrix3x3 = [[GLfloat]]
--- | Four element GLfloat vector.
-type Vector4 = [GLfloat]
--- | Three element GLfloat vector.
-type Vector3 = [GLfloat]
-
-instance Num Matrix4x4 where
-    a * b =
-        map (\row -> map (gdotVec row) at) b
-        where at = transpose a
-    a + b = applyToIndices2 a b (+)
-    abs = map (map abs)
-    fromInteger i =
-        [
-        [fromInteger i, 0, 0, 0],
-        [0, fromInteger i, 0, 0],
-        [0, 0, fromInteger i, 0],
-        [0, 0, 0, fromInteger i]
-        ]
-    signum = map $ map signum
-    negate = map $ map negate
-
-applyToIndices2 :: [[a]] -> [[b]] -> (a -> b -> c) -> [[c]]
-applyToIndices2 (a:as) (b:bs) f =
-    applyToIndices a b f : applyToIndices2 as bs f
-applyToIndices2 _ _ _ = []
-
-applyToIndices :: [a] -> [b] -> (a -> b -> c) -> [c]
-applyToIndices (a:as) (b:bs) f =
-    f a b : applyToIndices as bs f
-applyToIndices _ _ _ = []
 
 setMatrixUniforms :: Shader -> WorldMatrices -> IO Shader
 setMatrixUniforms shader wm = do

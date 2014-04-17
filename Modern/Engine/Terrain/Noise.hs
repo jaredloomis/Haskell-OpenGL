@@ -10,18 +10,7 @@ import qualified Data.Vector.Unboxed as V
 
 import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
-type Permutation = V.Vector Int
-
-data Simplex = Simplex {
-    simpSeed :: Int,
-    simpDimensions :: (Int, Int),
-    simpStartXY :: (Int, Int),
-    simpSpacing :: GLfloat,
-    simpOctaves :: Int,
-    simpWavelength :: GLfloat,
-    simpIntensity :: GLfloat,
-    simpPerm :: Permutation
-}
+import Engine.Core.Types
 
 g3 :: Double
 g3 = 0.16666666666666666 -- 1/6
