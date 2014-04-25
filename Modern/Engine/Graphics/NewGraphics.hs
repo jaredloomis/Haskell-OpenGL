@@ -17,7 +17,7 @@ import Engine.Core.Types
     (World(..), WorldState(..), Framebuffer(..),
      Shader(..), GameObject(..), Model(..),
      HasPosition(..), HasRotation(..), Graphics(..),
-     WorldMatrices(..), RenderInfo(..),
+     WorldMatrices(..), RenderInfo(..), Terrain(..),
      emptyInfo)
 import Engine.Core.World (setWorldUniforms)
 import Engine.Core.Vec (Vec3(..))
@@ -27,19 +27,10 @@ import Engine.Graphics.Shaders
 import Engine.Object.GameObject (getModel)
 import Engine.Matrix.Matrix
     (gtranslationMatrix, grotationMatrix,
-     setMatrixUniforms, calculateMatricesFromPlayer)
+     setMatrixUniforms, calculateMatricesFromPlayer,
+     gidentityMatrix)
 import Engine.Graphics.Window (Window(..))
 import Engine.Graphics.Framebuffer (renderAllPasses)
-
-{-
-data RenderInfo = RenderInfo {
-    renderInfoShader :: Shader,
-    renderInfoMatrices :: WorldMatrices
-} deriving (Show)
-
-emptyInfo :: RenderInfo
-emptyInfo = RenderInfo emptyShader emptyMatrices
--}
 
 -- | A class for things that can be rendered to
 --   the screen &| Framebuffers.
@@ -102,6 +93,41 @@ instance Renderable (GameObject t) RenderInfo where
         return emptyInfo
     defaultGlobal _ = emptyInfo
 
+instance Renderable Terrain RenderInfo where
+    renderBind obj info =
+        let shader = terrainShader obj
+        in do
+            glUseProgram $ shaderId shader
+            return info{renderInfoShader = shader}
+
+    renderDraw object info = do
+        let mShader = renderInfoShader info
+
+            -- Move Object
+            modelMat = gidentityMatrix
+
+            newMatrices = (renderInfoMatrices info){matrixModel = modelMat}
+        -- Set uniforms. (World uniforms and Matrices).
+        newShader <-
+            setMatrixUniforms mShader newMatrices
+
+        -- Bind buffers to variable names in shader.
+        setShaderAttribs $ terrainShaderVars object
+        bindTextures (terrainTextures object) $ shaderId newShader
+
+        glDrawArrays gl_TRIANGLES 0 (terrainVertCount object)
+
+        return $ RenderInfo newShader newMatrices
+
+    renderCleanup object _ = do
+        -- Necessary?
+        disableShaderAttribs $ terrainShaderVars object
+        -- Disable the object's shader.
+        glUseProgram 0
+        return emptyInfo
+    defaultGlobal _ = emptyInfo
+        
+
 instance Renderable (World t) RenderInfo where
     renderBind world info = do
         let (winW, winH) = windowSize $ stateWindow $ worldState world
@@ -163,14 +189,16 @@ renderWorldNew :: World t -> IO (World t)
 renderWorldNew world = do
     glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
     let (width, height) = windowSize $ stateWindow $ worldState world
-    _ <- renderAllWithGlobal (screenFramebuffer (fromIntegral width, fromIntegral height))
-                        world (worldEntities world) :: IO RenderInfo
+        fbuf = screenFramebuffer (fromIntegral width, fromIntegral height)
+    _ <- renderAllWithGlobal fbuf world (worldEntities world) :: IO RenderInfo
+    _ <- renderAllWithGlobal fbuf world [worldTerrain world] :: IO RenderInfo
     return world
 
 renderWorldNewWithFramebuffer :: World t -> Framebuffer -> IO (World t)
 renderWorldNewWithFramebuffer world fbuf = do
     glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
     _ <- renderAllWithGlobal fbuf world (worldEntities world) :: IO RenderInfo
+    _ <- renderAllWithGlobal fbuf world [worldTerrain world] :: IO RenderInfo
     return world
     
 

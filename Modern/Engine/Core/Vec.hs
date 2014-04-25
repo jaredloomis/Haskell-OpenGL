@@ -1,88 +1,115 @@
 module Engine.Core.Vec (
     Vec2(..), Vec3(..), Vec4(..), vec3ToVec4,
     normalizeVec3, scaleVec3, lengthVec3,
-    crossVec3, vec4GetIndex, toArray3, toArray2
+    crossVec3, vec4GetIndex, toArray3, toArray2,
+    Vec(..)
 ) where
 
 import Control.DeepSeq (NFData(..))
 
 import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
-data Vec4 a = Vec4 !a !a !a !a deriving (Show, Eq)
-data Vec3 a = Vec3 a a a deriving (Show, Eq)
-data Vec2 a = Vec2 a a deriving (Show, Eq)
+data Vec4 = Vec4
+    {-# UNPACK #-} !GLfloat
+    {-# UNPACK #-} !GLfloat
+    {-# UNPACK #-} !GLfloat
+    {-# UNPACK #-} !GLfloat deriving (Show, Eq)
+data Vec3 = Vec3
+    {-# UNPACK #-} !GLfloat
+    {-# UNPACK #-} !GLfloat
+    {-# UNPACK #-} !GLfloat deriving (Show, Eq)
+data Vec2 = Vec2
+    {-# UNPACK #-} !GLfloat
+    {-# UNPACK #-} !GLfloat deriving (Show, Eq)
 
-instance Functor Vec4 where
-    fmap f (Vec4 x y z w) = Vec4 (f x) (f y) (f z) (f w)
+class Vec a where
+    vmap :: (GLfloat -> GLfloat) -> a -> a
+    vindex :: a -> Int -> GLfloat
 
-instance (Num a) => Num (Vec4 a) where
+instance Num Vec4 where
     Vec4 x1 y1 z1 w1 + Vec4 x2 y2 z2 w2 =
         Vec4 (x1+x2) (y1+y2) (z1+z2) (w1+w2)
     Vec4 x1 y1 z1 w1 - Vec4 x2 y2 z2 w2 =
         Vec4 (x1-x2) (y1-y2) (z1-z2) (w1-w2)
     Vec4 x1 y1 z1 w1 * Vec4 x2 y2 z2 w2 =
         Vec4 (x1*x2) (y1*y2) (z1*z2) (w1*w2)
-    abs = fmap abs
-    signum = fmap signum
+    abs = vmap abs
+    signum = vmap signum
     fromInteger i =
         Vec4 (fromInteger i) (fromInteger i) (fromInteger i) (fromInteger i)
+instance Vec Vec4 where
+    vmap f (Vec4 x y z w) = Vec4 (f x) (f y) (f z) (f w)
+    vindex (Vec4 x y z w) i =
+        case i of
+            0 -> x
+            1 -> y
+            2 -> z
+            3 -> w
+            _ -> error "Vec2.vindex - index out of range."
 
-instance Functor Vec3 where
-    fmap f (Vec3 x y z) = Vec3 (f x) (f y) (f z)
-
-instance (Num a) => Num (Vec3 a) where
+instance Num Vec3 where
     Vec3 x1 y1 z1 + Vec3 x2 y2 z2 = Vec3 (x1+x2) (y1+y2) (z1+z2)
     Vec3 x1 y1 z1 - Vec3 x2 y2 z2 = Vec3 (x1-x2) (y1-y2) (z1-z2)
     Vec3 x1 y1 z1 * Vec3 x2 y2 z2 = Vec3 (x1*x2) (y1*y2) (z1*z2)
-    abs (Vec3 x1 y1 z1) = Vec3 (abs x1) (abs y1) (abs z1)
-    signum = fmap signum
+    abs = vmap abs
+    signum = vmap signum
     fromInteger i = Vec3 (fromInteger i) (fromInteger i) (fromInteger i)
+instance Vec Vec3 where
+    vmap f (Vec3 x y z) = Vec3 (f x) (f y) (f z)
+    vindex (Vec3 x y z) i =
+        case i of
+            0 -> x
+            1 -> y
+            2 -> z
+            _ -> error "Vec3.vindex - index out of range."
 
-instance Functor Vec2 where
-    fmap f (Vec2 x y) = Vec2 (f x) (f y)
-
-instance (Num a) => Num (Vec2 a) where
+instance Num Vec2 where
     Vec2 x1 y1 + Vec2 x2 y2 = Vec2 (x1+x2) (y1+y2)
     Vec2 x1 y1 - Vec2 x2 y2 = Vec2 (x1-x2) (y1-y2)
     Vec2 x1 y1 * Vec2 x2 y2 = Vec2 (x1*x2) (y1*y2)
-    abs (Vec2 x1 y1) = Vec2 (abs x1) (abs y1)
-    signum = fmap signum
+    abs = vmap abs
+    signum = vmap signum
     fromInteger i = Vec2 (fromInteger i) (fromInteger i)
+instance Vec Vec2 where
+    vmap f (Vec2 x y) = Vec2 (f x) (f y)
+    vindex (Vec2 x y) i =
+        case i of
+            0 -> x
+            1 -> y
+            _ -> error "Vec2.vindex - index out of range."
 
-instance NFData (Vec4 a) where
+instance NFData Vec4 where
     rnf (Vec4 x y z w) = x `seq` y `seq` z `seq` w `seq` ()
     {-# INLINE rnf #-}
-instance NFData (Vec3 a) where
+instance NFData Vec3 where
     rnf (Vec3 x y z) = x `seq` y `seq` z `seq` ()
     {-# INLINE rnf #-} 
-instance NFData (Vec2 a) where
+instance NFData Vec2 where
     rnf (Vec2 x y) = x `seq` y `seq` ()
     {-# INLINE rnf #-}
 
-vec3ToVec4 :: Vec3 a -> a -> Vec4 a
+vec3ToVec4 :: Vec3 -> GLfloat -> Vec4
 vec3ToVec4 (Vec3 x y z) = Vec4 x y z
 {-# INLINE vec3ToVec4 #-}
 
-normalizeVec3 :: (Floating a) => Vec3 a -> Vec3 a
+normalizeVec3 :: Vec3 -> Vec3
 normalizeVec3 v =
     let Vec3 a b c = scaleVec3 (recip $ lengthVec3 v) v
     in Vec3 a b c
-{-# SPECIALIZE normalizeVec3 :: Vec3 GLfloat -> Vec3 GLfloat #-}
 
-scaleVec3 :: (Num a) => a -> Vec3 a -> Vec3 a
+scaleVec3 :: GLfloat -> Vec3 -> Vec3
 scaleVec3 s (Vec3 a b c) = Vec3 (s*a) (s*b) (s*c)
 {-# INLINE scaleVec3 #-}
 
-lengthVec3 :: (Floating a) => Vec3 a -> a
+lengthVec3 :: Vec3 -> GLfloat
 lengthVec3 (Vec3 a b c) = sqrt (a*a + b*b + c*c)
-{-# SPECIALIZE lengthVec3 :: Vec3 GLfloat -> GLfloat #-}
 
-crossVec3 :: (Num a) => Vec3 a -> Vec3 a -> Vec3 a
+crossVec3 :: Vec3 -> Vec3 -> Vec3
 crossVec3 (Vec3 u0 u1 u2) (Vec3 v0 v1 v2) = 
     Vec3 (u1*v2-u2*v1) (u2*v0-u0*v2) (u0*v1-u1*v0)
 {-# INLINE crossVec3 #-}
 
-vec4GetIndex :: Int -> Vec4 a -> a
+vec4GetIndex :: Int -> Vec4 -> GLfloat
 vec4GetIndex i (Vec4 x y z w)
     | i == 0 = x
     | i == 1 = y
@@ -93,10 +120,10 @@ vec4GetIndex _ _ =
             "0, 1, 2, or 3."
 {-# INLINE vec4GetIndex #-}
 
-toArray3 :: Vec3 a -> [a]
+toArray3 :: Vec3 -> [GLfloat]
 toArray3 (Vec3 x y z) = [x, y, z]
 {-# INLINE toArray3 #-}
 
-toArray2 :: Vec2 a -> [a]
+toArray2 :: Vec2 -> [GLfloat]
 toArray2 (Vec2 x y) = [x, y]
 {-# INLINE toArray2 #-}

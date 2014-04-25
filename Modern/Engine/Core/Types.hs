@@ -1,8 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE OverlappingInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Engine.Core.Types (
     Game(..), GameIO(..), HasPosition(..),
@@ -12,18 +11,20 @@ module Engine.Core.Types (
     Permutation, Simplex(..), Octree(..),
     MOctree(..), Input(..), Framebuffer(..),
     Shader(..), WorldMatrices(..), Matrix4x4,
-    Matrix3x3, Vector4, Vector3, ShaderAttrib,
+    Matrix3x3, Vector4, Vector3, ShaderAttrib(..),
     ShaderUniform, Texture, Image(..),
     AABB(..), HasAABB(..), RenderInfo(..),
     emptyEntity, playerAABB,
     emptyGraphics, emptyWorldState,
-    emptyMatrices, emptyInfo
+    emptyMatrices, emptyInfo,
+    emptyTerrain
 ) where
 
+import Control.Applicative (Applicative)
 import Data.Time (UTCTime)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Foreign (Word8)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, isNothing, isJust, fromJust)
 import Control.Monad.State
     (State, StateT, MonadIO,
      MonadState)
@@ -44,71 +45,68 @@ import Engine.Graphics.Window
 
 newtype Game t a = Game {
     gameState :: State (World t) a
-} deriving (Functor, Monad, MonadState (World t))
+} deriving (Functor, Applicative, Monad, MonadState (World t))
 
 newtype GameIO t a = GameIO {
     gameIoState :: StateT (World t) IO a
-} deriving (Functor, Monad, MonadIO, MonadState (World t))
-
-{-
-moveAllObjects :: Game t ()
-moveAllObjects = do
-    w <- get
-    let ents = worldEntities w
-        newEnts = map (\o -> movePos o (Vec3 1 0 0)) ents
-    put w{worldEntities = newEnts}
--}
+} deriving (Functor, Applicative, Monad, MonadIO, MonadState (World t))
 
 -- = Type classes.
 
 -- | A class for types that have a position
 --   that can be retrieved and set.
 class HasPosition p where
-    getPos :: p -> Vec3 GLfloat
-    setPos :: p -> Vec3 GLfloat -> p
-    movePos :: p -> Vec3 GLfloat -> p
+    {-# MINIMAL getPos, setPos #-}
+    getPos :: p -> Vec3
+    setPos :: p -> Vec3 -> p
+    movePos :: p -> Vec3 -> p
     movePos hp movement =
         setPos hp (getPos hp + movement)
 
 -- | A class for types that have a rotation
 --   that can be retrieved and set.
 class HasRotation r where
-    getRot :: r -> Vec3 GLfloat
-    setRot :: r -> Vec3 GLfloat -> r
-    rotate :: r -> Vec3 GLfloat -> r
+    {-# MINIMAL getRot, setRot #-}
+    getRot :: r -> Vec3
+    setRot :: r -> Vec3 -> r
+    rotate :: r -> Vec3 -> r
     rotate r deltaR =
         setRot r (getRot r + deltaR)
 
 -- TODO
 class HasName i where
+    {-# MINIMAL getName #-}
     getName :: i -> Int
 
 -- | A type class for any two things
 --   that can intersect.
 class Intersect l r where
-    getIntersecting :: l -> r -> Bool
-
-instance Intersect r l => Intersect l r where
-    getIntersecting l r = getIntersecting r l
+    {-# MINIMAL intersecting #-}
+    intersecting :: l -> r -> Bool
 
 -- | A class for types that have an
 --   Axis-Aligned Bounding Box (AABB). Type must
 --   also have a position for this to make sense.
 class HasPosition a => HasAABB a where
+    {-# MINIMAL getAABBs, transformedAABBs,
+        getWholeAABB, transformedWholeAABB #-} 
     getAABBs :: a -> [AABB]
+    transformedAABBs :: a -> [AABB]
     getWholeAABB :: a -> Maybe AABB
+    transformedWholeAABB :: a -> Maybe AABB
 
-instance HasPosition (Vec3 GLfloat) where
+instance HasPosition (Vec3) where
     getPos = id
     setPos _ = id
 
--- = Global data types.
+-- = Global data types
 
 -- | The type used to contain the overall state of
 --   the entire game.
 data World t = World {
     worldPlayer :: GameObject t,
     worldEntities :: [GameObject t],
+    worldTerrain :: Terrain,
     worldOctree :: Octree AABB,
     worldGraphics :: Graphics t,
     worldState :: WorldState
@@ -140,15 +138,15 @@ emptyGraphics = Graphics [] (undefined, []) (undefined, 0)
 -- | Type representing nearly anything in the game
 --   that is somewhat "physical".
 data GameObject t = Player {
-    playerPosition :: Vec3 GLfloat,
-    playerRotation :: Vec3 GLfloat,
-    playerVelocity :: Vec3 GLfloat,
+    playerPosition :: Vec3,
+    playerRotation :: Vec3,
+    playerVelocity :: Vec3,
     playerSpeed :: GLfloat,
     playerUpdate :: Game t (World t),
     playerInput :: Input t
 } | Entity {
-    entityPosition :: Vec3 GLfloat,
-    entityRotation :: Vec3 GLfloat,
+    entityPosition :: Vec3,
+    entityRotation :: Vec3,
     entityUpdate :: GameObject t -> Game t (GameObject t),
     entityModel :: Model,
     entityAttribute :: t
@@ -188,6 +186,20 @@ instance HasAABB (GameObject t) where
     getWholeAABB pe@(Entity{}) =
         modelWholeAABB $ entityModel pe
 
+    transformedAABBs obj
+        | null $ getAABBs obj = []
+        | otherwise =
+            let pos = getPos obj
+                aabbs = getAABBs obj
+            in map (\(AABB l h) -> AABB (l+pos) (h+pos)) aabbs
+
+    transformedWholeAABB obj
+        | isNothing $ getWholeAABB obj = Nothing
+        | otherwise =
+            let Just (AABB l r) = getWholeAABB obj
+                pos = getPos obj
+            in Just $ AABB (l + pos) (r + pos)
+
 -- = Model.
 
 -- | A data type for representing a model
@@ -199,14 +211,14 @@ data Model = Model {
     modelVertCount :: GLint,
     modelAABBs :: Maybe [AABB],
     modelWholeAABB :: Maybe AABB
-} deriving (Show)
+} deriving (Show, Eq)
 emptyModel :: Model
 emptyModel = Model (Shader 0 []) [] [] 0 (Just [AABB 0 0]) (Just $ AABB 0 0)
 
 -- = Collision Detection.
 
 -- | AABB (min corner) (max corner)
-data AABB = AABB (Vec3 GLfloat) (Vec3 GLfloat) deriving (Show)
+data AABB = AABB Vec3 Vec3 deriving (Show, Eq)
 
 instance HasPosition AABB where
     getPos (AABB minV _) = minV
@@ -216,6 +228,43 @@ instance HasPosition AABB where
 instance HasAABB AABB where
     getWholeAABB (AABB low high) = Just (AABB 0 (high - low))
     getAABBs (AABB low high) = [AABB 0 (high - low)]
+    transformedAABBs aabb = [aabb]
+    transformedWholeAABB = Just
+
+instance Intersect AABB AABB where
+    intersecting
+        (AABB (Vec3 min1x min1y min1z) (Vec3 max1x max1y max1z))
+        (AABB (Vec3 min2x min2y min2z) (Vec3 max2x max2y max2z)) =
+            max1x > min2x &&
+            min1x < max2x &&
+            max1y > min2y &&
+            min1y < max2y &&
+            max1z > min2z &&
+            min1z < max2z
+    {-# INLINE intersecting #-}
+
+
+instance (HasAABB a, HasAABB b) => Intersect a b where
+    intersecting left right =
+        let lwholeM = getWholeAABB left
+            rwholeM = getWholeAABB right
+        in if isJust lwholeM && isJust rwholeM
+                then
+                    let lwhole = fromJust lwholeM
+                        rwhole = fromJust rwholeM
+                    in intersecting lwhole rwhole &&
+                        let lall = getAABBs left
+                            rall = getAABBs right
+                        in anyIntersect lall rall
+                else
+                    let lall = getAABBs left
+                        rall = getAABBs right
+                    in anyIntersect lall rall
+      where
+        anyIntersect :: Intersect a b => [a] -> [b] -> Bool
+        anyIntersect (l:ls) (r:rs) =
+            intersecting l r || anyIntersect ls rs
+        anyIntersect _ _ = False
 
 -- | A pure Octree used to sort objects for
 --   collision detection.
@@ -246,8 +295,22 @@ data Terrain = Terrain {
     terrainShaderVars :: [ShaderAttrib],
     terrainTextures :: [Texture],
     terrainVertCount :: GLint,
-    terrainWholeAABB :: AABB
+    terrainWholeAABB :: AABB,
+    terrainHeightFunc :: GLfloat -> GLfloat -> GLfloat
 }
+emptyTerrain :: Terrain
+emptyTerrain = Terrain undefined
+            (Shader (-1) []) [] [] 0
+            (AABB 0 0)
+            (\_ _ -> -10e100)
+
+instance Intersect Terrain AABB where
+    intersecting terr (AABB (Vec3 lx ly lz) _) =
+        ly < terrainHeightFunc terr lx lz
+
+instance Intersect AABB Terrain where
+    intersecting (AABB (Vec3 lx ly lz) _) terr =
+        ly < terrainHeightFunc terr lx lz
 
 type Permutation = UV.Vector Int
 
@@ -263,7 +326,7 @@ data Simplex = Simplex {
     simpWavelength :: GLfloat,
     simpIntensity :: GLfloat,
     simpPerm :: Permutation
-}
+} deriving (Show, Eq)
 
 -- = Input.
 
@@ -275,8 +338,8 @@ data Input t = Input {
     inputKeys :: [(GLFW.Key, GLFW.KeyState,
                     GLFW.KeyState,
                     World t -> World t)],
-    inputMouseDelta :: Vec2 GLfloat,
-    inputLastMousePos :: Vec2 GLfloat,
+    inputMouseDelta :: Vec2,
+    inputLastMousePos :: Vec2,
     inputMouseSpeed :: GLfloat
 }
 
@@ -290,7 +353,7 @@ data Framebuffer = FB {
     fbufDimensions :: (GLint, GLint),
     fbufVBO :: GLuint,
     fbufRenderBuffer :: GLuint
-} deriving (Show)
+} deriving (Show, Eq)
 
 -- | An OpenGL program id and some uniform
 --   ids so that glUniform* doesn't have to be
@@ -298,11 +361,11 @@ data Framebuffer = FB {
 data Shader = Shader {
     shaderId :: GLuint,
     shaderUniforms :: [(String, GLint)]
-} deriving (Show)
+} deriving (Show, Eq)
 
 -- | Attrib id, Buffer id, size of attrib.
-type ShaderAttrib = Vec3 GLuint
-
+data ShaderAttrib = ShaderAttrib !GLuint !GLuint !GLuint
+    deriving (Show, Eq)
 -- | Name, Values
 type ShaderUniform = (String, IO [GLfloat])
 
@@ -316,7 +379,7 @@ type Texture = (GLuint, GLint)
 data RenderInfo = RenderInfo {
     renderInfoShader :: Shader,
     renderInfoMatrices :: WorldMatrices
-} deriving (Show)
+} deriving (Show, Eq)
 emptyInfo :: RenderInfo
 emptyInfo = RenderInfo (Shader (-1) []) emptyMatrices
 
@@ -326,7 +389,7 @@ data WorldMatrices = WorldMatrices {
     matrixModel :: Matrix4x4,
     matrixView :: Matrix4x4,
     matrixProjection :: Matrix4x4
-} deriving (Show)
+} deriving (Show, Eq)
 emptyMatrices :: WorldMatrices
 emptyMatrices = WorldMatrices 1 1 1
 

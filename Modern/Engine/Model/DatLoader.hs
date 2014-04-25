@@ -21,19 +21,18 @@ import qualified Data.ByteString.Char8 as B
 
 import Graphics.Rendering.OpenGL.Raw (GLfloat, GLint)
 
-import Engine.Core.Vec (Vec4(..))
 import Engine.Model.Model (Model(..), createModel)
 import Engine.Graphics.Textures (juicyLoadTexture)
 
 writeDataToFile :: FilePath -> [[GLfloat]] -> [B.ByteString] -> IO ()
 writeDataToFile datFile [verts, coords, norms, colors, tids] =
-    writeVntToDat datFile (Vec4 verts norms coords tids) colors
+    writeVntToDat datFile (verts, norms, coords, tids) colors
 writeDataToFile _ _ =
     error $ "DatLoader.writeDataToFile:" ++
             "arguments not properly formatted."
 
-writeVntToDat :: FilePath -> Vec4 [GLfloat] -> [GLfloat] -> [B.ByteString] -> IO ()
-writeVntToDat datFile (Vec4 verts norms texCoords texIds) colors images =
+writeVntToDat :: FilePath -> ([GLfloat], [GLfloat], [GLfloat], [GLfloat])-> [GLfloat] -> [B.ByteString] -> IO ()
+writeVntToDat datFile (verts, norms, texCoords, texIds) colors images =
     let vertStr = listToString verts
         normStr = listToString norms
         texcStr = listToString texCoords

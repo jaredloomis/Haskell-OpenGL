@@ -21,7 +21,6 @@ import Foreign.C.Types (CChar)
 import Graphics.Rendering.OpenGL.Raw
 
 import Engine.Core.Types
-import Engine.Core.Vec (Vec3(..))
 import Engine.Graphics.GraphicsUtils
     (withNewPtr, withNewPtrArray, offset0)
 
@@ -37,7 +36,7 @@ wrapShader program = Shader program []
 --   ShaderAttribs.
 createShaderAttribs :: [GLuint] -> [GLuint] -> [GLuint] -> [ShaderAttrib]
 createShaderAttribs (attr:attrs) (buff:buffs) (size:sizes) =
-    Vec3 attr buff size : createShaderAttribs attrs buffs sizes
+    ShaderAttrib attr buff size : createShaderAttribs attrs buffs sizes
 createShaderAttribs [] [] [] = []
 createShaderAttribs _ _ _ =
     error $ "Model.createShaderAttribs: "
@@ -135,7 +134,7 @@ unBindTextures =
 
 -- | Binds a list of ShaderAttribs.
 setShaderAttribs :: [ShaderAttrib] -> IO ()
-setShaderAttribs (Vec3 attr buf len : rest) = do
+setShaderAttribs (ShaderAttrib attr buf len : rest) = do
     -- Enable the attribute buffer.
     glEnableVertexAttribArray attr
     -- Give OpenGL the information.
@@ -147,7 +146,7 @@ setShaderAttribs [] = return ()
 
 -- | Disables a list of ShaderAttribs. Call after drawing?
 disableShaderAttribs :: [ShaderAttrib] -> IO ()
-disableShaderAttribs (Vec3 attr _ _ : rest) = do
+disableShaderAttribs (ShaderAttrib attr _ _ : rest) = do
     -- Disable the attribute buffer.
     glDisableVertexAttribArray attr
     disableShaderAttribs rest

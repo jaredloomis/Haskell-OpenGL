@@ -11,7 +11,7 @@ import Engine.Core.Types
     (World(..), WorldState(..),
      Framebuffer(..), Octree(..), AABB(..),
      Graphics(..), GameObject(..),
-     Game(..), Model(..))
+     Game(..), Model(..), emptyTerrain)
 import Engine.Object.Player (mkPlayer)
 import Engine.Model.ObjLoader (loadObjModel)
 import Engine.Terrain.Generator (genSimplexModel)
@@ -80,10 +80,22 @@ mkWorld fb shadowFb shadowShader shaders = do
 --    objb <- mkObj2
     objc <- mkObj3
     let octree = mkOctree [obja, objc]
+        terrain = emptyTerrain
+{-
+    terrain <- generateTerrain
+            mainVertShader
+            mainFragShader
+            200
+            1
+            1
+            20
+            10
+            (Just "res/textures/grass.jpg") 
+-}
 
     --print octree
 
-    return $ World mkPlayer [obja, objc] octree
+    return $ World mkPlayer [obja, objc] terrain octree
             (mkGraphics fb shadowFb shadowShader shaders)
             state
 

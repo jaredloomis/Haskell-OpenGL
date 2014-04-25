@@ -93,10 +93,10 @@ simplex3D p octaves l x y z = harmonic octaves
     (\f -> noise3D p (x * f / l) (y * f / l) (z * f / l))
 
 getSimplexHeight :: Simplex -> GLfloat -> GLfloat -> GLfloat
-getSimplexHeight (Simplex _ _ _ _ octaves wavelength intensity permutation) x y =
+getSimplexHeight (Simplex _ _ _ _ octaves wavelength intensity permutation) x z =
         intensity * realToFrac
             (simplex3D permutation octaves (realToFrac wavelength)
-                (realToFrac x) (realToFrac y) 0)
+                (realToFrac x) (realToFrac z) 0)
 
 -- | Generate a 2D list of the height returned by simplex
 --   for each coordinate.

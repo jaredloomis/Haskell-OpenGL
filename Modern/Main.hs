@@ -1,12 +1,10 @@
-{-# OPTIONS_GHC -O2 #-}
+{-# OPTIONS_GHC -O2 -Wall #-}
 module Main where
 
 import Data.Time (diffUTCTime)
 import Control.Monad.State (unless, evalState)
 
 import qualified Graphics.UI.GLFW as GLFW
-
-import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
 import Engine.Core.Types
     (World(..), WorldState(..), Game(..),
@@ -150,7 +148,7 @@ updateInput win input = do
         return $ curVal : restVal
     loopThrough _ [] = return []
 
-    mouseUpdate :: GLFW.Window -> IO (Vec2 GLfloat)
+    mouseUpdate :: GLFW.Window -> IO Vec2
     mouseUpdate w = do
         (x, y) <- GLFW.getCursorPos w
         return $ Vec2 (realToFrac x) (realToFrac y)

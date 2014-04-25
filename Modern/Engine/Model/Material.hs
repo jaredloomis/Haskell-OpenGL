@@ -20,9 +20,9 @@ import Engine.Graphics.Textures (juicyLoadTexture)
 
 data Material = Material {
     matName :: B.ByteString,
-    matAmbientColor :: Maybe (Vec3 GLfloat),
-    matDiffuseColor :: Maybe (Vec3 GLfloat),
-    matSpecularColor :: Maybe (Vec3 GLfloat),
+    matAmbientColor :: Maybe Vec3,
+    matDiffuseColor :: Maybe Vec3,
+    matSpecularColor :: Maybe Vec3,
     matTexture :: Maybe GLuint,
     matTexId :: Maybe GLint,
     matTexturePaths :: [B.ByteString]
@@ -118,7 +118,7 @@ allImagesInFile =
     map (last . filter (not . null) . splitOn " ") . filter (isPrefixOf "map_Kd ") . lines
 -}
 
-readMtlLineTriplet :: B.ByteString -> Vec3 GLfloat
+readMtlLineTriplet :: B.ByteString -> Vec3
 readMtlLineTriplet = toTripletMtl . readMtlLine
 
 readMtlLine :: B.ByteString -> [GLfloat]
@@ -127,7 +127,7 @@ readMtlLine = map parseBsFloat . tail . filter (not . B.null) . B.split ' '
 rawMtlLine :: B.ByteString -> [B.ByteString]
 rawMtlLine = tail . filter (not . B.null) . B.split ' '
 
-toTripletMtl :: [a] -> Vec3 a
+toTripletMtl :: [GLfloat] -> Vec3
 toTripletMtl xs
     | length xs == 3 = Vec3 (head xs) (xs !! 1) (xs !! 2)
     | otherwise = error "Material.toTripletMtl"

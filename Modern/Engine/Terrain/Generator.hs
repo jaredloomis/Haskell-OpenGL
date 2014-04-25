@@ -1,6 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Engine.Terrain.Generator (
     genSimplexModel,
     generateTerrain
@@ -17,19 +16,11 @@ import Engine.Graphics.Shaders
 import Engine.Model.AABB (aabbFromPoints)
 import Engine.Graphics.GraphicsUtils (createBufferIdAll)
 import Engine.Core.Types
-import Engine.Core.Vec (Vec3(..))
 import Engine.Model.Model
     (createModel)
 import Engine.Terrain.Noise
     (perm, getSimplexHeight)
 import Engine.Graphics.Textures (juicyLoadTexture)
-
-instance HasAABB a => Intersect Terrain a where
-    getIntersecting terrain collider =
-        let simplex = terrainSimplex terrain
-            Vec3 x y z = getPos collider
-            simplexHeight = getSimplexHeight simplex x z
-        in y <= simplexHeight
 
 generateTerrain :: FilePath -> FilePath ->
     GLfloat ->          -- ^ Width
@@ -41,7 +32,9 @@ generateTerrain :: FilePath -> FilePath ->
     IO Terrain
 generateTerrain vert frag w spacing octaves wavelength intensity texture = do
     seed <- randomRIO (0, 2048)
-    let simplex = Simplex seed (floor w, floor w) (0, 0) spacing octaves wavelength intensity (perm seed)
+    let simplex =
+            Simplex seed (floor w, floor w) (0, 0) spacing octaves
+            wavelength intensity (perm seed)
         vertices = D.toList $ createSimplexTerrain simplex
         normals = calculateNormals vertices
 
@@ -50,7 +43,11 @@ generateTerrain vert frag w spacing octaves wavelength intensity texture = do
         (loadTerrainWithTexture' simplex vert frag vertices normals)
         texture
 
-loadTerrainWithTexture' :: Simplex -> FilePath -> FilePath -> [GLfloat] -> [GLfloat] -> FilePath -> IO Terrain
+loadTerrainWithTexture' ::
+    Simplex ->
+    FilePath -> FilePath ->
+    [GLfloat] -> [GLfloat] ->
+    FilePath -> IO Terrain
 loadTerrainWithTexture' simplex vert frag vertices normals texture =
     let lengthVertices = length vertices
     in do
@@ -70,7 +67,7 @@ createTerrain ::
     FilePath ->     -- ^ Fragment Shader.
     [String] ->     -- ^ Attribute Variable names.
     [[GLfloat]] ->  -- ^ List containing all the lists of values.
-                   --   (vertices, normals, etc).
+                    --   (vertices, normals, etc).
     [GLuint] ->     -- ^ Size of each value.
     GLint ->        -- ^ Number of vertices.
     IO Terrain
@@ -81,7 +78,7 @@ createTerrain simplex vert frag attrNames buffData valLens vertCount = do
 
     let sAttribs = createShaderAttribs attribs ids valLens
     return $ Terrain simplex (Shader program []) sAttribs [] vertCount
-            $ aabbFromPoints (head buffData)
+            (aabbFromPoints (head buffData)) $ getSimplexHeight simplex
 
 genSimplexModel :: FilePath -> FilePath ->
     GLfloat ->          -- ^ Width
@@ -93,7 +90,9 @@ genSimplexModel :: FilePath -> FilePath ->
     IO Model
 genSimplexModel vert frag w spacing octaves wavelength intensity texture = do
     seed <- randomRIO (0, 2048)
-    let simplex = Simplex seed (floor w, floor w) (0, 0) spacing octaves wavelength intensity (perm seed)
+    let simplex =
+            Simplex seed (floor w, floor w) (0, 0) spacing
+            octaves wavelength intensity (perm seed)
         vertices = D.toList $ createSimplexTerrain simplex
         normals = calculateNormals vertices
 
@@ -102,7 +101,11 @@ genSimplexModel vert frag w spacing octaves wavelength intensity texture = do
         (loadTerrainWithTexture vert frag vertices normals)
         texture
 
-loadTerrainWithTexture :: FilePath -> FilePath -> [GLfloat] -> [GLfloat] -> FilePath -> IO Model
+loadTerrainWithTexture ::
+    FilePath -> FilePath ->
+    [GLfloat] -> [GLfloat] ->
+    FilePath ->
+    IO Model
 loadTerrainWithTexture vert frag vertices normals texture =
     let lengthVertices = length vertices
     in do
@@ -116,7 +119,10 @@ loadTerrainWithTexture vert frag vertices normals texture =
         textureData <- juicyLoadTexture texture
         return $ loadedModel{modelTextures = [(textureData, 1)]}
 
-loadTerrainNoTexture :: FilePath -> FilePath -> [GLfloat] -> [GLfloat] -> IO Model
+loadTerrainNoTexture ::
+    FilePath -> FilePath ->
+    [GLfloat] -> [GLfloat] ->
+    IO Model
 loadTerrainNoTexture vert frag vertices normals =
     let lengthVertices = length vertices
     in createModel vert frag
@@ -129,7 +135,9 @@ loadTerrainNoTexture vert frag vertices normals =
 
 createSimplexTerrain :: Simplex -> D.DList GLfloat
 createSimplexTerrain simplex =
-    concatMapD (\x -> concatMapD (makeSquare simplex x) $ allYs simplex) $ allXs simplex
+    concatMapD
+        (\x -> concatMapD (makeSquare simplex x) $ allYs simplex) $
+        allXs simplex
 
 concatMapD :: (a -> D.DList b) -> D.DList a -> D.DList b
 concatMapD f = D.foldr (D.append . f) D.empty
@@ -171,55 +179,6 @@ makeSquare simplex x z =
 makePointFromXY :: Simplex -> GLfloat -> GLfloat -> D.DList GLfloat
 makePointFromXY simp x z = D.fromList [x, getSimplexHeight simp x z, z]
 
-{-
-createStripSimplex :: GLfloat -> GLfloat -> GLfloat -> GLfloat -> [GLfloat]
-createStripSimplex spacing len x i
-    | i < len =
-        [x, 0, i,
-         x, 0, i+spacing,
-         x+spacing, 0, i,
-         x+spacing, 0, i,
-         x, 0, i+spacing,
-         x+spacing, 0, i+spacing] ++ createStripSimplex spacing len x (i+spacing)
-    | otherwise = []
-
-createFlat :: GLfloat -> GLfloat -> [GLfloat]
-createFlat spacing width =
-    createFlatRaw spacing width 0
-
-    where
-        createFlatRaw s w x =
-            createStrip s w x 0 ++
-                if x < w 
-                    then createFlatRaw s w (x+spacing)
-                else []
-
-createStrip :: GLfloat -> GLfloat -> GLfloat -> GLfloat -> [GLfloat]
-createStrip spacing len x i
-    | i < len =
-        [x, 0, i,
-         x, 0, i+spacing,
-         x+spacing, 0, i,
-         x+spacing, 0, i,
-         x, 0, i+spacing,
-         x+spacing, 0, i+spacing] ++ createStrip spacing len x (i+spacing)
-    | otherwise = []
-
-applyHeights :: [GLfloat] -> [GLfloat] -> [GLfloat]
-applyHeights (x:y:z:coords) ref =
-    let foundY = findY x z ref
-    in x : (if foundY == -3.1415
-        then y
-    else foundY) : z : applyHeights coords ref
-applyHeights _ _ = []
-
-findY :: GLfloat -> GLfloat -> [GLfloat] -> GLfloat
-findY xf zf (xl:yl:zl:heights)
-    | xf == xl && zf == zl = yl
-    | otherwise = findY xf zf heights
-findY _ _ _ = -3.1415
--}
-
 calculateNormals :: [GLfloat] -> [GLfloat]
 calculateNormals (x1:y1:z1:x2:y2:z2:x3:y3:z3:rest) =
     let (ux, uy, uz) = (x2 - x1, y2 - y1, z2 - z1)
@@ -236,13 +195,3 @@ calculateNormals (x1:y1:z1:x2:y2:z2:x3:y3:z3:rest) =
         repeatList :: Int -> [a] -> [a]
         repeatList i list = take (i*3) $ cycle list 
 calculateNormals _ = []
-
-{-
-heightsToCoords :: [[GLfloat]] -> GLfloat -> GLfloat -> [GLfloat]
-heightsToCoords (yi:restYs) z spacing =
-    let completeLine (y:ys) x =
-            [x, y, z] ++ completeLine ys (x + spacing)
-        completeLine [] _ = []
-    in completeLine yi 0 ++ heightsToCoords restYs (z + spacing) spacing
-heightsToCoords [] _ _ = []
--}

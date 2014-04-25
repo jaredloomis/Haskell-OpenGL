@@ -151,11 +151,11 @@ grotationMatrix' angle axis =
       [0,0,0,1]
        ]
 
-glookAtMatrix :: Vec3 GLfloat -> Vec3 GLfloat -> Vec3 GLfloat -> Matrix4x4
+glookAtMatrix :: Vec3 -> Vec3 -> Vec3 -> Matrix4x4
 glookAtMatrix eye center up =
     glookAtMatrixG (vecToGVec3 eye) (vecToGVec3 center) (vecToGVec3 up)
 
-vecToGVec3 :: Vec3 GLfloat -> Vector3
+vecToGVec3 :: Vec3 -> Vector3
 vecToGVec3 (Vec3 x y z) = [x, y, z]
 
 -- | Creates a lookAt matrix from three vectors: the eye position, the point the

@@ -39,6 +39,7 @@ Performance by GHC/GHCI command:
 - <b>General code cleanup, make it easier to use and clearer.</b>
 - <b>Repair shadows.</b>
 - <b>A collision detection system for <i>dynamic</i> objects.</b>
+- <b>Use State Monads more. Convert functions with types like `World t -> GameObject t -> a` to `GameObject t -> Game a`</b>
 - Normal mapping.
 - Create a FRP module, making it optional. (Elerea)
 - AI / Pathfinding (A\*?).

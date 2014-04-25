@@ -3,14 +3,14 @@ module Engine.Object.Octree (
     findNearby, octInsert, subdivide
 ) where
 
-import System.IO.Unsafe (unsafePerformIO)
+import Data.List (foldl')
 
-import Engine.Model.AABB
-    (calculateNewAABBs, objectsIntersect)
+import Engine.Object.Intersect
+    (objectsIntersectInclusive)
 import Engine.Core.Types
     (HasAABB(..), AABB(..), Octree(..),
      HasPosition(..))
-import Engine.Core.Vec (Vec3(..))
+import Engine.Core.Vec (Vec3(..), vmap)
 
 maxCapacity :: Int
 maxCapacity = 64
@@ -22,13 +22,7 @@ createOctree aabb = OLeaf aabb [] 0
 
 createOctreeFromAABBs :: HasAABB a => AABB -> [a] -> Octree AABB
 createOctreeFromAABBs aabb =
-    foldl ((. calculateNewAABBs) . foldl octInsert) (OLeaf aabb [] 0)
--- Pointfree form of:
---foldl (\a b -> foldl octInsert a (calculateNewAABBs b)) (OLeaf aabb [] 0)
-
-output :: String -> a -> a
-output msg = seq (unsafePerformIO $ putStrLn msg)
-{-# INLINE output #-}
+    foldl' ((. transformedAABBs) . foldl' octInsert) (OLeaf aabb [] 0)
 
 findNearby :: HasAABB a => Octree a -> a -> [a]
 findNearby (ONode _ children) val =
@@ -42,10 +36,10 @@ octInsert :: (HasAABB a, Show a) => Octree a -> a -> Octree a
 octInsert tree@(ONode aabb children) val =
     let (insertIntos, others) = filterPartition (checkOctant val) children
     in if null insertIntos
-            then output
+            then error
                 ("Error in Collision.octInsert:" ++
                  " value \"" ++ show val ++
-                 "\"could not be inserted into tree. Ignoring.") tree
+                 "\"could not be inserted into tree.") tree
         else ONode aabb $ map (`octInsert` val) insertIntos ++ others
 octInsert leaf@(OLeaf aabb contents size) val =
     if size+1 <= maxCapacity
@@ -54,7 +48,7 @@ octInsert leaf@(OLeaf aabb contents size) val =
 
 subdivide :: (HasAABB a, Show a) => Octree a -> Octree a
 subdivide (OLeaf wholeAABB@(AABB minVec maxVec) contents _) =
-    let halfVec@(Vec3 halfX halfY halfZ) = fmap (/2) (abs $ maxVec - minVec)
+    let halfVec@(Vec3 halfX halfY halfZ) = vmap (/2) (abs $ maxVec - minVec)
         newAABBTemplate = AABB minVec $ minVec + halfVec 
 
         northWestA = newAABBTemplate
@@ -81,7 +75,7 @@ subdivide (OLeaf wholeAABB@(AABB minVec maxVec) contents _) =
                                    northEastALeaf, northEastBLeaf,
                                    southWestALeaf, southWestBLeaf,
                                    southEastALeaf, southEastBLeaf]
-    in foldl octInsert newNode contents
+    in foldl' octInsert newNode contents
 subdivide _ = error "Collision.subdivide: cannot subdivide a ONode."
 
 filterPartition :: (a -> Bool) -> [a] -> ([a], [a])
@@ -98,7 +92,7 @@ consTuple _ _ =
 
 checkOctant :: HasAABB a => a -> Octree a -> Bool
 checkOctant val (ONode aabb _) =
-    objectsIntersect val aabb
+    objectsIntersectInclusive val aabb
 checkOctant val (OLeaf aabb _ _) =
-    objectsIntersect val aabb
+    objectsIntersectInclusive val aabb
 {-# INLINE checkOctant #-}

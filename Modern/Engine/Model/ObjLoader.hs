@@ -85,10 +85,10 @@ getContentsSafe f = do
 directoryOfFile :: FilePath -> FilePath
 directoryOfFile = (++"/") . intercalate "/" . init . splitOn "/"
 
--- | Parse an .obj file and return a Vec3 [GLfloat]
+-- | Parse an .obj file and return 3 [GLfloat]s
 --   containing the vertices, texture coordinates,
 --   and normals, in that order.
-loadObjFile :: FilePath -> IO (Vec3 [GLfloat])
+loadObjFile :: FilePath -> IO ([GLfloat], [GLfloat], [GLfloat])
 loadObjFile file = do
     handle <- openFile file ReadMode
     objData <- liftM loadObj $! B.hGetContents handle
@@ -99,7 +99,7 @@ loadObjFile file = do
 --   for an .obj model and return a Vec3 [GLfloat]
 --   containing the vertices, texture coordinates,
 --   and normals, in that order.
-loadObj :: B.ByteString -> Vec3 [GLfloat]
+loadObj :: B.ByteString -> ([GLfloat], [GLfloat], [GLfloat])
 loadObj text =
     let verts = parseVertices text
         norms = parseNormals text
@@ -116,7 +116,7 @@ packObj ::
     D.DList GLfloat ->      -- ^ Normals
     D.DList GLfloat ->      -- ^ Texture coords
     D.DList (Maybe Int) ->  -- ^ Face Definitions
-    Vec3 [GLfloat]
+    ([GLfloat], [GLfloat], [GLfloat])
 packObj verts norms texs faces =
     let lFaces = D.toList faces
         lVerts = V.fromList $ D.toList verts
@@ -130,7 +130,7 @@ packObj verts norms texs faces =
         realVerts = D.toList $ getIndicesD lVerts faceVerts 3
         realNorms = D.toList $ getIndicesD lNorms faceNorms 3
         realTexs = D.toList $ getIndicesD lTexs faceTexs 2
-    in Vec3 realVerts realTexs realNorms
+    in (realVerts, realTexs, realNorms)
 
 -- | Given a List of () indices to read and the
 --   Vector to read from, read given indices for all
@@ -256,11 +256,11 @@ findMaterial :: B.ByteString -> [Material] -> Material
 findMaterial name library = head $ filter (\x -> matName x == name) library
 {-# INLINE findMaterial #-}
 
-toArrays :: Vec3 [a] -> [[a]]
-toArrays (Vec3 x y z) = [x, y, z]
+toArrays :: ([a], [a], [a]) -> [[a]]
+toArrays (x, y, z) = [x, y, z]
 {-# INLINE toArrays #-}
 
-fromVec3M :: [Maybe (Vec3 a)] -> [a]
+fromVec3M :: [Maybe Vec3] -> [GLfloat]
 fromVec3M (Just (Vec3 x y z) : xs) =
     [x, y, z] ++ fromVec3M xs
 fromVec3M [] = []

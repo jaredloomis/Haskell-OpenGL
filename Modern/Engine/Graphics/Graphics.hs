@@ -16,7 +16,7 @@ import Engine.Core.Types
     (World(..), WorldState(..), GameObject(..),
      Model(..), HasPosition(..), HasRotation(..),
      Shader(..), Framebuffer(..), Graphics(..),
-     WorldMatrices(..))
+     WorldMatrices(..), ShaderAttrib(..))
 import Engine.Graphics.Shaders
     (setShaderAttribs, bindTextures, disableShaderAttribs)
 import Engine.Core.Vec (Vec3(..))
@@ -150,9 +150,9 @@ cleanupWorld world = do
 cleanupObjects :: [GameObject t] -> IO ()
 cleanupObjects (object:rest) = do
     -- Delete buffers.
-    let shaderVarAttrIds = map (\(Vec3 attrId _ _) -> attrId)
+    let shaderVarAttrIds = map (\(ShaderAttrib attrId _ _) -> attrId)
                               (modelShaderVars $ getModel object)
-        shaderVarBufIds = map (\(Vec3 _ bufId _) -> bufId)
+        shaderVarBufIds = map (\(ShaderAttrib _ bufId _) -> bufId)
                               (modelShaderVars $ getModel object)
     mapM_ (\x -> with x $ glDeleteBuffers 1) shaderVarBufIds
 
