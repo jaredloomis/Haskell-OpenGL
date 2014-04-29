@@ -1,13 +1,13 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
 module Engine.Object.Intersect (
-    intersectsAny, objectsIntersectInclusive
+    Intersect(..), intersectsAny
 ) where
 
-import Data.Maybe (isJust)
-
-import Engine.Core.Types
-    (Intersect(..), HasAABB(..),
-     AABB(..))
-import Engine.Core.Vec (Vec3(..))
+-- | A type class for any two things
+--   that can intersect.
+class Intersect l r where
+    intersecting :: l -> r -> Bool
+    {-# MINIMAL intersecting #-}
 
 intersectsAny :: Intersect a b => a -> [b] -> Bool
 intersectsAny needle (hay:haystack) =
@@ -15,6 +15,7 @@ intersectsAny needle (hay:haystack) =
         needle `intersectsAny` haystack
 intersectsAny _ [] = False
 
+{-
 -- = Inclusive "AABB" collision detection.
 
 -- | Test if two objects intersect.
@@ -50,3 +51,4 @@ anyIntersectInclusive :: AABB -> [AABB] -> Bool
 anyIntersectInclusive l (r:rs) =
     intersectingInclusive l r || anyIntersectInclusive l rs
 anyIntersectInclusive _ _ = False
+-}

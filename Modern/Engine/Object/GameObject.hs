@@ -10,8 +10,10 @@ import Data.Maybe (isJust, fromJust)
 import Control.Monad.State (get)
 
 import Engine.Core.Types
+import Engine.Core.HasPosition (HasPosition(..))
 import Engine.Core.Vec (Vec3(..))
-import Engine.Model.AABB (getObjectIntersecter)
+import Engine.Model.AABB (AABB(..), getObjectIntersecter)
+import Engine.Model.Model (Model(..))
 import Engine.Object.Octree (findNearby)
 import Engine.Object.Intersect (intersectsAny)
 

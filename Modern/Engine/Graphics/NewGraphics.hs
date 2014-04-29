@@ -15,11 +15,12 @@ import Graphics.Rendering.OpenGL.Raw
      glBindFramebuffer, gl_FRAMEBUFFER)
 
 import Engine.Core.Types
-    (World(..), WorldState(..), Framebuffer(..),
-     Shader(..), GameObject(..), Model(..),
-     HasPosition(..), HasRotation(..), Graphics(..),
-     WorldMatrices(..), Terrain(..),
+    (World(..), WorldState(..),
+     GameObject(..),
+     Graphics(..),
+     WorldMatrices(..),
      emptyMatrices)
+import Engine.Core.HasPosition (HasPosition(..), HasRotation(..))
 import Engine.Core.World (setWorldUniforms)
 import Engine.Core.Vec (Vec3(..))
 import Engine.Graphics.Shaders
@@ -31,7 +32,12 @@ import Engine.Matrix.Matrix
      setMatrixUniforms, calculateMatricesFromPlayer,
      gidentityMatrix)
 import Engine.Graphics.Window (Window(..))
-import Engine.Graphics.Framebuffer (renderAllPasses)
+import Engine.Graphics.Shaders (Shader(..))
+import Engine.Terrain.Generator (Terrain(..))
+import Engine.Graphics.Framebuffer (Framebuffer(..))
+import Engine.Graphics.Graphics (renderAllPasses)
+import Engine.Model.Model (Model(..))
+--import Engine.Graphics.Framebuffer (renderAllPasses)
 
 -- | The data passed around through the stages of
 --   rendering.

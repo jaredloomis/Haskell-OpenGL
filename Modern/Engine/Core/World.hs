@@ -10,8 +10,8 @@ import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
 import Engine.Core.Types
     (World(..), WorldState(..), Graphics(..),
-     GameObject(..), Shader(..))
-import Engine.Graphics.Shaders (setUniformsAndRemember)
+     GameObject(..))
+import Engine.Graphics.Shaders (Shader(..), setUniformsAndRemember)
 
 setWorldPlayer :: GameObject t -> World t -> World t
 setWorldPlayer player world = world{worldPlayer = player}

@@ -12,17 +12,19 @@ import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
 import Engine.Core.Types
     (World(..), WorldState(..), Graphics(..),
-     Terrain, Octree(..),
-     AABB(..), Simplex(..), emptyGraphics, emptyWorldState)
+     emptyGraphics, emptyWorldState)
 import Engine.Graphics.Window (Window(..), defaultWindow)
 import Engine.Object.Player (mkPlayer)
-import Engine.Object.Octree (createOctreeFromAABBs)
+import Engine.Object.Octree (Octree(..), createOctreeFromAABBs)
 import Engine.Core.World (getWorldTime)
 import Engine.Model.ObjLoader (loadObjObject)
 import Engine.Terrain.Generator (generateTerrain)
-import Engine.Graphics.Framebuffer (makeFrameBuffer)
+import Engine.Graphics.Graphics (makeFrameBuffer)
 import Engine.Graphics.Shaders (loadProgram)
 import Engine.Graphics.Shadows (makeShadowFrameBuffer)
+import Engine.Terrain.Noise (Simplex(..))
+import Engine.Terrain.Generator (Terrain(..))
+import Engine.Model.AABB (AABB(..))
 
 data CreationSettings = CreationSettings {
     settingsSimplex :: Maybe Simplex,

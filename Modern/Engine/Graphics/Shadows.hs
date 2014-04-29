@@ -9,9 +9,9 @@ import Graphics.Rendering.OpenGL.Raw
 import Foreign (alloca, peek, withArray)
 
 import Engine.Core.Types
-    (Framebuffer(..), World(..),
+    (World(..),
      Graphics(..), WorldState(..),
-     GameObject(..), Model(..),
+     GameObject(..),
      WorldMatrices(..),
      Matrix4x4)
 import Engine.Matrix.Matrix
@@ -26,10 +26,12 @@ import Engine.Graphics.Shaders
     (Shader(..), quickGetUniform,
      bindTextures, setShaderAttribs,
      findUniformLocationAndRemember)
-import Engine.Graphics.Framebuffer
+import Engine.Graphics.Graphics
     (renderAllPasses)
 import Engine.Graphics.GraphicsUtils (offset0)
 import Engine.Graphics.Window (Window(..))
+import Engine.Graphics.Framebuffer (Framebuffer(..))
+import Engine.Model.Model (Model(..))
 
 -- | Create a Framebuffer.
 makeShadowFrameBuffer :: (GLint, GLint) -> IO Framebuffer

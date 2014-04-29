@@ -20,11 +20,11 @@ import Graphics.Rendering.OpenGL.Raw
     (GLfloat, glUniformMatrix4fv, gl_FALSE)
 
 import Engine.Core.Types
-    (GameObject(..), Shader(..),
+    (GameObject(..),
      WorldMatrices(..), Matrix4x4,
      Vector4, Matrix3x3, Vector3)
 import Engine.Graphics.Shaders
-    (findUniformLocationAndRemember)
+    (Shader(..), findUniformLocationAndRemember)
 import Engine.Core.Vec (Vec3(..))
 
 setMatrixUniforms :: Shader -> WorldMatrices -> IO Shader

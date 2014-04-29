@@ -14,11 +14,15 @@ import Graphics.Rendering.OpenGL.Raw (GLfloat)
 import qualified Graphics.UI.GLFW as GLFW
 
 import Engine.Core.Types
+import Engine.Model.AABB (HasAABB(..), AABB(..))
 import Engine.Core.Util (sinDeg, cosDeg)
 import Engine.Core.Vec (Vec3(..), Vec2(..))
 import Engine.Core.World (getWorldDelta)
 import Engine.Object.GameObject
     (moveObjectSlide, moveSlideIntersecters)
+import Engine.Core.HasPosition (HasPosition(..))
+import Engine.Terrain.Generator (Terrain(..))
+import Engine.Object.Intersect (Intersect(..))
 
 -------- FPS ------------------
 

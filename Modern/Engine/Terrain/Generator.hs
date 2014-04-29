@@ -1,4 +1,5 @@
 module Engine.Terrain.Generator (
+    Terrain(..), emptyTerrain,
     genSimplexModel,
     generateTerrain
 ) where
@@ -9,16 +10,38 @@ import System.Random (randomRIO)
 import Graphics.Rendering.OpenGL.Raw
     (GLfloat, GLint, GLuint)
 
+import Engine.Terrain.Noise (Simplex(..))
+import Engine.Graphics.Shaders (Shader(..), ShaderAttrib)
+import Engine.Graphics.Textures (Texture)
+import Engine.Model.AABB (AABB(..))
+import Engine.Model.Model (Model(..))
 import Engine.Graphics.Shaders
     (loadProgram, getAttrLocs, createShaderAttribs)
 import Engine.Model.AABB (aabbFromPoints)
 import Engine.Graphics.GraphicsUtils (createBufferIdAll)
-import Engine.Core.Types
+--import Engine.Core.Types
 import Engine.Model.Model
     (createModel)
 import Engine.Terrain.Noise
     (perm, getSimplexHeight)
 import Engine.Graphics.Textures (juicyLoadTexture)
+
+-- | A data type for a procedurally generally
+--   terrain.
+data Terrain = Terrain {
+    terrainSimplex :: Simplex,
+    terrainShader :: Shader,
+    terrainShaderVars :: [ShaderAttrib],
+    terrainTextures :: [Texture],
+    terrainVertCount :: GLint,
+    terrainWholeAABB :: AABB,
+    terrainHeightFunc :: GLfloat -> GLfloat -> GLfloat
+}
+emptyTerrain :: Terrain
+emptyTerrain = Terrain undefined
+            (Shader (-1) []) [] [] 0
+            (AABB 0 0)
+            (\_ _ -> -10e100)
 
 generateTerrain :: FilePath -> FilePath ->
     GLfloat ->          -- ^ Width

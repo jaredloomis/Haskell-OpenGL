@@ -1,16 +1,33 @@
 module Engine.Model.Model (
-    Model(..), createModel, createModelWithProgram
+    Model(..), createModel, createModelWithProgram,
+    emptyModel
 ) where
 
 import Graphics.Rendering.OpenGL.Raw
     (GLfloat, GLuint, GLint)
 
-import Engine.Core.Types
-    (Model(..), Shader(..))
+--import Engine.Core.Types
+--    (Model(..), Shader(..))
+import Engine.Model.AABB (AABB(..))
+import Engine.Graphics.Shaders (Shader(..), ShaderAttrib)
+import Engine.Graphics.Textures (Texture)
 import Engine.Graphics.Shaders
     (loadProgram, getAttrLocs, createShaderAttribs)
 import Engine.Model.AABB (aabbByFace, aabbFromPoints)
 import Engine.Graphics.GraphicsUtils (createBufferIdAll)
+
+-- | A data type for representing a model
+--   to be rendered.
+data Model = Model {
+    modelShader :: Shader,
+    modelShaderVars :: [ShaderAttrib],
+    modelTextures :: [Texture],
+    modelVertCount :: GLint,
+    modelAABBs :: [AABB],
+    modelWholeAABB :: Maybe AABB
+} deriving (Show, Eq)
+emptyModel :: Model
+emptyModel = Model (Shader 0 []) [] [] 0 [AABB 0 0] (Just $ AABB 0 0)
 
 createModel ::
     FilePath ->     -- ^ Vertex Shader.

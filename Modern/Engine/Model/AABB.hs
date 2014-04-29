@@ -1,16 +1,58 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
 module Engine.Model.AABB (
-    AABB(..), anyIntersectGet,
+    AABB(..), HasAABB(..), anyIntersectGet,
     aabbFromPoints, aabbByFace, intersecting,
     getObjectIntersecter,
-    getObjectAllIntersecters
+    getObjectAllIntersecters,
+    objectsIntersectInclusive,
+    intersectingInclusive,
+    anyIntersectInclusive
 ) where
 
 import Data.Maybe (isJust, fromJust)
 import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
-import Engine.Core.Types
-    (AABB(..), HasAABB(..), Intersect(..))
 import Engine.Core.Vec (Vec3(..))
+import Engine.Core.HasPosition (HasPosition(..))
+import Engine.Object.Intersect (Intersect(..))
+
+-- | AABB (min corner) (max corner)
+data AABB = AABB Vec3 Vec3 deriving (Show, Eq)
+
+-- | A class for types that have an
+--   Axis-Aligned Bounding Box (AABB). Type must
+--   also have a position for this to make sense.
+class HasPosition a => HasAABB a where
+    getAABBs :: a -> [AABB]
+    transformedAABBs :: a -> [AABB]
+    getWholeAABB :: a -> Maybe AABB
+    transformedWholeAABB :: a -> Maybe AABB
+    {-# MINIMAL getAABBs, transformedAABBs,
+        getWholeAABB, transformedWholeAABB #-}
+
+instance HasPosition AABB where
+    getPos (AABB minV _) = minV
+    setPos (AABB minV maxV) pos =
+        AABB pos ((maxV - minV) + pos)
+
+instance HasAABB AABB where
+    getWholeAABB (AABB low high) = Just (AABB 0 (high - low))
+    getAABBs (AABB low high) = [AABB 0 (high - low)]
+    transformedAABBs aabb = [aabb]
+    transformedWholeAABB = Just
+
+instance Intersect AABB AABB where
+    intersecting
+        (AABB (Vec3 min1x min1y min1z) (Vec3 max1x max1y max1z))
+        (AABB (Vec3 min2x min2y min2z) (Vec3 max2x max2y max2z)) =
+            max1x > min2x &&
+            min1x < max2x &&
+            max1y > min2y &&
+            min1y < max2y &&
+            max1z > min2z &&
+            min1z < max2z
+    {-# INLINE intersecting #-}
+
 
 getObjectAllIntersecters :: (HasAABB a, HasAABB b) =>
                             a -> [b] -> [AABB]
@@ -107,3 +149,39 @@ min3 a b c = min c $ min a b
 max3 :: Ord a => a -> a -> a -> a
 max3 a b c = max c $ max a b
 {-# INLINE max3 #-}
+
+-- = Inclusive "AABB" collision detection.
+
+-- | Test if two objects intersect.
+objectsIntersectInclusive :: (HasAABB a, HasAABB b) => a -> b -> Bool
+objectsIntersectInclusive l r
+    | isJust (getWholeAABB l) &&
+      isJust (getWholeAABB r) =
+        let Just wholeabl = transformedWholeAABB l
+            Just wholeabr = transformedWholeAABB r
+        in intersectingInclusive wholeabl wholeabr &&
+            (null (getAABBs l) && (not . null) (getAABBs r) ||
+                let newl = transformedAABBs l
+                    newr = transformedAABBs r
+                in anyIntersectInclusive (head newl) newr)
+    | otherwise =
+        null (getAABBs l) && (not . null) (getAABBs r) ||
+            let newl = transformedAABBs l
+                newr = transformedAABBs r
+            in anyIntersectInclusive (head newl) newr
+
+intersectingInclusive :: AABB -> AABB -> Bool
+intersectingInclusive (AABB (Vec3 min1x min1y min1z) (Vec3 max1x max1y max1z))
+             (AABB (Vec3 min2x min2y min2z) (Vec3 max2x max2y max2z)) =
+    max1x >= min2x &&
+    min1x <= max2x &&
+    max1y >= min2y &&
+    min1y <= max2y &&
+    max1z >= min2z &&
+    min1z <= max2z
+{-# INLINE intersectingInclusive #-}
+
+anyIntersectInclusive :: AABB -> [AABB] -> Bool
+anyIntersectInclusive l (r:rs) =
+    intersectingInclusive l r || anyIntersectInclusive l rs
+anyIntersectInclusive _ _ = False

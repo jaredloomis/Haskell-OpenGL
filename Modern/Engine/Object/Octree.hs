@@ -1,17 +1,40 @@
 {-# LANGUAGE FlexibleContexts #-}
 module Engine.Object.Octree (
+    Octree(..),
     maxCapacity, createOctree, createOctreeFromAABBs,
     findNearby, octInsert, subdivide, findNearby'
 ) where
 
 import Data.List (foldl')
-import Engine.Object.Intersect
-    (objectsIntersectInclusive)
+import Engine.Model.AABB
+    (AABB(..), HasAABB(..),
+     objectsIntersectInclusive)
+import Engine.Object.Intersect (Intersect(..))
+import Engine.Core.HasPosition (HasPosition(..))
 
-import Engine.Core.Types
-    (HasAABB(..), AABB(..), Octree(..),
-     HasPosition(..), Intersect(..))
+
 import Engine.Core.Vec (Vec3(..), vmap)
+
+-- | A pure Octree used to sort objects for
+--   collision detection.
+data Octree a =
+    ONode AABB [Octree a]
+  | OLeaf AABB [a] Int
+
+instance Show a => Show (Octree a) where
+    show (ONode aabb children) =
+        "Node: " ++ show aabb ++ "\n{\n" ++
+        concatMap ((++"\n") . show) children ++ "}"
+    show (OLeaf aabb contents _) =
+        "Leaf: " ++ show aabb ++ ", " ++ show contents
+
+-- UNSAFE! Does not insert items in the correct
+--         place after updating.
+instance Functor Octree where
+    fmap f (ONode aabb children) =
+        ONode aabb (map (fmap f) children)
+    fmap f (OLeaf aabb contents len) =
+        OLeaf aabb (map f contents) len
 
 maxCapacity :: Int
 maxCapacity = 64

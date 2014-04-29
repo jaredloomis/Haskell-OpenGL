@@ -10,7 +10,22 @@ import qualified Data.Vector.Unboxed as V
 
 import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
-import Engine.Core.Types
+type Permutation = V.Vector Int
+
+-- | All the information needed to create and
+--   keep track of a Simplex procedurally
+--   generated terrain.
+data Simplex = Simplex {
+    simpSeed :: Int,
+    simpDimensions :: (Int, Int),
+    simpStartXY :: (Int, Int),
+    simpSpacing :: GLfloat,
+    simpOctaves :: Int,
+    simpWavelength :: GLfloat,
+    simpIntensity :: GLfloat,
+    simpPerm :: Permutation
+} deriving (Show, Eq)
+
 
 g3 :: Double
 g3 = 0.16666666666666666 -- 1/6

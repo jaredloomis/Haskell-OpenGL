@@ -4,44 +4,45 @@
 {-# LANGUAGE OverlappingInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Engine.Core.Types (
-    Game(..), GameIO(..), HasPosition(..),
-    HasRotation(..), HasName(..), Intersect(..),
+    Game(..), GameIO(..), HasName(..),
     World(..), Graphics(..), WorldState(..),
-    GameObject(..), Model(..), Terrain(..),
-    Permutation, Simplex(..), Octree(..),
-    MOctree(..), Input(..), Framebuffer(..),
-    Shader(..), WorldMatrices(..), Matrix4x4,
-    Matrix3x3, Vector4, Vector3, ShaderAttrib(..),
-    ShaderUniform, Texture, Image(..),
-    AABB(..), HasAABB(..),
+    GameObject(..),
+    MOctree(..), Input(..),
+    WorldMatrices(..), Matrix4x4,
+    Matrix3x3, Vector4, Vector3,
     emptyEntity, playerAABB,
     emptyGraphics, emptyWorldState,
-    emptyMatrices,
-    emptyTerrain, mkScreenFramebuffer
+    emptyMatrices
 ) where
 
 import Control.Applicative (Applicative)
 import Data.Time (UTCTime)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import Foreign (Word8)
 import Data.Maybe (isNothing, isJust, fromJust)
 import Control.Monad.State
     (State, StateT, MonadIO,
      MonadState)
-import Foreign.Ptr
 import Data.List (transpose)
 
 import qualified Data.Vector.Storable.Mutable as MV
-import qualified Data.Vector.Unboxed as UV
 import qualified Data.Vector.Storable as V
 
-import Graphics.Rendering.OpenGL.Raw (GLuint, GLfloat, GLint)
+import Graphics.Rendering.OpenGL.Raw (GLuint, GLfloat)
 import qualified Graphics.UI.GLFW as GLFW
 
 import Engine.Core.Vec
+import Engine.Core.HasPosition
+    (HasPosition(..), HasRotation(..))
 import Engine.Graphics.Window
+import Engine.Model.AABB (HasAABB(..), AABB(..))
+import Engine.Object.Intersect (Intersect(..))
+import Engine.Terrain.Generator (Terrain(..))
+import Engine.Object.Octree (Octree(..))
+import Engine.Graphics.Shaders (ShaderUniform)
+import Engine.Graphics.Framebuffer (Framebuffer)
+import Engine.Model.Model (Model(..), emptyModel)
 
--- = "mtl" State Monads.
+-- = "mtl" State Monads
 
 newtype Game t a = Game {
     gameState :: State (World t) a
@@ -51,49 +52,12 @@ newtype GameIO t a = GameIO {
     gameIoState :: StateT (World t) IO a
 } deriving (Functor, Applicative, Monad, MonadIO, MonadState (World t))
 
--- = Type classes.
-
--- | A class for types that have a position
---   that can be retrieved and set.
-class HasPosition p where
-    getPos :: p -> Vec3
-    setPos :: p -> Vec3 -> p
-    movePos :: p -> Vec3 -> p
-    movePos hp movement =
-        setPos hp (getPos hp + movement)
-    {-# MINIMAL getPos, setPos #-}
-
--- | A class for types that have a rotation
---   that can be retrieved and set.
-class HasRotation r where
-    getRot :: r -> Vec3
-    setRot :: r -> Vec3 -> r
-    rotate :: r -> Vec3 -> r
-    rotate r deltaR =
-        setRot r (getRot r + deltaR)
-    {-# MINIMAL getRot, setRot #-}
+-- = Type classes
 
 -- TODO
 class HasName i where
     getName :: i -> Int
     {-# MINIMAL getName #-}
-
--- | A type class for any two things
---   that can intersect.
-class Intersect l r where
-    intersecting :: l -> r -> Bool
-    {-# MINIMAL intersecting #-}
-
--- | A class for types that have an
---   Axis-Aligned Bounding Box (AABB). Type must
---   also have a position for this to make sense.
-class HasPosition a => HasAABB a where
-    getAABBs :: a -> [AABB]
-    transformedAABBs :: a -> [AABB]
-    getWholeAABB :: a -> Maybe AABB
-    transformedWholeAABB :: a -> Maybe AABB
-    {-# MINIMAL getAABBs, transformedAABBs,
-        getWholeAABB, transformedWholeAABB #-}
 
 instance HasPosition Vec3 where
     getPos = id
@@ -133,7 +97,7 @@ data Graphics t = Graphics {
 emptyGraphics :: Graphics t
 emptyGraphics = Graphics [] (undefined, []) (undefined, 0)
 
--- = GameObject.
+-- = GameObject
 
 -- | Type representing nearly anything in the game
 --   that is somewhat "physical".
@@ -207,49 +171,7 @@ instance Intersect (GameObject t) AABB where
                 anyIntersecting needle haystack
         anyIntersecting _ [] = False
 
--- = Model.
-
--- | A data type for representing a model
---   to be rendered.
-data Model = Model {
-    modelShader :: Shader,
-    modelShaderVars :: [ShaderAttrib],
-    modelTextures :: [Texture],
-    modelVertCount :: GLint,
-    modelAABBs :: [AABB],
-    modelWholeAABB :: Maybe AABB
-} deriving (Show, Eq)
-emptyModel :: Model
-emptyModel = Model (Shader 0 []) [] [] 0 [AABB 0 0] (Just $ AABB 0 0)
-
--- = Collision Detection.
-
--- | AABB (min corner) (max corner)
-data AABB = AABB Vec3 Vec3 deriving (Show, Eq)
-
-instance HasPosition AABB where
-    getPos (AABB minV _) = minV
-    setPos (AABB minV maxV) pos =
-        AABB pos ((maxV - minV) + pos)
-
-instance HasAABB AABB where
-    getWholeAABB (AABB low high) = Just (AABB 0 (high - low))
-    getAABBs (AABB low high) = [AABB 0 (high - low)]
-    transformedAABBs aabb = [aabb]
-    transformedWholeAABB = Just
-
-instance Intersect AABB AABB where
-    intersecting
-        (AABB (Vec3 min1x min1y min1z) (Vec3 max1x max1y max1z))
-        (AABB (Vec3 min2x min2y min2z) (Vec3 max2x max2y max2z)) =
-            max1x > min2x &&
-            min1x < max2x &&
-            max1y > min2y &&
-            min1y < max2y &&
-            max1z > min2z &&
-            min1z < max2z
-    {-# INLINE intersecting #-}
-
+-- = Collision Detection
 
 instance (HasAABB a, HasAABB b) => Intersect a b where
     intersecting left right =
@@ -273,51 +195,13 @@ instance (HasAABB a, HasAABB b) => Intersect a b where
             intersecting l r || anyIntersect ls rs
         anyIntersect _ _ = False
 
--- | A pure Octree used to sort objects for
---   collision detection.
-data Octree a =
-    ONode AABB [Octree a]
-  | OLeaf AABB [a] Int
-
-instance Show a => Show (Octree a) where
-    show (ONode aabb children) =
-        "Node: " ++ show aabb ++ "\n{\n" ++
-        concatMap ((++"\n") . show) children ++ "}"
-    show (OLeaf aabb contents _) =
-        "Leaf: " ++ show aabb ++ ", " ++ show contents
-
--- UNSAFE! Does not insert items in the correct
---         place after updating.
-instance Functor Octree where
-    fmap f (ONode aabb children) =
-        ONode aabb (map (fmap f) children)
-    fmap f (OLeaf aabb contents len) =
-        OLeaf aabb (map f contents) len
-
 data MOctree a =
     MNode AABB (MV.IOVector (MOctree a))
   | PNode AABB (V.Vector (MOctree a))
   | MLeaf AABB (MV.IOVector a) Int
   | PLeaf AABB (V.Vector a) Int
 
--- = Procedurally Generated Terrain.
-
--- | A data type for a procedurally generally
---   terrain.
-data Terrain = Terrain {
-    terrainSimplex :: Simplex,
-    terrainShader :: Shader,
-    terrainShaderVars :: [ShaderAttrib],
-    terrainTextures :: [Texture],
-    terrainVertCount :: GLint,
-    terrainWholeAABB :: AABB,
-    terrainHeightFunc :: GLfloat -> GLfloat -> GLfloat
-}
-emptyTerrain :: Terrain
-emptyTerrain = Terrain undefined
-            (Shader (-1) []) [] [] 0
-            (AABB 0 0)
-            (\_ _ -> -10e100)
+-- = Procedurally Generated Terrain
 
 instance Intersect Terrain AABB where
     intersecting terr (AABB (Vec3 lx ly lz) _) =
@@ -327,23 +211,7 @@ instance Intersect AABB Terrain where
     intersecting (AABB (Vec3 lx ly lz) _) terr =
         ly < terrainHeightFunc terr lx lz
 
-type Permutation = UV.Vector Int
-
--- | All the information needed to create and
---   keep track of a Simplex procedurally
---   generated terrain.
-data Simplex = Simplex {
-    simpSeed :: Int,
-    simpDimensions :: (Int, Int),
-    simpStartXY :: (Int, Int),
-    simpSpacing :: GLfloat,
-    simpOctaves :: Int,
-    simpWavelength :: GLfloat,
-    simpIntensity :: GLfloat,
-    simpPerm :: Permutation
-} deriving (Show, Eq)
-
--- = Input.
+-- = Input
 
 -- | A data type to represent all settings used
 --   to react to input.
@@ -357,41 +225,6 @@ data Input t = Input {
     inputLastMousePos :: Vec2,
     inputMouseSpeed :: GLfloat
 }
-
--- = Graphics
-
--- | All OpenGL handles for a Framebuffer and
---   Renderbuffer.
-data Framebuffer = FB {
-    fbufName :: GLuint,
-    fbufTexture :: GLuint,
-    fbufDimensions :: (GLint, GLint),
-    fbufVBO :: GLuint,
-    fbufRenderBuffer :: GLuint
-} deriving (Show, Eq)
-mkScreenFramebuffer :: GLFW.Window -> IO Framebuffer
-mkScreenFramebuffer win = do
-    (w, h) <- GLFW.getFramebufferSize win
-    return $ FB 0 0 (fromIntegral w, fromIntegral h) 0 0
-
--- | An OpenGL program id and some uniform
---   ids so that glUniform* doesn't have to be
---   called more than once.
-data Shader = Shader {
-    shaderId :: GLuint,
-    shaderUniforms :: [(String, GLint)]
-} deriving (Show, Eq)
-
--- | Attrib id, Buffer id, size of attrib.
-data ShaderAttrib = ShaderAttrib !GLuint !GLuint !GLuint
-    deriving (Show, Eq)
--- | Name, Values
-type ShaderUniform = (String, IO [GLfloat])
-
-data Image = Image (GLint, GLint) (Ptr Word8)
-    deriving (Show)
-
-type Texture = (GLuint, GLint)
 
 -- = Matrices
 

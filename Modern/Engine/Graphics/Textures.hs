@@ -1,5 +1,5 @@
 module Engine.Graphics.Textures (
---    Image(..), Texture,
+    Image(..), Texture,
     juicyLoadImageRaw, juicyLoadTexture
 ) where
 
@@ -17,13 +17,12 @@ import Graphics.Rendering.OpenGL.Raw
      glBindTexture, glGenTextures,
      glTexImage2D, gl_RGB, gl_UNSIGNED_BYTE)
 
-import Engine.Core.Types (Image(..))
-{-
+--import Engine.Core.Types (Image(..))
+
 data Image = Image (GLint, GLint) (Ptr Word8)
     deriving (Show)
 
 type Texture = (GLuint, GLint)
--}
 
 -- | Load an image and turn it into something OpenGL can use.
 juicyLoadTexture :: FilePath -> IO GLuint

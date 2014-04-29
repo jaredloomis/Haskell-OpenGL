@@ -1,5 +1,5 @@
 module Engine.Graphics.Shaders (
-    ShaderAttrib, ShaderUniform, Shader(..),
+    ShaderAttrib(..), ShaderUniform, Shader(..),
     createShaderAttribs, loadProgram, bindTextures, unBindTextures,
     setShaderAttribs, disableShaderAttribs, setUniforms,
     getMatrixFromGL, quickGetUniform, getAttrLocs,
@@ -20,9 +20,24 @@ import Foreign.C.Types (CChar)
 
 import Graphics.Rendering.OpenGL.Raw
 
-import Engine.Core.Types
+--import Engine.Core.Types
 import Engine.Graphics.GraphicsUtils
     (withNewPtr, withNewPtrArray, offset0)
+import Engine.Graphics.Textures (Texture)
+
+-- | An OpenGL program id and some uniform
+--   ids so that glUniform* doesn't have to be
+--   called more than once.
+data Shader = Shader {
+    shaderId :: GLuint,
+    shaderUniforms :: [(String, GLint)]
+} deriving (Show, Eq)
+
+-- | Attrib id, Buffer id, size of attrib.
+data ShaderAttrib = ShaderAttrib !GLuint !GLuint !GLuint
+    deriving (Show, Eq)
+-- | Name, Values
+type ShaderUniform = (String, IO [GLfloat])
 
 emptyShader :: Shader
 emptyShader = Shader (-1) []
