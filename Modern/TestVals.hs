@@ -80,7 +80,7 @@ mkWorld fb shadowFb shadowShader shaders = do
 --    objb <- mkObj2
     objc <- mkObj3
     let octree = mkOctree [obja, objc]
-        terrain = emptyTerrain
+        terrain = Nothing --emptyTerrain
 {-
     terrain <- generateTerrain
             mainVertShader
@@ -116,9 +116,11 @@ mkObj :: IO (GameObject ())
 mkObj =
     Entity (Vec3 10 3 10) (Vec3 0 0 0) idUpdate <$> mkModel <*> return ()
 
+{-
 mkObj2 :: IO (GameObject ())
 mkObj2 =
     Entity (Vec3 0 0 0) (Vec3 0 0 0) idUpdate <$> mkTerrain <*> return ()
+-}
 
 mkObj3 :: IO (GameObject ())
 mkObj3 =

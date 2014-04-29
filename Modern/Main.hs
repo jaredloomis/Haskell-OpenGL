@@ -2,7 +2,7 @@
 module Main where
 
 import Data.Time (diffUTCTime)
-import Control.Monad.State (unless, evalState)
+import Control.Monad.State (unless, evalState, execState)
 
 import qualified Graphics.UI.GLFW as GLFW
 
@@ -20,7 +20,7 @@ import Engine.Core.World (getWorldTime, setWorldPlayer)
 import Engine.Object.Player (resetPlayerInput)
 import Engine.Object.GameObject (updateWorld)
 import Engine.Graphics.NewGraphics (renderWorldNewPost)
-import TestVals (mkWorldFast)
+import Engine.Core.WorldCreator (createWorld, defaultSettings)
 
 main :: IO ()
 main = do
@@ -32,7 +32,7 @@ main = do
     initGL win
 
     -- Create default world, set the window.
-    tmp <- mkWorldFast
+    tmp <- createWorld defaultSettings --mkWorldFast
     let world = tmp{
         worldState = (worldState tmp){stateWindow = window}}
 
@@ -98,7 +98,7 @@ updateStepComplete win world = do
 
     -- Update player
     let worldWithPlayer = world{worldPlayer = player, worldState = newState}
-        updatedWorld = evalState (gameState $ playerUpdate player) worldWithPlayer
+        updatedWorld = execState (gameState $ playerUpdate player) worldWithPlayer
         updatedWorldWithUpdatedPlayer =
             setWorldPlayer (resetPlayerInput $ worldPlayer updatedWorld) updatedWorld
 

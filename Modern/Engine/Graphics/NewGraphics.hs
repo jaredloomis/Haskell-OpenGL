@@ -7,6 +7,7 @@ module Engine.Graphics.NewGraphics (
 ) where
 
 import Data.Bits ((.|.))
+import Data.Maybe (isJust, fromJust)
 
 import Graphics.Rendering.OpenGL.Raw
     (GLint, glUseProgram, glDrawArrays, gl_TRIANGLES,
@@ -17,8 +18,8 @@ import Engine.Core.Types
     (World(..), WorldState(..), Framebuffer(..),
      Shader(..), GameObject(..), Model(..),
      HasPosition(..), HasRotation(..), Graphics(..),
-     WorldMatrices(..), RenderInfo(..), Terrain(..),
-     emptyInfo)
+     WorldMatrices(..), Terrain(..),
+     emptyMatrices)
 import Engine.Core.World (setWorldUniforms)
 import Engine.Core.Vec (Vec3(..))
 import Engine.Graphics.Shaders
@@ -31,6 +32,15 @@ import Engine.Matrix.Matrix
      gidentityMatrix)
 import Engine.Graphics.Window (Window(..))
 import Engine.Graphics.Framebuffer (renderAllPasses)
+
+-- | The data passed around through the stages of
+--   rendering.
+data RenderInfo = RenderInfo {
+    renderInfoShader :: Shader,
+    renderInfoMatrices :: WorldMatrices
+} deriving (Show, Eq)
+emptyInfo :: RenderInfo
+emptyInfo = RenderInfo (Shader (-1) []) emptyMatrices
 
 -- | A class for things that can be rendered to
 --   the screen &| Framebuffers.
@@ -191,14 +201,19 @@ renderWorldNew world = do
     let (width, height) = windowSize $ stateWindow $ worldState world
         fbuf = screenFramebuffer (fromIntegral width, fromIntegral height)
     _ <- renderAllWithGlobal fbuf world (worldEntities world) :: IO RenderInfo
-    _ <- renderAllWithGlobal fbuf world [worldTerrain world] :: IO RenderInfo
+    _ <- if isJust $ worldTerrain world
+            then renderAllWithGlobal fbuf world [fromJust $ worldTerrain world] :: IO RenderInfo
+            else return emptyInfo
     return world
 
 renderWorldNewWithFramebuffer :: World t -> Framebuffer -> IO (World t)
 renderWorldNewWithFramebuffer world fbuf = do
     glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
     _ <- renderAllWithGlobal fbuf world (worldEntities world) :: IO RenderInfo
-    _ <- renderAllWithGlobal fbuf world [worldTerrain world] :: IO RenderInfo
+    --_ <- renderAllWithGlobal fbuf world [worldTerrain world] :: IO RenderInfo
+    _ <- if isJust $ worldTerrain world
+            then renderAllWithGlobal fbuf world [fromJust $ worldTerrain world] :: IO RenderInfo
+            else return emptyInfo
     return world
     
 

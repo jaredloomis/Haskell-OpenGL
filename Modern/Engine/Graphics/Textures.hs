@@ -1,15 +1,16 @@
 module Engine.Graphics.Textures (
+--    Image(..), Texture,
     juicyLoadImageRaw, juicyLoadTexture
 ) where
 
-import Foreign (alloca, peek)
+import Foreign (Ptr, Word8, alloca, peek)
 import qualified Data.Vector.Storable as V
 
 import qualified Codec.Picture as Juicy
 import qualified Codec.Picture.Types as JTypes
 
 import Graphics.Rendering.OpenGL.Raw
-    (GLuint,
+    (GLuint, GLint,
      glTexParameteri, gl_TEXTURE_2D,
      gl_TEXTURE_MIN_FILTER, gl_NEAREST,
      gl_TEXTURE_MAG_FILTER,
@@ -17,6 +18,12 @@ import Graphics.Rendering.OpenGL.Raw
      glTexImage2D, gl_RGB, gl_UNSIGNED_BYTE)
 
 import Engine.Core.Types (Image(..))
+{-
+data Image = Image (GLint, GLint) (Ptr Word8)
+    deriving (Show)
+
+type Texture = (GLuint, GLint)
+-}
 
 -- | Load an image and turn it into something OpenGL can use.
 juicyLoadTexture :: FilePath -> IO GLuint

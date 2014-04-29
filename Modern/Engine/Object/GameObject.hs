@@ -1,9 +1,8 @@
 module Engine.Object.GameObject (
     getPos, moveObjectSlide,
-    moveObjectSlideIntersecter,
     updateWorld, applyGravity,
     moveObjectSafe,
-    moveObject, moveObjectSlideAllIntersecters,
+    moveObject, moveSlideIntersecters,
     getModel
 ) where
 
@@ -12,8 +11,7 @@ import Control.Monad.State (get)
 
 import Engine.Core.Types
 import Engine.Core.Vec (Vec3(..))
-import Engine.Model.AABB
-    (getObjectIntersecter)
+import Engine.Model.AABB (getObjectIntersecter)
 import Engine.Object.Octree (findNearby)
 import Engine.Object.Intersect (intersectsAny)
 
@@ -22,7 +20,6 @@ updateWorld = do
     world <- get
     newObjs <- updateEntities
     return world{worldEntities = newObjs}
-    -- $ performUpdateAll world (worldEntities world)
 
 updateEntities :: Game t [GameObject t]
 updateEntities = do
@@ -31,99 +28,41 @@ updateEntities = do
 
 -- | Safely move an object down, simulating
 --   very simple gravity.
-applyGravity :: World t -> GameObject t -> GameObject t
-applyGravity world object =
-    moveObjectSafe world object (Vec3 0 (-0.1) 0)
-
--- | Move an object on each axis independently, and return
---   the first AABB it intersected with, if applicable.
-moveObjectSlideIntersecter ::
-    World t -> GameObject t -> Vec3 -> (GameObject t, Maybe AABB)
-moveObjectSlideIntersecter world object (Vec3 dx dy dz) =
-    let (objectX, abX) = if dx /= 0
-            then
-                let objectXP = moveObject object $ Vec3 dx 0 0
-                    entities = findNearby (worldOctree world) (movePos playerAABB (getPos object))
-                    intersectingX = getObjectIntersecter objectXP entities
-                in if isJust intersectingX
-                        then (object, intersectingX)
-                    else (objectXP, Nothing)
-            else (object, Nothing)
-
-        (objectY, abY) = if dy /= 0
-            then
-                let objectYP = moveObject objectX $ Vec3 0 dy 0
-                    entities = findNearby (worldOctree world) (movePos playerAABB (getPos object))
-                    intersectingY = getObjectIntersecter objectYP entities
-                in if isJust intersectingY
-                        then (objectX, intersectingY)
-                    else (objectYP, abX)
-            else (objectX, abX)
-
-    in if dz /= 0
-        then
-            let objectZP = moveObject objectY $ Vec3 0 0 dz
-                entities = findNearby (worldOctree world) (movePos playerAABB (getPos object))
-                intersectingZ = getObjectIntersecter objectZP entities
-            in if isJust intersectingZ
-                        then (objectY, intersectingZ)
-                    else (objectZP, abY)
-            else (objectY, abY)
+applyGravity :: GameObject t -> Game t (GameObject t)
+applyGravity object =
+    moveObjectSafe object (Vec3 0 (-0.1) 0)
 
 -- | Move an object on each axis independently, and return
 --   all AABBs it intersected with, if applicable.
-moveObjectSlideAllIntersecters ::
-    World t -> GameObject t -> Vec3 -> (GameObject t, Maybe [AABB])
-moveObjectSlideAllIntersecters world object (Vec3 dx dy dz) =
-    let (objectX, abX) = if dx /= 0
-            then
-                let objectXP = moveObject object $ Vec3 dx 0 0
-                    entities = findNearby (worldOctree world) (movePos playerAABB (getPos object))
-                    intersectingX = getObjectIntersecter objectXP entities
-                in if isJust intersectingX
-                        then (object, intersectingX)
-                    else (objectXP, Nothing)
-            else (object, Nothing)
+moveSlideIntersecters ::
+    GameObject t -> Vec3 -> Game t (GameObject t, [AABB])
+moveSlideIntersecters object (Vec3 dx dy dz) = do
+    (movedx, intx) <- moveSlideIntersecter object (Vec3 dx 0 0)
+    (movedy, inty) <- moveSlideIntersecter movedx (Vec3 0 dy 0)
+    (movedz, intz) <- moveSlideIntersecter movedy (Vec3 0 0 dz)
 
-        (objectY, abY) = if dy /= 0
-            then
-                let objectYP = moveObject objectX $ Vec3 0 dy 0
-                    entities = findNearby (worldOctree world) (movePos playerAABB (getPos object))
-                    intersectingY = getObjectIntersecter objectYP entities
-                in if isJust intersectingY
-                        then (objectX, intersectingY)
-                    else (objectYP, abX)
-            else (objectX, abX)
+    let aabbs = map fromJust $ filter isJust [intx, inty, intz]
+    return (movedz, aabbs)
 
-    in if dz /= 0
-        then
-            let objectZP = moveObject objectY $ Vec3 0 0 dz
-                entities = findNearby (worldOctree world) (movePos playerAABB (getPos object))
-                intersectingZ = getObjectIntersecter objectZP entities
-            in if isJust intersectingZ
-                        then
-                            let filtered = filter isJust [abX, abY, intersectingZ]
-                            in (objectY, if null filtered
-                                            then Nothing
-                                        else Just $ map fromJust filtered)
-                    else
-                        let filtered = filter isJust [abX, abY]
-                        in (objectZP, if null filtered
-                                        then Nothing
-                                    else Just $ map fromJust filtered)
-            else
-                let filtered = filter isJust [abX, abY]
-                in (objectY, if null filtered
-                                then Nothing
-                            else Just $ map fromJust filtered)
+moveSlideIntersecter :: GameObject t -> Vec3 -> Game t (GameObject t, Maybe AABB)
+moveSlideIntersecter object movement = do
+    world <- get
+    let objectXP = moveObject object movement
+        entities = findNearby (worldOctree world)
+                    (movePos playerAABB (getPos object))
+        intersect = getObjectIntersecter objectXP entities
+    if isJust intersect
+        then return (object, intersect)
+    else return (objectXP, Nothing) 
 
-
-moveObjectSlide :: World t -> GameObject t -> Vec3 -> GameObject t
-moveObjectSlide world object (Vec3 dx dy dz) =
+moveObjectSlide :: GameObject t -> Vec3 -> Game t (GameObject t)
+moveObjectSlide object (Vec3 dx dy dz) = do
+    world <- get
     let objectX = if dx /= 0
         then
             let objectXP = moveObject object $ Vec3 dx 0 0
-                entities = findNearby (worldOctree world) (movePos playerAABB (getPos object))
+                entities = findNearby (worldOctree world)
+                            (movePos playerAABB (getPos object))
                 intersectingX = intersectsAny objectXP entities
             in if intersectingX then object else objectXP
         else object
@@ -131,27 +70,30 @@ moveObjectSlide world object (Vec3 dx dy dz) =
         objectY = if dy /= 0
             then
                 let objectYP = moveObject objectX $ Vec3 0 dy 0
-                    entities = findNearby (worldOctree world) (movePos playerAABB (getPos object))
+                    entities = findNearby (worldOctree world)
+                            (movePos playerAABB (getPos object))
                     intersectingY = intersectsAny objectYP entities
                 in if intersectingY then objectX else objectYP
             else objectX
 
-    in if dz /= 0
+    if dz /= 0
         then
             let objectZP = moveObject objectY $ Vec3 0 0 dz
-                entities = findNearby (worldOctree world) (movePos playerAABB (getPos object))
+                entities = findNearby (worldOctree world)
+                            (movePos playerAABB (getPos object))
                 intersectingZ = intersectsAny objectZP entities
-            in if intersectingZ then objectY else objectZP
-        else objectY
+            in if intersectingZ then return objectY else return objectZP
+        else return objectY
 
-moveObjectSafe :: World t -> GameObject t -> Vec3 -> GameObject t
-moveObjectSafe world object vec =
+moveObjectSafe :: GameObject t -> Vec3 -> Game t (GameObject t)
+moveObjectSafe object vec = do
+    world <- get
     let moved = moveObject object vec
         entities = findNearby (worldOctree world) (movePos playerAABB (getPos object))
         intersectingObject = intersectsAny moved entities
-    in if intersectingObject
-        then object
-    else moved
+    if intersectingObject
+        then return object
+    else return moved
 
 moveObject :: GameObject t -> Vec3 -> GameObject t
 moveObject obj deltaPos =

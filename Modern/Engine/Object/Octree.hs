@@ -1,22 +1,23 @@
+{-# LANGUAGE FlexibleContexts #-}
 module Engine.Object.Octree (
     maxCapacity, createOctree, createOctreeFromAABBs,
-    findNearby, octInsert, subdivide
+    findNearby, octInsert, subdivide, findNearby'
 ) where
 
 import Data.List (foldl')
-
 import Engine.Object.Intersect
     (objectsIntersectInclusive)
+
 import Engine.Core.Types
     (HasAABB(..), AABB(..), Octree(..),
-     HasPosition(..))
+     HasPosition(..), Intersect(..))
 import Engine.Core.Vec (Vec3(..), vmap)
 
 maxCapacity :: Int
 maxCapacity = 64
 {-# INLINE maxCapacity #-}
 
-createOctree :: HasAABB a => AABB -> Octree a
+createOctree :: AABB -> Octree a
 createOctree aabb = OLeaf aabb [] 0
 {-# INLINE createOctree #-}
 
@@ -31,6 +32,15 @@ findNearby (ONode _ children) val =
             then []
         else concatMap (`findNearby` val) insertIntos
 findNearby (OLeaf _ contents _) _ = contents
+
+findNearby' :: (Intersect a AABB, Intersect b AABB) =>
+               Octree a -> b -> [a]
+findNearby' (ONode _ children) val =
+    let insertIntos = filter (checkOctant' val) children
+    in if null insertIntos
+            then []
+        else concatMap (`findNearby'` val) insertIntos
+findNearby' (OLeaf _ contents _) _ = contents
 
 octInsert :: (HasAABB a, Show a) => Octree a -> a -> Octree a
 octInsert tree@(ONode aabb children) val =
@@ -80,8 +90,8 @@ subdivide _ = error "Collision.subdivide: cannot subdivide a ONode."
 
 filterPartition :: (a -> Bool) -> [a] -> ([a], [a])
 filterPartition f (x:xs)
-    | f x = consTuple (Just x, Nothing) $ filterPartition f xs
-    | otherwise = consTuple (Nothing, Just x) $ filterPartition f xs
+    | f x = (Just x, Nothing) `consTuple` filterPartition f xs
+    | otherwise = (Nothing, Just x) `consTuple` filterPartition f xs
 filterPartition _ [] = ([], [])
 
 consTuple :: (Maybe a, Maybe a) -> ([a], [a]) -> ([a], [a])
@@ -96,3 +106,11 @@ checkOctant val (ONode aabb _) =
 checkOctant val (OLeaf aabb _ _) =
     objectsIntersectInclusive val aabb
 {-# INLINE checkOctant #-}
+
+checkOctant' :: (Intersect a AABB, Intersect b AABB) =>
+                a -> Octree b -> Bool
+checkOctant' val (ONode aabb _) =
+    intersecting val aabb
+checkOctant' val (OLeaf aabb _ _) =
+    intersecting val aabb
+{-# INLINE checkOctant' #-}

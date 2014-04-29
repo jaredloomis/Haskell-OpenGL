@@ -13,18 +13,18 @@ module Engine.Core.Types (
     Shader(..), WorldMatrices(..), Matrix4x4,
     Matrix3x3, Vector4, Vector3, ShaderAttrib(..),
     ShaderUniform, Texture, Image(..),
-    AABB(..), HasAABB(..), RenderInfo(..),
+    AABB(..), HasAABB(..),
     emptyEntity, playerAABB,
     emptyGraphics, emptyWorldState,
-    emptyMatrices, emptyInfo,
-    emptyTerrain
+    emptyMatrices,
+    emptyTerrain, mkScreenFramebuffer
 ) where
 
 import Control.Applicative (Applicative)
 import Data.Time (UTCTime)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Foreign (Word8)
-import Data.Maybe (fromMaybe, isNothing, isJust, fromJust)
+import Data.Maybe (isNothing, isJust, fromJust)
 import Control.Monad.State
     (State, StateT, MonadIO,
      MonadState)
@@ -56,46 +56,46 @@ newtype GameIO t a = GameIO {
 -- | A class for types that have a position
 --   that can be retrieved and set.
 class HasPosition p where
-    {-# MINIMAL getPos, setPos #-}
     getPos :: p -> Vec3
     setPos :: p -> Vec3 -> p
     movePos :: p -> Vec3 -> p
     movePos hp movement =
         setPos hp (getPos hp + movement)
+    {-# MINIMAL getPos, setPos #-}
 
 -- | A class for types that have a rotation
 --   that can be retrieved and set.
 class HasRotation r where
-    {-# MINIMAL getRot, setRot #-}
     getRot :: r -> Vec3
     setRot :: r -> Vec3 -> r
     rotate :: r -> Vec3 -> r
     rotate r deltaR =
         setRot r (getRot r + deltaR)
+    {-# MINIMAL getRot, setRot #-}
 
 -- TODO
 class HasName i where
-    {-# MINIMAL getName #-}
     getName :: i -> Int
+    {-# MINIMAL getName #-}
 
 -- | A type class for any two things
 --   that can intersect.
 class Intersect l r where
-    {-# MINIMAL intersecting #-}
     intersecting :: l -> r -> Bool
+    {-# MINIMAL intersecting #-}
 
 -- | A class for types that have an
 --   Axis-Aligned Bounding Box (AABB). Type must
 --   also have a position for this to make sense.
 class HasPosition a => HasAABB a where
-    {-# MINIMAL getAABBs, transformedAABBs,
-        getWholeAABB, transformedWholeAABB #-} 
     getAABBs :: a -> [AABB]
     transformedAABBs :: a -> [AABB]
     getWholeAABB :: a -> Maybe AABB
     transformedWholeAABB :: a -> Maybe AABB
+    {-# MINIMAL getAABBs, transformedAABBs,
+        getWholeAABB, transformedWholeAABB #-}
 
-instance HasPosition (Vec3) where
+instance HasPosition Vec3 where
     getPos = id
     setPos _ = id
 
@@ -106,7 +106,7 @@ instance HasPosition (Vec3) where
 data World t = World {
     worldPlayer :: GameObject t,
     worldEntities :: [GameObject t],
-    worldTerrain :: Terrain,
+    worldTerrain :: Maybe Terrain,
     worldOctree :: Octree AABB,
     worldGraphics :: Graphics t,
     worldState :: WorldState
@@ -142,7 +142,7 @@ data GameObject t = Player {
     playerRotation :: Vec3,
     playerVelocity :: Vec3,
     playerSpeed :: GLfloat,
-    playerUpdate :: Game t (World t),
+    playerUpdate :: Game t (),
     playerInput :: Input t
 } | Entity {
     entityPosition :: Vec3,
@@ -179,8 +179,7 @@ instance HasRotation (GameObject t) where
 instance HasAABB (GameObject t) where
     getAABBs (Player{}) = [playerAABB]
     getAABBs pe@(Entity{}) =
-        let aabbs = modelAABBs $ entityModel pe
-        in fromMaybe [] aabbs
+        modelAABBs $ entityModel pe
 
     getWholeAABB (Player{}) = Just playerAABB
     getWholeAABB pe@(Entity{}) =
@@ -200,6 +199,14 @@ instance HasAABB (GameObject t) where
                 pos = getPos obj
             in Just $ AABB (l + pos) (r + pos)
 
+instance Intersect (GameObject t) AABB where
+    intersecting object aabb = anyIntersecting aabb (getAABBs object)
+        where
+        anyIntersecting needle (hay:haystack) =
+            needle `intersecting` hay ||
+                anyIntersecting needle haystack
+        anyIntersecting _ [] = False
+
 -- = Model.
 
 -- | A data type for representing a model
@@ -209,11 +216,11 @@ data Model = Model {
     modelShaderVars :: [ShaderAttrib],
     modelTextures :: [Texture],
     modelVertCount :: GLint,
-    modelAABBs :: Maybe [AABB],
+    modelAABBs :: [AABB],
     modelWholeAABB :: Maybe AABB
 } deriving (Show, Eq)
 emptyModel :: Model
-emptyModel = Model (Shader 0 []) [] [] 0 (Just [AABB 0 0]) (Just $ AABB 0 0)
+emptyModel = Model (Shader 0 []) [] [] 0 [AABB 0 0] (Just $ AABB 0 0)
 
 -- = Collision Detection.
 
@@ -272,18 +279,26 @@ data Octree a =
     ONode AABB [Octree a]
   | OLeaf AABB [a] Int
 
-data MOctree a =
-    MNode AABB (MV.IOVector (MOctree a))
-  | PNode AABB (V.Vector (MOctree a))
-  | MLeaf AABB (MV.IOVector a) Int
-  | PLeaf AABB (V.Vector a) Int
-
 instance Show a => Show (Octree a) where
     show (ONode aabb children) =
         "Node: " ++ show aabb ++ "\n{\n" ++
         concatMap ((++"\n") . show) children ++ "}"
     show (OLeaf aabb contents _) =
         "Leaf: " ++ show aabb ++ ", " ++ show contents
+
+-- UNSAFE! Does not insert items in the correct
+--         place after updating.
+instance Functor Octree where
+    fmap f (ONode aabb children) =
+        ONode aabb (map (fmap f) children)
+    fmap f (OLeaf aabb contents len) =
+        OLeaf aabb (map f contents) len
+
+data MOctree a =
+    MNode AABB (MV.IOVector (MOctree a))
+  | PNode AABB (V.Vector (MOctree a))
+  | MLeaf AABB (MV.IOVector a) Int
+  | PLeaf AABB (V.Vector a) Int
 
 -- = Procedurally Generated Terrain.
 
@@ -354,6 +369,10 @@ data Framebuffer = FB {
     fbufVBO :: GLuint,
     fbufRenderBuffer :: GLuint
 } deriving (Show, Eq)
+mkScreenFramebuffer :: GLFW.Window -> IO Framebuffer
+mkScreenFramebuffer win = do
+    (w, h) <- GLFW.getFramebufferSize win
+    return $ FB 0 0 (fromIntegral w, fromIntegral h) 0 0
 
 -- | An OpenGL program id and some uniform
 --   ids so that glUniform* doesn't have to be
@@ -373,15 +392,6 @@ data Image = Image (GLint, GLint) (Ptr Word8)
     deriving (Show)
 
 type Texture = (GLuint, GLint)
-
--- | The data passed around through the stages of
---   rendering.
-data RenderInfo = RenderInfo {
-    renderInfoShader :: Shader,
-    renderInfoMatrices :: WorldMatrices
-} deriving (Show, Eq)
-emptyInfo :: RenderInfo
-emptyInfo = RenderInfo (Shader (-1) []) emptyMatrices
 
 -- = Matrices
 
@@ -407,7 +417,7 @@ instance Num Matrix4x4 where
     a * b =
         map (\row -> map (gdotVec row) at) b
         where at = transpose a
-    a + b = applyToIndices2 a b (+)
+    a + b = zipWith (zipWith (+)) a b
     abs = map (map abs)
     fromInteger i =
         [
@@ -419,14 +429,6 @@ instance Num Matrix4x4 where
     signum = map $ map signum
     negate = map $ map negate
 
-applyToIndices2 :: [[a]] -> [[b]] -> (a -> b -> c) -> [[c]]
-applyToIndices2 (a:as) (b:bs) f =
-    applyToIndices a b f : applyToIndices2 as bs f
-applyToIndices2 _ _ _ = []
-applyToIndices :: [a] -> [b] -> (a -> b -> c) -> [c]
-applyToIndices (a:as) (b:bs) f =
-    f a b : applyToIndices as bs f
-applyToIndices _ _ _ = []
 -- | Vector dot product.
 gdotVec :: [GLfloat] -> [GLfloat] -> GLfloat
 gdotVec a b = sum $ ginnerVec a b

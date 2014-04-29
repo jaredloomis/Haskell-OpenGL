@@ -9,6 +9,21 @@ import Control.DeepSeq (NFData(..))
 
 import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
+{-
+data Vec4 = Vec4
+    GLfloat
+    GLfloat
+    GLfloat
+    GLfloat deriving (Show, Eq)
+data Vec3 = Vec3
+    GLfloat
+    GLfloat
+    GLfloat deriving (Show, Eq)
+data Vec2 = Vec2
+    GLfloat
+    GLfloat deriving (Show, Eq)
+-}
+
 data Vec4 = Vec4
     {-# UNPACK #-} !GLfloat
     {-# UNPACK #-} !GLfloat

@@ -1,5 +1,3 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 module Engine.Terrain.Generator (
     genSimplexModel,
     generateTerrain

@@ -1,5 +1,5 @@
 module Engine.Core.World (
-    setWorldPlayer, playerAABB,
+    setWorldPlayer,
     setWorldUniforms, getWorldDelta,
     getWorldTime
 ) where
@@ -9,6 +9,8 @@ import Data.Time (getCurrentTime, UTCTime)
 import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
 import Engine.Core.Types
+    (World(..), WorldState(..), Graphics(..),
+     GameObject(..), Shader(..))
 import Engine.Graphics.Shaders (setUniformsAndRemember)
 
 setWorldPlayer :: GameObject t -> World t -> World t

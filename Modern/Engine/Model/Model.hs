@@ -28,7 +28,7 @@ createModel vert frag attrNames buffData valLens vertCount = do
 
     let sAttribs = createShaderAttribs attribs ids valLens
     return $ Model (Shader program []) sAttribs [] vertCount
-            (Just $ aabbByFace (head buffData))
+            (aabbByFace (head buffData))
             (Just $ aabbFromPoints (head buffData))
 
 createModelWithProgram ::
@@ -45,5 +45,5 @@ createModelWithProgram program attrNames buffData valLens vertCount = do
 
     let sAttribs = createShaderAttribs attribs ids valLens
     return $ Model (Shader program []) sAttribs [] vertCount
-            (Just $ aabbByFace (head buffData))
+            (aabbByFace (head buffData))
             (Just $ aabbFromPoints (head buffData))

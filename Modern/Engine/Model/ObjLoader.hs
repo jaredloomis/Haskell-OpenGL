@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Engine.Model.ObjLoader (
-    loadObjModel, loadObjFile
+    loadObjModel, loadObjFile,
+    loadObjObject
 ) where
 
 import System.IO
@@ -28,8 +29,19 @@ import Engine.Model.Material
 import Engine.Model.Model
     (Model(..), createModel)
 import Engine.Core.Vec (Vec3(..))
+import Engine.Core.Types (GameObject(..))
 import Engine.Model.DatLoader
     (writeDataToFile, loadDatModel)
+
+loadObjObject ::
+    FilePath ->
+    FilePath ->
+    t ->
+    FilePath ->
+    IO (GameObject t)
+loadObjObject vert frag t obj = do
+    model <- loadObjModel obj vert frag
+    return $ Entity 0 0 return model t
 
 loadObjModel ::
     FilePath ->
