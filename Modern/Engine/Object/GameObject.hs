@@ -6,16 +6,19 @@ module Engine.Object.GameObject (
     getModel
 ) where
 
+import Control.Monad (foldM)
 import Data.Maybe (isJust, fromJust)
 import Control.Monad.State (get)
 
 import Engine.Core.Types
+    (Game, World(..), GameObject(..),
+     playerAABB)
 import Engine.Core.HasPosition (HasPosition(..))
 import Engine.Core.Vec (Vec3(..))
-import Engine.Model.AABB (AABB(..), getObjectIntersecter)
+import Engine.Model.AABB (AABB(..))
 import Engine.Model.Model (Model(..))
 import Engine.Object.Octree (findNearby)
-import Engine.Object.Intersect (intersectsAny)
+import Engine.Object.Intersect (intersectsAny, getObjectIntersecter)
 
 updateWorld :: Game t (World t)
 updateWorld = do
@@ -55,37 +58,12 @@ moveSlideIntersecter object movement = do
         intersect = getObjectIntersecter objectXP entities
     if isJust intersect
         then return (object, intersect)
-    else return (objectXP, Nothing) 
+    else return (objectXP, Nothing)
 
 moveObjectSlide :: GameObject t -> Vec3 -> Game t (GameObject t)
 moveObjectSlide object (Vec3 dx dy dz) = do
-    world <- get
-    let objectX = if dx /= 0
-        then
-            let objectXP = moveObject object $ Vec3 dx 0 0
-                entities = findNearby (worldOctree world)
-                            (movePos playerAABB (getPos object))
-                intersectingX = intersectsAny objectXP entities
-            in if intersectingX then object else objectXP
-        else object
-
-        objectY = if dy /= 0
-            then
-                let objectYP = moveObject objectX $ Vec3 0 dy 0
-                    entities = findNearby (worldOctree world)
-                            (movePos playerAABB (getPos object))
-                    intersectingY = intersectsAny objectYP entities
-                in if intersectingY then objectX else objectYP
-            else objectX
-
-    if dz /= 0
-        then
-            let objectZP = moveObject objectY $ Vec3 0 0 dz
-                entities = findNearby (worldOctree world)
-                            (movePos playerAABB (getPos object))
-                intersectingZ = intersectsAny objectZP entities
-            in if intersectingZ then return objectY else return objectZP
-        else return objectY
+    foldM (\g x -> return $ moveObject g x) object
+        [Vec3 dx 0 0, Vec3 0 dy 0, Vec3 0 0 dz]
 
 moveObjectSafe :: GameObject t -> Vec3 -> Game t (GameObject t)
 moveObjectSafe object vec = do

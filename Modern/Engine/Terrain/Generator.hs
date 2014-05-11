@@ -1,3 +1,4 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
 module Engine.Terrain.Generator (
     Terrain(..), emptyTerrain,
     genSimplexModel,
@@ -10,6 +11,7 @@ import System.Random (randomRIO)
 import Graphics.Rendering.OpenGL.Raw
     (GLfloat, GLint, GLuint)
 
+import Engine.Core.Vec (Vec3(..))
 import Engine.Terrain.Noise (Simplex(..))
 import Engine.Graphics.Shaders (Shader(..), ShaderAttrib)
 import Engine.Graphics.Textures (Texture)
@@ -19,9 +21,8 @@ import Engine.Graphics.Shaders
     (loadProgram, getAttrLocs, createShaderAttribs)
 import Engine.Model.AABB (aabbFromPoints)
 import Engine.Graphics.GraphicsUtils (createBufferIdAll)
---import Engine.Core.Types
-import Engine.Model.Model
-    (createModel)
+import Engine.Object.Intersect (Intersect(..))
+import Engine.Model.Model (createModel)
 import Engine.Terrain.Noise
     (perm, getSimplexHeight)
 import Engine.Graphics.Textures (juicyLoadTexture)
@@ -43,13 +44,21 @@ emptyTerrain = Terrain undefined
             (AABB 0 0)
             (\_ _ -> -10e100)
 
+instance Intersect Terrain AABB where
+    intersecting terr (AABB (Vec3 lx ly lz) _) =
+        ly < terrainHeightFunc terr lx lz
+
+instance Intersect AABB Terrain where
+    intersecting (AABB (Vec3 lx ly lz) _) terr =
+        ly < terrainHeightFunc terr lx lz
+
 generateTerrain :: FilePath -> FilePath ->
-    GLfloat ->          -- ^ Width
-    GLfloat ->          -- ^ Spacing
-    Int ->              -- ^ Octaves
-    GLfloat ->          -- ^ Wavelength
-    GLfloat ->          -- ^ Waveheight / intensity
-    Maybe FilePath ->   -- ^ The texture (Maybe)
+    GLfloat ->          -- Width
+    GLfloat ->          -- Spacing
+    Int ->              -- Octaves
+    GLfloat ->          -- Wavelength
+    GLfloat ->          -- Waveheight / intensity
+    Maybe FilePath ->   -- The texture (Maybe)
     IO Terrain
 generateTerrain vert frag w spacing octaves wavelength intensity texture = do
     seed <- randomRIO (0, 2048)
@@ -83,14 +92,14 @@ loadTerrainWithTexture' simplex vert frag vertices normals texture =
         return $ loadedTerrain{terrainTextures = [(textureData, 1)]}
 
 createTerrain ::
-    Simplex ->      -- ^ Simplex info.
-    FilePath ->     -- ^ Vertex Shader.
-    FilePath ->     -- ^ Fragment Shader.
-    [String] ->     -- ^ Attribute Variable names.
-    [[GLfloat]] ->  -- ^ List containing all the lists of values.
+    Simplex ->      -- Simplex info.
+    FilePath ->     -- Vertex Shader.
+    FilePath ->     -- Fragment Shader.
+    [String] ->     -- Attribute Variable names.
+    [[GLfloat]] ->  -- List containing all the lists of values.
                     --   (vertices, normals, etc).
-    [GLuint] ->     -- ^ Size of each value.
-    GLint ->        -- ^ Number of vertices.
+    [GLuint] ->     -- Size of each value.
+    GLint ->        -- Number of vertices.
     IO Terrain
 createTerrain simplex vert frag attrNames buffData valLens vertCount = do
     program <- loadProgram vert frag
@@ -102,12 +111,12 @@ createTerrain simplex vert frag attrNames buffData valLens vertCount = do
             (aabbFromPoints (head buffData)) $ getSimplexHeight simplex
 
 genSimplexModel :: FilePath -> FilePath ->
-    GLfloat ->          -- ^ Width
-    GLfloat ->          -- ^ Spacing
-    Int ->              -- ^ Octaves
-    GLfloat ->          -- ^ Wavelength
-    GLfloat ->          -- ^ Waveheight / intensity
-    Maybe FilePath ->   -- ^ The texture (Maybe)
+    GLfloat ->          -- Width
+    GLfloat ->          -- Spacing
+    Int ->              -- Octaves
+    GLfloat ->          -- Wavelength
+    GLfloat ->          -- Waveheight / intensity
+    Maybe FilePath ->   -- The texture (Maybe)
     IO Model
 genSimplexModel vert frag w spacing octaves wavelength intensity texture = do
     seed <- randomRIO (0, 2048)

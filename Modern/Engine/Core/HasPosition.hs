@@ -21,3 +21,7 @@ class HasRotation r where
     rotate r deltaR =
         setRot r (getRot r + deltaR)
     {-# MINIMAL getRot, setRot #-}
+
+instance HasPosition Vec3 where
+    getPos = id
+    setPos _ = id

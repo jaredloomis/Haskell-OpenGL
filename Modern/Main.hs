@@ -1,4 +1,9 @@
-{-# OPTIONS_GHC -O2 -Wall #-}
+{-
+{-# OPTIONS_GHC -O2 -Wall -fexcess-precision -flate-dmd-anal
+                -funfolding-use-threshold=16
+                -fmax-simplifier-iterations=10 #-}
+{-# OPTIONS_GHC -fllvm -fllvm-pass-vectors-in-regs -optlc-O3 #-}
+-}
 module Main where
 
 import Data.Time (diffUTCTime)
@@ -6,16 +11,15 @@ import Control.Monad.State (unless, evalState, execState)
 
 import qualified Graphics.UI.GLFW as GLFW
 
-import Engine.Core.Types
-    (World(..), WorldState(..), Game(..),
+import Engine.Core.Types (
+    World(..), WorldState(..), Game(..),
      GameObject(..), Input(..))
 import Engine.Graphics.Graphics
-    (initGL, resizeScene, cleanupWorld,
+    (resizeScene, cleanupWorld,
      cleanupObjects)
 import Engine.Core.Vec (Vec2(..))
 import Engine.Graphics.Window
-    (Window(..), defaultWindow,
-     openWindow, shutdown)
+    (Window(..), shutdown)
 import Engine.Core.World (getWorldTime, setWorldPlayer)
 import Engine.Object.Player (resetPlayerInput)
 import Engine.Object.GameObject (updateWorld)
@@ -24,17 +28,9 @@ import Engine.Core.WorldCreator (createWorld, defaultSettings)
 
 main :: IO ()
 main = do
-    -- Initialize GLFW, create a window, open it.
-    window <- openWindow defaultWindow
-    let Just win = windowInner window
-
-    -- Perform some intitial OpenGL configurations.
-    initGL win
-
-    -- Create default world, set the window.
-    tmp <- createWorld defaultSettings --mkWorldFast
-    let world = tmp{
-        worldState = (worldState tmp){stateWindow = window}}
+    -- Create default world.
+    world <- createWorld defaultSettings
+    let Just win = windowInner $ stateWindow $ worldState world
 
     -- Register the function called when the window is resized.
     GLFW.setFramebufferSizeCallback win (Just resizeScene)
@@ -98,9 +94,11 @@ updateStepComplete win world = do
 
     -- Update player
     let worldWithPlayer = world{worldPlayer = player, worldState = newState}
-        updatedWorld = execState (gameState $ playerUpdate player) worldWithPlayer
+        updatedWorld =
+            execState (gameState $ playerUpdate player) worldWithPlayer
         updatedWorldWithUpdatedPlayer =
-            setWorldPlayer (resetPlayerInput $ worldPlayer updatedWorld) updatedWorld
+            setWorldPlayer (resetPlayerInput $ worldPlayer updatedWorld)
+                            updatedWorld
 
     -- Update the rest of the world.
     return $ evalState (gameState updateWorld) updatedWorldWithUpdatedPlayer

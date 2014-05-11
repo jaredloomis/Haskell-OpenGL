@@ -17,27 +17,22 @@ import Graphics.Rendering.OpenGL.Raw
 import Engine.Core.Types
     (World(..), WorldState(..),
      GameObject(..),
-     Graphics(..),
-     WorldMatrices(..),
-     emptyMatrices)
-import Engine.Core.HasPosition (HasPosition(..), HasRotation(..))
+     Graphics(..))
 import Engine.Core.World (setWorldUniforms)
-import Engine.Core.Vec (Vec3(..))
 import Engine.Graphics.Shaders
     (setShaderAttribs, disableShaderAttribs,
      bindTextures)
 import Engine.Object.GameObject (getModel)
 import Engine.Matrix.Matrix
-    (gtranslationMatrix, grotationMatrix,
+    (WorldMatrices(..), emptyMatrices,
      setMatrixUniforms, calculateMatricesFromPlayer,
-     gidentityMatrix)
+     gidentityMatrix, calculateModelMatrix)
 import Engine.Graphics.Window (Window(..))
 import Engine.Graphics.Shaders (Shader(..))
 import Engine.Terrain.Generator (Terrain(..))
 import Engine.Graphics.Framebuffer (Framebuffer(..))
 import Engine.Graphics.Graphics (renderAllPasses)
 import Engine.Model.Model (Model(..))
---import Engine.Graphics.Framebuffer (renderAllPasses)
 
 -- | The data passed around through the stages of
 --   rendering.
@@ -51,16 +46,14 @@ emptyInfo = RenderInfo (Shader (-1) []) emptyMatrices
 -- | A class for things that can be rendered to
 --   the screen &| Framebuffers.
 --   Contains 3 functions:
---      Bind:
---          This is usually where shaders are set,
---          or the currently bound shader is
---          modified.
---      Draw:
---          This is the draw action. A Framebuffer
---          is bound before calling this, so there is
---          no need to bind your own.
---      Cleanup:
---          Any cleanup necessary.
+--
+--      * Bind: This is usually where
+--        shaders are set, or the currently
+--        bound shader is modified.
+--      * Draw: This is the draw action. A Framebuffer
+--        is bound before calling this, so there is
+--        no need to bind your own.
+--      * Cleanup: Any cleanup necessary.
 class Renderable t g where
     renderBind :: t -> g -> IO g
     renderBind _ = return
@@ -79,13 +72,10 @@ instance Renderable (GameObject t) RenderInfo where
 
     renderDraw object info = do
         let model = getModel object
-            Vec3 objx objy objz = getPos object
-            Vec3 objrx objry objrz = getRot object
             mShader = renderInfoShader info
 
             -- Move Object
-            modelMat = gtranslationMatrix [objx, objy, objz] *
-                       grotationMatrix [objrx, objry, objrz]
+            modelMat = calculateModelMatrix object
 
             newMatrices = (renderInfoMatrices info){matrixModel = modelMat}
         -- Set uniforms. (World uniforms and Matrices).
@@ -148,25 +138,29 @@ instance Renderable (World t) RenderInfo where
     renderBind world info = do
         let (winW, winH) = windowSize $ stateWindow $ worldState world
             worldMats = calculateMatricesFromPlayer
-                        (worldPlayer world) (fromIntegral winW, fromIntegral winH)
+                        (worldPlayer world)
+                        (fromIntegral winW, fromIntegral winH)
         newShader <-
             setWorldUniforms world (renderInfoShader info)
         return info{renderInfoShader = newShader,
                     renderInfoMatrices = worldMats}
     defaultGlobal _ = emptyInfo
         
-
+-- | Call all 3 stages of the "Renderable".
 totalRender :: Renderable t g => t -> g -> IO g
 totalRender r s =
     renderBind r s >>=
     renderDraw r >>=
     renderCleanup r
 
-
+-- | Call all 3 stages of the "Renderable" after
+--   binding the "Framebuffer".
 renderToFramebuffer :: Renderable t g => Framebuffer -> t -> IO g
 renderToFramebuffer fbuf rend =
     withFramebuffer fbuf $ totalRender rend (defaultGlobal rend)
 
+-- | Call all 3 stages of each "Renderable"
+--   after binding the "Framebuffer".
 renderAllToFramebuffer :: Renderable t g => Framebuffer -> [t] -> IO g
 renderAllToFramebuffer fbuf xs =
     withFramebuffer fbuf $
@@ -177,6 +171,8 @@ renderAllToFramebuffer fbuf xs =
             totalRender x info >>= renderAll xs'
         renderAll [] info = return info
 
+-- | Call all 3 stages of each "Renderable"
+--   with the global renderable.
 renderAllWithGlobal :: (Renderable t1 g, Renderable t2 g) =>
                         Framebuffer -> t1 -> [t2] -> IO g
 renderAllWithGlobal fbuf g =
@@ -187,6 +183,7 @@ renderAllWithGlobal' :: (Renderable t1 g, Renderable t2 g) =>
 renderAllWithGlobal' info fbuf global (x:xs) = do
     bindFramebuffer fbuf
 
+    -- This order could be changed...
     newinfo <-
         renderBind x info >>=
         renderBind global >>=
@@ -200,7 +197,7 @@ renderAllWithGlobal' info fbuf global (x:xs) = do
     renderAllWithGlobal' newinfo fbuf global xs
 renderAllWithGlobal' info _ _ _ = return info
 
-
+-- | Render World with new API.
 renderWorldNew :: World t -> IO (World t)
 renderWorldNew world = do
     glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
@@ -208,20 +205,23 @@ renderWorldNew world = do
         fbuf = screenFramebuffer (fromIntegral width, fromIntegral height)
     _ <- renderAllWithGlobal fbuf world (worldEntities world) :: IO RenderInfo
     _ <- if isJust $ worldTerrain world
-            then renderAllWithGlobal fbuf world [fromJust $ worldTerrain world] :: IO RenderInfo
+            then renderAllWithGlobal fbuf world
+                    [fromJust $ worldTerrain world] :: IO RenderInfo
             else return emptyInfo
     return world
 
+-- | Render World with new API after binding
+--   the Framebuffer.
 renderWorldNewWithFramebuffer :: World t -> Framebuffer -> IO (World t)
 renderWorldNewWithFramebuffer world fbuf = do
     glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
     _ <- renderAllWithGlobal fbuf world (worldEntities world) :: IO RenderInfo
     --_ <- renderAllWithGlobal fbuf world [worldTerrain world] :: IO RenderInfo
     _ <- if isJust $ worldTerrain world
-            then renderAllWithGlobal fbuf world [fromJust $ worldTerrain world] :: IO RenderInfo
+            then renderAllWithGlobal fbuf world
+                    [fromJust $ worldTerrain world] :: IO RenderInfo
             else return emptyInfo
     return world
-    
 
 -- | Render world with all postprocessing shaders defined by
 --   worldFramebuffer.
@@ -237,11 +237,13 @@ renderWorldNewPost world = do
     renderAllPasses ret effects
     return ret
 
-
+-- | An \"Empty\" Framebuffer, just renders
+--   to the screen.
 screenFramebuffer :: (GLint, GLint) -> Framebuffer
 screenFramebuffer dimensions =
     FB 0 0 dimensions 0 0
 
+-- | Perform action with Framebuffer binded.
 withFramebuffer :: Framebuffer -> IO a -> IO a
 withFramebuffer fbuf func = do
     bindFramebuffer fbuf

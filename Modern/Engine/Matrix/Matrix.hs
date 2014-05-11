@@ -5,11 +5,15 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# OPTIONS_GHC -fno-warn-unused-binds #-}
 module Engine.Matrix.Matrix (
+    WorldMatrices(..), Matrix4x4,
+    Matrix3x3, Vector4, Vector3,
+    emptyMatrices,
     calculateMatricesFromPlayer,
     gtranslationMatrix,
     setMatrixUniforms, gfrustumMatrix,
     gidentityMatrix, glookAtMatrix, toGLFormat,
-    gorthoMatrix, grotationMatrix
+    gorthoMatrix, grotationMatrix,
+    calculateModelMatrix
 ) where
 
 import Data.List (transpose)
@@ -19,13 +23,52 @@ import qualified Graphics.Rendering.OpenGL as GL
 import Graphics.Rendering.OpenGL.Raw
     (GLfloat, glUniformMatrix4fv, gl_FALSE)
 
+import Engine.Core.HasPosition
+    (HasPosition(..), HasRotation(..))
 import Engine.Core.Types
-    (GameObject(..),
-     WorldMatrices(..), Matrix4x4,
-     Vector4, Matrix3x3, Vector3)
+    (GameObject(..))
 import Engine.Graphics.Shaders
     (Shader(..), findUniformLocationAndRemember)
 import Engine.Core.Vec (Vec3(..))
+
+-- | 3 OpenGL Matrices often needed:
+--
+--      * Model Matrix
+--      * View Matrix
+--      * Projection Matrix
+data WorldMatrices = WorldMatrices {
+    matrixModel :: Matrix4x4,
+    matrixView :: Matrix4x4,
+    matrixProjection :: Matrix4x4
+} deriving (Show, Eq)
+emptyMatrices :: WorldMatrices
+emptyMatrices = WorldMatrices 1 1 1
+
+-- | 4x4 Matrix in the OpenGL orientation:
+--   translation column is the last 4 elements.
+type Matrix4x4 = [[GLfloat]]
+-- | 3x3 Matrix in the OpenGL orientation.
+type Matrix3x3 = [[GLfloat]]
+-- | Four element GLfloat vector.
+type Vector4 = [GLfloat]
+-- | Three element GLfloat vector.
+type Vector3 = [GLfloat]
+
+instance Num Matrix4x4 where
+    a * b =
+        map (\row -> map (gdotVec row) at) b
+        where at = transpose a
+    a + b = zipWith (zipWith (+)) a b
+    abs = map (map abs)
+    fromInteger i =
+        [
+        [fromInteger i, 0, 0, 0],
+        [0, fromInteger i, 0, 0],
+        [0, 0, fromInteger i, 0],
+        [0, 0, 0, fromInteger i]
+        ]
+    signum = map $ map signum
+    negate = map $ map negate
 
 setMatrixUniforms :: Shader -> WorldMatrices -> IO Shader
 setMatrixUniforms shader wm = do
@@ -70,6 +113,13 @@ calculateMatricesFromPlayer _ _ =
     error $ "Matrix.calculateMatricesFromPlayer given a " ++
             "non-Player GameObject."
 
+calculateModelMatrix :: (HasPosition a, HasRotation a) => a -> Matrix4x4
+calculateModelMatrix object =
+    let Vec3 rx ry rz = getRot object
+        Vec3 x y z = getPos object
+    in gtranslationMatrix [x, y, z] *
+        grotationMatrix [rx, ry, rz]
+
 toGLFormat :: [[GLfloat]] -> [GLfloat]
 toGLFormat = concat
 
@@ -82,6 +132,7 @@ gidentityMatrix =
         [0,0,1,0],
         [0,0,0,1]
     ]
+{-# INLINE gidentityMatrix #-}
 
 -- | Multiplies a vector by a matrix.
 gmatrixMulVec :: Matrix4x4 -> Vector4 -> Vector4

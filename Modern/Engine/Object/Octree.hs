@@ -6,13 +6,15 @@ module Engine.Object.Octree (
 ) where
 
 import Data.List (foldl')
+
+--import qualified Data.Vector.Storable.Mutable as MV
+--import qualified Data.Vector.Storable as V
+
 import Engine.Model.AABB
     (AABB(..), HasAABB(..),
      objectsIntersectInclusive)
 import Engine.Object.Intersect (Intersect(..))
 import Engine.Core.HasPosition (HasPosition(..))
-
-
 import Engine.Core.Vec (Vec3(..), vmap)
 
 -- | A pure Octree used to sort objects for
@@ -36,6 +38,14 @@ instance Functor Octree where
     fmap f (OLeaf aabb contents len) =
         OLeaf aabb (map f contents) len
 
+{-
+data MOctree a =
+    MNode AABB (MV.IOVector (MOctree a))
+  | PNode AABB (V.Vector (MOctree a))
+  | MLeaf AABB (MV.IOVector a) Int
+  | PLeaf AABB (V.Vector a) Int
+-}
+
 maxCapacity :: Int
 maxCapacity = 64
 {-# INLINE maxCapacity #-}
@@ -46,7 +56,9 @@ createOctree aabb = OLeaf aabb [] 0
 
 createOctreeFromAABBs :: HasAABB a => AABB -> [a] -> Octree AABB
 createOctreeFromAABBs aabb =
-    foldl' ((. transformedAABBs) . foldl' octInsert) (OLeaf aabb [] 0)
+    -- foldl is used intentionally instead of
+    -- foldl' to keep it lazy.
+    foldl ((. transformedAABBs) . foldl octInsert) (OLeaf aabb [] 0)
 
 findNearby :: HasAABB a => Octree a -> a -> [a]
 findNearby (ONode _ children) val =
@@ -57,7 +69,7 @@ findNearby (ONode _ children) val =
 findNearby (OLeaf _ contents _) _ = contents
 
 findNearby' :: (Intersect a AABB, Intersect b AABB) =>
-               Octree a -> b -> [a]
+                Octree a -> b -> [a]
 findNearby' (ONode _ children) val =
     let insertIntos = filter (checkOctant' val) children
     in if null insertIntos
@@ -65,21 +77,19 @@ findNearby' (ONode _ children) val =
         else concatMap (`findNearby'` val) insertIntos
 findNearby' (OLeaf _ contents _) _ = contents
 
-octInsert :: (HasAABB a, Show a) => Octree a -> a -> Octree a
-octInsert tree@(ONode aabb children) val =
+octInsert :: HasAABB a => Octree a -> a -> Octree a
+octInsert (ONode aabb children) val =
     let (insertIntos, others) = filterPartition (checkOctant val) children
     in if null insertIntos
-            then error
-                ("Error in Collision.octInsert:" ++
-                 " value \"" ++ show val ++
-                 "\"could not be inserted into tree.") tree
+            then error $ "Error in Collision.octInsert" ++
+                  "value could not be inserted into tree."
         else ONode aabb $ map (`octInsert` val) insertIntos ++ others
 octInsert leaf@(OLeaf aabb contents size) val =
     if size+1 <= maxCapacity
         then OLeaf aabb (val : contents) (size+1)
     else octInsert (subdivide leaf) val
 
-subdivide :: (HasAABB a, Show a) => Octree a -> Octree a
+subdivide :: HasAABB a => Octree a -> Octree a
 subdivide (OLeaf wholeAABB@(AABB minVec maxVec) contents _) =
     let halfVec@(Vec3 halfX halfY halfZ) = vmap (/2) (abs $ maxVec - minVec)
         newAABBTemplate = AABB minVec $ minVec + halfVec 
@@ -122,6 +132,7 @@ consTuple (Just x, Nothing) (xs, ys) = (x:xs, ys)
 consTuple (Nothing, Just y) (xs, ys) = (xs, y:ys)
 consTuple _ _ =
     error "Octree.consTuple: invalid arguments."
+{-# INLINE consTuple #-}
 
 checkOctant :: HasAABB a => a -> Octree a -> Bool
 checkOctant val (ONode aabb _) =
@@ -131,7 +142,7 @@ checkOctant val (OLeaf aabb _ _) =
 {-# INLINE checkOctant #-}
 
 checkOctant' :: (Intersect a AABB, Intersect b AABB) =>
-                a -> Octree b -> Bool
+                 a -> Octree b -> Bool
 checkOctant' val (ONode aabb _) =
     intersecting val aabb
 checkOctant' val (OLeaf aabb _ _) =

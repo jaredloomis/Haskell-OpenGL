@@ -4,7 +4,7 @@ DIRECTORY=$(dirname $0)
 
 # Clear out all .hi and .o files.
 cd $DIRECTORY
-bash cleanup.sh
+#bash cleanup.sh
 
 # Add all files to git.
 cd ..

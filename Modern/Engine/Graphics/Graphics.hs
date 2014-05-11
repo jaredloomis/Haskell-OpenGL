@@ -18,8 +18,7 @@ import Graphics.Rendering.OpenGL.Raw
 
 import Engine.Core.Types
     (World(..), WorldState(..), GameObject(..),
-     Graphics(..),
-     WorldMatrices(..))
+     Graphics(..))
 import Engine.Graphics.Shaders
     (Shader(..), ShaderAttrib(..), setShaderAttribs, bindTextures, disableShaderAttribs,
      setUniforms)
@@ -29,7 +28,7 @@ import Engine.Core.HasPosition (HasPosition(..), HasRotation(..))
 import Engine.Core.Vec (Vec3(..))
 import Engine.Object.GameObject (getModel)
 import Engine.Matrix.Matrix
-    (calculateMatricesFromPlayer,
+    (WorldMatrices(..), calculateMatricesFromPlayer,
      gtranslationMatrix, grotationMatrix, setMatrixUniforms)
 import Engine.Graphics.Window (Window(..))
 import Engine.Model.Model (Model(..))

@@ -124,10 +124,10 @@ loadObj text =
 --   vertices, texture coordinates, and normals,
 --   in that order, formatted to be sent to OpenGL.
 packObj ::
-    D.DList GLfloat ->      -- ^ Vertices
-    D.DList GLfloat ->      -- ^ Normals
-    D.DList GLfloat ->      -- ^ Texture coords
-    D.DList (Maybe Int) ->  -- ^ Face Definitions
+    D.DList GLfloat ->      -- Vertices
+    D.DList GLfloat ->      -- Normals
+    D.DList GLfloat ->      -- Texture coords
+    D.DList (Maybe Int) ->  -- Face Definitions
     ([GLfloat], [GLfloat], [GLfloat])
 packObj verts norms texs faces =
     let lFaces = D.toList faces

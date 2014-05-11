@@ -2,39 +2,31 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverlappingInstances #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Engine.Core.Types (
     Game(..), GameIO(..), HasName(..),
-    World(..), Graphics(..), WorldState(..),
-    GameObject(..),
-    MOctree(..), Input(..),
-    WorldMatrices(..), Matrix4x4,
-    Matrix3x3, Vector4, Vector3,
-    emptyEntity, playerAABB,
-    emptyGraphics, emptyWorldState,
-    emptyMatrices
+    World(..), WorldState(..), Graphics(..),
+    GameObject(..), Input(..),
+    emptyEntity, playerAABB, emptyGraphics,
+    emptyWorldState
 ) where
 
 import Control.Applicative (Applicative)
 import Data.Time (UTCTime)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import Data.Maybe (isNothing, isJust, fromJust)
+import Data.Maybe (isNothing)
 import Control.Monad.State
     (State, StateT, MonadIO,
      MonadState)
-import Data.List (transpose)
-
-import qualified Data.Vector.Storable.Mutable as MV
-import qualified Data.Vector.Storable as V
 
 import Graphics.Rendering.OpenGL.Raw (GLuint, GLfloat)
 import qualified Graphics.UI.GLFW as GLFW
 
-import Engine.Core.Vec
+import Engine.Core.Vec (Vec3(..), Vec2)
 import Engine.Core.HasPosition
     (HasPosition(..), HasRotation(..))
 import Engine.Graphics.Window
-import Engine.Model.AABB (HasAABB(..), AABB(..))
+    (Window(..), defaultWindow)
+import Engine.Model.AABB (HasAABB(..), AABB(..), AABBSet(..))
 import Engine.Object.Intersect (Intersect(..))
 import Engine.Terrain.Generator (Terrain(..))
 import Engine.Object.Octree (Octree(..))
@@ -58,10 +50,6 @@ newtype GameIO t a = GameIO {
 class HasName i where
     getName :: i -> Int
     {-# MINIMAL getName #-}
-
-instance HasPosition Vec3 where
-    getPos = id
-    setPos _ = id
 
 -- = Global data types
 
@@ -143,11 +131,11 @@ instance HasRotation (GameObject t) where
 instance HasAABB (GameObject t) where
     getAABBs (Player{}) = [playerAABB]
     getAABBs pe@(Entity{}) =
-        modelAABBs $ entityModel pe
+        aabbSetAll $ modelAABBSet $ entityModel pe
 
     getWholeAABB (Player{}) = Just playerAABB
     getWholeAABB pe@(Entity{}) =
-        modelWholeAABB $ entityModel pe
+        aabbSetWhole $ modelAABBSet $ entityModel pe
 
     transformedAABBs obj
         | null $ getAABBs obj = []
@@ -171,46 +159,6 @@ instance Intersect (GameObject t) AABB where
                 anyIntersecting needle haystack
         anyIntersecting _ [] = False
 
--- = Collision Detection
-
-instance (HasAABB a, HasAABB b) => Intersect a b where
-    intersecting left right =
-        let lwholeM = getWholeAABB left
-            rwholeM = getWholeAABB right
-        in if isJust lwholeM && isJust rwholeM
-                then
-                    let lwhole = fromJust lwholeM
-                        rwhole = fromJust rwholeM
-                    in intersecting lwhole rwhole &&
-                        let lall = getAABBs left
-                            rall = getAABBs right
-                        in anyIntersect lall rall
-                else
-                    let lall = getAABBs left
-                        rall = getAABBs right
-                    in anyIntersect lall rall
-      where
-        anyIntersect :: Intersect a b => [a] -> [b] -> Bool
-        anyIntersect (l:ls) (r:rs) =
-            intersecting l r || anyIntersect ls rs
-        anyIntersect _ _ = False
-
-data MOctree a =
-    MNode AABB (MV.IOVector (MOctree a))
-  | PNode AABB (V.Vector (MOctree a))
-  | MLeaf AABB (MV.IOVector a) Int
-  | PLeaf AABB (V.Vector a) Int
-
--- = Procedurally Generated Terrain
-
-instance Intersect Terrain AABB where
-    intersecting terr (AABB (Vec3 lx ly lz) _) =
-        ly < terrainHeightFunc terr lx lz
-
-instance Intersect AABB Terrain where
-    intersecting (AABB (Vec3 lx ly lz) _) terr =
-        ly < terrainHeightFunc terr lx lz
-
 -- = Input
 
 -- | A data type to represent all settings used
@@ -225,46 +173,3 @@ data Input t = Input {
     inputLastMousePos :: Vec2,
     inputMouseSpeed :: GLfloat
 }
-
--- = Matrices
-
-data WorldMatrices = WorldMatrices {
-    matrixModel :: Matrix4x4,
-    matrixView :: Matrix4x4,
-    matrixProjection :: Matrix4x4
-} deriving (Show, Eq)
-emptyMatrices :: WorldMatrices
-emptyMatrices = WorldMatrices 1 1 1
-
--- | 4x4 Matrix in the OpenGL orientation:
---   translation column is the last 4 elements.
-type Matrix4x4 = [[GLfloat]]
--- | 3x3 Matrix in the OpenGL orientation.
-type Matrix3x3 = [[GLfloat]]
--- | Four element GLfloat vector.
-type Vector4 = [GLfloat]
--- | Three element GLfloat vector.
-type Vector3 = [GLfloat]
-
-instance Num Matrix4x4 where
-    a * b =
-        map (\row -> map (gdotVec row) at) b
-        where at = transpose a
-    a + b = zipWith (zipWith (+)) a b
-    abs = map (map abs)
-    fromInteger i =
-        [
-        [fromInteger i, 0, 0, 0],
-        [0, fromInteger i, 0, 0],
-        [0, 0, fromInteger i, 0],
-        [0, 0, 0, fromInteger i]
-        ]
-    signum = map $ map signum
-    negate = map $ map negate
-
--- | Vector dot product.
-gdotVec :: [GLfloat] -> [GLfloat] -> GLfloat
-gdotVec a b = sum $ ginnerVec a b
--- | Inner product of two vectors.
-ginnerVec :: [GLfloat] -> [GLfloat] -> [GLfloat]
-ginnerVec = zipWith (*)

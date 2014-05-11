@@ -1,0 +1,22 @@
+BACKEND COMPARISON
+
+Normal backend:
+avg cpu - 10.01091811414391%
+last shr - 27880.0 KiB
+
+LLVM backend:
+avg cpu - 10.09825436408975%
+last shr - 28036.0 KiB
+
+STRICT VS LAZY VECS
+
+Strict:
+avg cpu - 9.981501340482549%
+last shr - 18180.0 KiB
+
+Lazy:
+avg cpu - 10.899210526315768%
+last shr - 18136.0 KiB
+
+Lazy Vecs used 44 KiB less memory (0.00242024202% less).
+Strict Vecs' cpu usage was 0.9177091% less.

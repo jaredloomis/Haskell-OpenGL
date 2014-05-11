@@ -11,11 +11,10 @@ import Foreign (alloca, peek, withArray)
 import Engine.Core.Types
     (World(..),
      Graphics(..), WorldState(..),
-     GameObject(..),
-     WorldMatrices(..),
-     Matrix4x4)
+     GameObject(..))
 import Engine.Matrix.Matrix
-    (gorthoMatrix, glookAtMatrix,
+    (WorldMatrices(..), Matrix4x4,
+     gorthoMatrix, glookAtMatrix,
      gidentityMatrix, calculateMatricesFromPlayer,
      gtranslationMatrix, toGLFormat)
 import Engine.Core.Vec (Vec3(..))

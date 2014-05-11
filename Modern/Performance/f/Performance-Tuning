@@ -1,0 +1,14 @@
+---------
+hpc
+---------
+1. cd $DIRECTORY
+2. ghc -O -fforce-recomp -fhpc Main.hs
+3. ./Main
+4. hpc report Main
+
+---------
+RTS
+---------
+1. cd $DIRECTORY
+2. ghc -O -fforce-recomp -rtsopts -degug -ticky Main.hs
+3. ./Main +RTS -rfile.txt

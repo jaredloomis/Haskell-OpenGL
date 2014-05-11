@@ -25,22 +25,23 @@ defaultWindow =
         Nothing
 
 openWindow :: Window -> IO Window
-openWindow window =
-    let (w, h) = windowSize window 
-    in do
+openWindow window = do
+    let (w, h) = windowSize window
+
     _ <- GLFW.init
 
     -- Apply window hints.
     mapM_ GLFW.windowHint $ windowHints window
 
-    Just win <- GLFW.createWindow (fromIntegral w) (fromIntegral h) (windowTitle window) Nothing Nothing
+    Just win <- GLFW.createWindow
+                    (fromIntegral w)
+                    (fromIntegral h)
+                    (windowTitle window) Nothing Nothing
     GLFW.setWindowPos win 100 50
     GLFW.makeContextCurrent (Just win)
 
     -- Enable VSync
     GLFW.swapInterval 1
-
-    --GLFW.setWindowCloseCallback win (Just shutdown)
 
     return $ window{windowInner = Just win}
 
