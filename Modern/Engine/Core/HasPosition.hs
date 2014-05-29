@@ -1,4 +1,8 @@
-module Engine.Core.HasPosition where
+module Engine.Core.HasPosition (
+    HasPosition(..),
+    HasRotation(..),
+    HasVelocity(..)
+) where
 
 import Engine.Core.Vec (Vec3)
 
@@ -22,6 +26,22 @@ class HasRotation r where
         setRot r (getRot r + deltaR)
     {-# MINIMAL getRot, setRot #-}
 
+class HasVelocity v where
+    getVel :: v -> Vec3
+    setVel :: v -> Vec3 -> v
+    applyVel :: v -> Vec3 -> v
+    applyVel v deltaV =
+        setVel v (getVel v + deltaV)
+    {-# MINIMAL getVel, setVel #-}
+
 instance HasPosition Vec3 where
     getPos = id
     setPos _ = id
+
+instance HasRotation Vec3 where
+    getRot = id
+    setRot _ = id
+
+instance HasVelocity Vec3 where
+    getVel = id
+    setVel _ = id

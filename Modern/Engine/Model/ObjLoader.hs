@@ -41,7 +41,7 @@ loadObjObject ::
     IO (GameObject t)
 loadObjObject vert frag t obj = do
     model <- loadObjModel obj vert frag
-    return $ Entity 0 0 return model t
+    return $ Entity 0 0 0 return model t
 
 loadObjModel ::
     FilePath ->
@@ -66,7 +66,8 @@ loadObjModel objFile vert frag =
             writeDataToFile (objFile ++ ".dat") total images
 
             let (totalData, mTextures) =
-                    (total, map (fromJust . matTexture) $ filter (isJust . matTexture) lib)
+                    (total, map (fromJust . matTexture) $
+                    filter (isJust . matTexture) lib)
 
             tmp <- createModel vert frag
                 attrNames
@@ -144,7 +145,7 @@ packObj verts norms texs faces =
         realTexs = D.toList $ getIndicesD lTexs faceTexs 2
     in (realVerts, realTexs, realNorms)
 
--- | Given a List of () indices to read and the
+-- | Given a List of indices to read and the
 --   Vector to read from, read given indices for all
 --   Just values, and use -1.0 as a default value for
 --   Nothings. Returns a DList of GLfloats.
@@ -157,7 +158,8 @@ getIndicesD haystack (x:xs) vecType
             -- Switch to dlist for its O(1) appending.
             ret = D.fromList $ V.toList $ V.take vecType splitList
         in ret `D.append` getIndicesD haystack xs vecType
-    | otherwise = D.replicate vecType (-1.0) `D.append` getIndicesD haystack xs vecType
+    | otherwise =
+        D.replicate vecType (-1.0) `D.append` getIndicesD haystack xs vecType
 getIndicesD _ _ _ = D.empty
 
 takeEvery3 :: Int -> [a] -> [a]
@@ -235,7 +237,8 @@ loadObjMaterials directory contents = do
 
 loadObjMaterialLib :: String -> B.ByteString -> IO [Material]
 loadObjMaterialLib directory =
-    liftM concat . mapM (\x -> loadMtlFile (directory++B.unpack x)) . parseMtlLibs
+    liftM concat .
+        mapM (\x -> loadMtlFile (directory++B.unpack x)) . parseMtlLibs
 {-# INLINE loadObjMaterialLib #-}
 
 parseMtlLibs :: B.ByteString -> [B.ByteString]
@@ -310,3 +313,98 @@ parseBsFloat' bs
     | otherwise =
         let Just (val, rest) = B.readInt bs
         in (fromIntegral val, rest)
+
+-- TODO: Rewrite with attoparsec.
+{-
+
+-- ATTOPARSEC --
+
+type V3 a = (a, a, a)
+
+data ObjLine =
+    LineVert Vec3
+  | LineNorm Vec3
+  | LineTex  Vec2
+  | LineFace (V3 (V3 Int))
+  | Invalid B.ByteString
+    deriving (Show, Eq)
+
+-- PROCESSING
+
+
+
+-- PARSING
+
+parseObj :: Parser [ObjLine]
+parseObj = many $ parseObjLine <* endOfLine
+
+parseObjLine :: Parser ObjLine
+parseObjLine =
+    parseVertLine <|> parseInvalid
+
+parseVertLine :: Parser ObjLine
+parseVertLine =
+    char 'v' *> skipSpace *> (LineVert <$> parseVec3)
+
+parseNormLine :: Parser ObjLine
+parseNormLine =
+    string "vn" *> skipSpace *> (LineNorm <$> parseVec3) 
+
+parseTexLine :: Parser ObjLine
+parseTexLine =
+    string "vt" *> skipSpace *> (LineTex <$> parseVec2)
+
+parseFaceLine' :: Parser ObjLine
+parseFaceLine' = do
+    string "f" *> skipSpace *> (LineFace <$> parseFaceDat)
+
+parseFaceDat :: Parser (V3 (V3 Int))
+parseFaceDat = do
+    v1 <- decimal  <|> return (-1)
+    _ <- char '/'  <|> return ' '
+    vt1 <- decimal <|> return (-1)
+    _ <- char '/'  <|> return ' '
+    vn1 <- decimal <|> return (-1)
+    _ <- skipSpace
+
+    v2 <- decimal  <|> return (-1)
+    _ <- char '/'  <|> return ' '
+    vt2 <- decimal <|> return (-1)
+    _ <- char '/'  <|> return ' '
+    vn2 <- decimal <|> return (-1)
+    _ <- skipSpace
+
+    v3 <- decimal  <|> return (-1)
+    _ <- char '/'  <|> return ' '
+    vt3 <- decimal <|> return (-1)
+    _ <- char '/'  <|> return ' '
+    vn3 <- decimal <|> return (-1)
+    return ((v1, vt1, vn1),
+            (v2, vt2, vn2),
+            (v3, vt3, vn3))
+
+parseVec3 :: Parser Vec3
+parseVec3 = do
+    x <- realToFrac <$> double
+    skipSpace
+    y <- realToFrac <$> double
+    skipSpace
+    z <- realToFrac <$> double
+    return $ Vec3 x y z
+
+parseVec2 :: Parser Vec2
+parseVec2 = do
+    x <- realToFrac <$> double
+    skipSpace
+    y <- realToFrac <$> double
+    return $ Vec2 x y
+
+parseInvalid :: Parser ObjLine
+parseInvalid =
+    Invalid <$> A.takeWhile (/='\n')
+
+skipSpace' :: Parser ()
+skipSpace' = do
+    _ <- many space
+    return ()
+-}

@@ -20,7 +20,6 @@ import Foreign.C.Types (CChar)
 
 import Graphics.Rendering.OpenGL.Raw
 
---import Engine.Core.Types
 import Engine.Graphics.GraphicsUtils
     (withNewPtr, withNewPtrArray, offset0)
 import Engine.Graphics.Textures (Texture)
@@ -65,6 +64,7 @@ loadProgram vertFP fragFP =
         [(gl_VERTEX_SHADER,   vertFP),
          (gl_FRAGMENT_SHADER, fragFP)]
 
+-- | Loads a list of (shader type, shader files).
 loadShadersProgram :: [(GLuint, FilePath)] -> IO GLuint
 loadShadersProgram shaders = do
     shaderIds <- mapM (uncurry loadShader) shaders
@@ -172,7 +172,9 @@ setUniformsAndRemember shader ((name, valsIo):rest) = do
     vals <- valsIo
     let len = length vals
     let uniloc = findMaybeUniformLocation shader name
-    loc <- maybe (withCString name $ glGetUniformLocation $ shaderId shader) return uniloc
+    loc <- maybe
+        (withCString name $ glGetUniformLocation $ shaderId shader)
+        return uniloc
 
     case len of
         1 -> glUniform1f loc $ head vals

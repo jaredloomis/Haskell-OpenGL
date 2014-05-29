@@ -3,6 +3,7 @@ module Main where
 import Control.Applicative
 import System.IO
 import Data.List
+import Debug.Trace
 
 data Top = Top {
     pid :: Int,
@@ -25,8 +26,8 @@ main = do
     tops <- map read . lines <$> hGetContents handle
 
 --    let x = average cpu tops
-    let x = averageHalves cpu tops
---    let x = shr . last $ tops
+--    let x = averageHalves cpu tops
+    let x = shr . last $ tops
     print x
 
     hClose handle
@@ -69,4 +70,4 @@ parseWords w =
         (read' $ w !! 9) (w !! 10)
 
 read' :: Read a => String -> a
-read' = read
+read' x = trace x $ read x

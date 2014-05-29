@@ -1,7 +1,7 @@
 module Engine.Core.Vec (
     Vec2(..), Vec3(..), Vec4(..), vec3ToVec4,
     normalizeVec3, scaleVec3, lengthVec3,
-    crossVec3, vec4GetIndex, toArray3, toArray2,
+    crossVec3, vec4GetIndex, toList3, toList2,
     Vec(..)
 ) where
 
@@ -9,21 +9,22 @@ import Control.DeepSeq (NFData(..))
 
 import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
-data Vec4 = Vec4
-    GLfloat
-    GLfloat
-    GLfloat
-    GLfloat deriving (Show, Eq)
-data Vec3 = Vec3
-    GLfloat
-    GLfloat
-    GLfloat deriving (Show, Eq)
-data Vec2 = Vec2
-    GLfloat
-    GLfloat deriving (Show, Eq)
-
 {-
 data Vec4 = Vec4
+    GLfloat
+    GLfloat
+    GLfloat
+    GLfloat deriving (Show, Eq)
+data Vec3 = Vec3
+    GLfloat
+    GLfloat
+    GLfloat deriving (Show, Eq)
+data Vec2 = Vec2
+    GLfloat
+    GLfloat deriving (Show, Eq)
+-}
+
+data Vec4 = Vec4
     {-# UNPACK #-} !GLfloat
     {-# UNPACK #-} !GLfloat
     {-# UNPACK #-} !GLfloat
@@ -35,7 +36,6 @@ data Vec3 = Vec3
 data Vec2 = Vec2
     {-# UNPACK #-} !GLfloat
     {-# UNPACK #-} !GLfloat deriving (Show, Eq)
--}
 
 class Vec a where
     vmap :: (GLfloat -> GLfloat) -> a -> a
@@ -61,6 +61,9 @@ instance Vec Vec4 where
             2 -> z
             3 -> w
             _ -> error "Vec2.vindex - index out of range."
+instance NFData Vec4 where
+    rnf (Vec4 x y z w) = x `seq` y `seq` z `seq` w `seq` ()
+    {-# INLINE rnf #-}
 
 instance Num Vec3 where
     Vec3 x1 y1 z1 + Vec3 x2 y2 z2 = Vec3 (x1+x2) (y1+y2) (z1+z2)
@@ -77,6 +80,9 @@ instance Vec Vec3 where
             1 -> y
             2 -> z
             _ -> error "Vec3.vindex - index out of range."
+instance NFData Vec3 where
+    rnf (Vec3 x y z) = x `seq` y `seq` z `seq` ()
+    {-# INLINE rnf #-}
 
 instance Num Vec2 where
     Vec2 x1 y1 + Vec2 x2 y2 = Vec2 (x1+x2) (y1+y2)
@@ -92,13 +98,6 @@ instance Vec Vec2 where
             0 -> x
             1 -> y
             _ -> error "Vec2.vindex - index out of range."
-
-instance NFData Vec4 where
-    rnf (Vec4 x y z w) = x `seq` y `seq` z `seq` w `seq` ()
-    {-# INLINE rnf #-}
-instance NFData Vec3 where
-    rnf (Vec3 x y z) = x `seq` y `seq` z `seq` ()
-    {-# INLINE rnf #-} 
 instance NFData Vec2 where
     rnf (Vec2 x y) = x `seq` y `seq` ()
     {-# INLINE rnf #-}
@@ -118,6 +117,7 @@ scaleVec3 s (Vec3 a b c) = Vec3 (s*a) (s*b) (s*c)
 
 lengthVec3 :: Vec3 -> GLfloat
 lengthVec3 (Vec3 a b c) = sqrt (a*a + b*b + c*c)
+{-# INLINE lengthVec3 #-}
 
 crossVec3 :: Vec3 -> Vec3 -> Vec3
 crossVec3 (Vec3 u0 u1 u2) (Vec3 v0 v1 v2) = 
@@ -133,12 +133,11 @@ vec4GetIndex i (Vec4 x y z w)
 vec4GetIndex _ _ =
     error $ "Vec.vec4GetIndex: Argument must be " ++
             "0, 1, 2, or 3."
-{-# INLINE vec4GetIndex #-}
 
-toArray3 :: Vec3 -> [GLfloat]
-toArray3 (Vec3 x y z) = [x, y, z]
-{-# INLINE toArray3 #-}
+toList3 :: Vec3 -> [GLfloat]
+toList3 (Vec3 x y z) = [x, y, z]
+{-# INLINE toList3 #-}
 
-toArray2 :: Vec2 -> [GLfloat]
-toArray2 (Vec2 x y) = [x, y]
-{-# INLINE toArray2 #-}
+toList2 :: Vec2 -> [GLfloat]
+toList2 (Vec2 x y) = [x, y]
+{-# INLINE toList2 #-}

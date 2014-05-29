@@ -216,7 +216,6 @@ renderWorldNewWithFramebuffer :: World t -> Framebuffer -> IO (World t)
 renderWorldNewWithFramebuffer world fbuf = do
     glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
     _ <- renderAllWithGlobal fbuf world (worldEntities world) :: IO RenderInfo
-    --_ <- renderAllWithGlobal fbuf world [worldTerrain world] :: IO RenderInfo
     _ <- if isJust $ worldTerrain world
             then renderAllWithGlobal fbuf world
                     [fromJust $ worldTerrain world] :: IO RenderInfo

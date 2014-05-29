@@ -73,23 +73,27 @@ createFromProto (FromObj file vert frag mods attr) =
 defaultSettings :: Proto (World ())
 defaultSettings =
     ProtoWorld
-        Nothing
---        (Just $ Simplex 0 (200, 200) (0, 0) 1 1 20 10 undefined)
-        ("shaders" </> "correct.vert", "shaders" </> "correct.frag")
+        (Just $ Simplex 0 (200, 200) (0, 0) 1 1 20 10 undefined)
+        --Nothing
+        ("shaders" </> "correct_v.glsl", "shaders" </> "correct_f.glsl")
         (Just $ "res" </> "textures" </> "grass.jpg")
         [fromObj ("res" </> "objects" </> "wow" </> "wow.obj")
-         ("shaders" </> "correct.vert") ("shaders" </> "correct.frag") (),
+         ("shaders" </> "correct_v.glsl")
+         ("shaders" </> "correct_f.glsl") (),
          modify (\x -> x{entityPosition = Vec3 (-20) (-20) (-5)}) $
          fromObj ("res" </> "objects" </> "ibanez" </> "ibanez.obj")
-         ("shaders" </> "correct.vert") ("shaders" </> "correct.frag") ()]
+         ("shaders" </> "correct_v.glsl")
+         ("shaders" </> "correct_f.glsl") ()]
         (AABB (-100) 200)
         (ProtoWindow defaultWindow)
-        [("shaders" </> "postprocessing" </> "dof"  </> "dof.vert",
-          "shaders" </> "postprocessing" </> "dof"  </> "dof.frag"),
-         ("shaders" </> "postprocessing" </> "fxaa" </> "fxaa.vert",
-          "shaders" </> "postprocessing" </> "fxaa" </> "fxaa.frag")]
-         ("shaders" </> "shadow" </> "shadow.vert",
-          "shaders" </> "shadow" </> "shadow.frag")
+        {-[("shaders" </> "postprocessing" </> "passthrough" </> "passthrough_v.glsl",
+         "shaders" </> "postprocessing" </> "passthrough" </> "passthrough_f.glsl")]-}
+        [("shaders" </> "postprocessing" </> "dof"  </> "dof_v.glsl",
+          "shaders" </> "postprocessing" </> "dof"  </> "dof_f.glsl"),
+         ("shaders" </> "postprocessing" </> "fxaa" </> "fxaa_v.glsl",
+          "shaders" </> "postprocessing" </> "fxaa" </> "fxaa_f.glsl")]
+         ("shaders" </> "shadow" </> "shadow_v.glsl",
+          "shaders" </> "shadow" </> "shadow_f.glsl")
         [("lightPos", return [0.0, 10.0, 0.0])]
 
 defaultWorld :: World t

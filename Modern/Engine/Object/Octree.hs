@@ -7,9 +7,6 @@ module Engine.Object.Octree (
 
 import Data.List (foldl')
 
---import qualified Data.Vector.Storable.Mutable as MV
---import qualified Data.Vector.Storable as V
-
 import Engine.Model.AABB
     (AABB(..), HasAABB(..),
      objectsIntersectInclusive)
@@ -56,9 +53,7 @@ createOctree aabb = OLeaf aabb [] 0
 
 createOctreeFromAABBs :: HasAABB a => AABB -> [a] -> Octree AABB
 createOctreeFromAABBs aabb =
-    -- foldl is used intentionally instead of
-    -- foldl' to keep it lazy.
-    foldl ((. transformedAABBs) . foldl octInsert) (OLeaf aabb [] 0)
+    foldl' ((. transformedAABBs) . foldl octInsert) (OLeaf aabb [] 0)
 
 findNearby :: HasAABB a => Octree a -> a -> [a]
 findNearby (ONode _ children) val =

@@ -2,7 +2,8 @@ module Engine.Graphics.Graphics (
     initGL, resizeScene,
     cleanupObjects, renderWorldMat,
     cleanupWorld, renderObjectsMat,
-    renderAllPasses, makeFrameBuffer
+    renderAllPasses, makeFrameBuffer,
+    renderWorldWithPostprocessing
 ) where
 
 import Foreign (alloca, peek, new, withArray)
@@ -20,8 +21,8 @@ import Engine.Core.Types
     (World(..), WorldState(..), GameObject(..),
      Graphics(..))
 import Engine.Graphics.Shaders
-    (Shader(..), ShaderAttrib(..), setShaderAttribs, bindTextures, disableShaderAttribs,
-     setUniforms)
+    (Shader(..), ShaderAttrib(..), setShaderAttribs,
+     bindTextures, disableShaderAttribs, setUniforms)
 import Engine.Graphics.Framebuffer (Framebuffer(..))
 import Engine.Graphics.GraphicsUtils (offset0, fillNewBuffer)
 import Engine.Core.HasPosition (HasPosition(..), HasRotation(..))

@@ -1,9 +1,10 @@
+{-# LANGUAGE FlexibleContexts #-}
 module Engine.Object.Player (
     mkPlayer,
     resetPlayerInput,
     setVelocityFromLook,
     applyGravityVelocity,
-    resolveVelocity
+    resolveVelocityNoY
 ) where
 
 import Data.Maybe (isJust, fromJust)
@@ -20,7 +21,8 @@ import Engine.Core.Vec (Vec3(..), Vec2(..))
 import Engine.Core.World (getWorldDelta)
 import Engine.Object.GameObject
     (moveObjectSlide, moveSlideIntersecters)
-import Engine.Core.HasPosition (HasPosition(..))
+import Engine.Core.HasPosition
+    (HasPosition(..), HasVelocity(..))
 import Engine.Terrain.Generator (Terrain(..))
 import Engine.Object.Intersect (Intersect(..))
 
@@ -94,7 +96,6 @@ escIn w =
             }
         }
 
-
 --------------- END FPS ---------------
 
 
@@ -119,11 +120,10 @@ pUpdateNormal = do
     put modifiedW
     playerKeyUpdateSafe
     modifiedP <- worldPlayer <$> get
-    resolvedP <- applyGravityVelocity modifiedP >>= resolveVelocity
+    resolvedP <- resolveVelocityWithGravity modifiedP
 
     put modifiedW{worldPlayer =
-        resolvedP{
-                playerSpeed = origSpeed}}
+        resolvedP{playerSpeed = origSpeed}}
 
 pUpdatePaused :: Game t ()
 pUpdatePaused = do
@@ -168,6 +168,39 @@ setVelocityFromLook player@(Player{}) idVec =
 setVelocityFromLook _ _ = error "Player.setVelocityFromLook"
 
 -- TODO: Clean up.
+moveWithStep ::
+    GameObject t -> Vec3 -> Game t (GameObject t)
+moveWithStep object movement@(Vec3 mx _ mz) = do
+    world <- get
+    (moved, mabInt) <- moveSlideIntersecters
+                        object movement
+    let newAABB = fromJust $ transformedWholeAABB moved
+        terrainDelta =
+            if isJust $ worldTerrain world
+                then terrainCollisionDelta (fromJust $ worldTerrain world) newAABB
+            else 0
+    if not $ null mabInt
+        then
+            let AABB (Vec3 _ pMiny _) _ = newAABB
+                abMaxYs = map (\(AABB _ (Vec3 _ ymax _)) -> ymax) mabInt
+                abMaxY = maximum abMaxYs
+                yStep = abMaxY - pMiny
+            in if terrainDelta > 0
+                then if yStep > 0
+                    then moveObjectSlide object $
+                        Vec3 mx (max yStep terrainDelta) mz
+                    else moveObjectSlide object $
+                        Vec3 mx terrainDelta mz
+                else if yStep > 0
+                    then return $ movePos object $
+                        Vec3 mx yStep mz
+                else return moved
+        else if terrainDelta > 0
+            then moveObjectSlide moved $
+                Vec3 0 terrainDelta 0
+            else return moved
+
+{-
 moveWithStep :: GameObject t -> Vec3 -> Game t (GameObject t)
 moveWithStep player@(Player{}) movement@(Vec3 mx _ mz) = do
     world <- get
@@ -200,7 +233,7 @@ moveWithStep player@(Player{}) movement@(Vec3 mx _ mz) = do
             else return moved
 moveWithStep _ _ =
     error "Player.moveWithStep can only be used with Players."
-
+-}
 terrainCollisionDelta :: Terrain -> AABB -> GLfloat
 terrainCollisionDelta terrain aabb@(AABB (Vec3 lowx lowy lowz) _) =
     if intersecting terrain aabb
@@ -295,26 +328,19 @@ playerKeyUpdateTailSafe _ =
     error $ "Player.playerKeyUpdateTailSafe is meant"
         ++ " to be used only on Players."
 
+resolveVelocityWithGravity :: GameObject t -> Game t (GameObject t)
+resolveVelocityWithGravity p@(Player{}) =
+    applyGravityVelocity p >>= resolveVelocityNoY
+resolveVelocityWithGravity _ = error "Player.resolveVelocityWithGravity"
+
 -- | Change Player's velocity to simulate gravity.
 applyGravityVelocity :: GameObject t -> Game t (GameObject t)
 applyGravityVelocity p@(Player{}) = do
     let Vec3 pvx pvy pvz = playerVelocity p
     world <- get
+    rest <- atRest p
 
-    atRest <- if pvy < 0
-                then
-                    let curPos = getPos p
-                    in do
-                        x <- getPos <$> moveWithStep p (Vec3 0 pvy 0)
-                        return $ curPos == x
-            else if pvy == 0
-                then
-                    let curPos = getPos p
-                    in do
-                        x <- getPos <$> moveWithStep p (Vec3 0 (-0.5) 0)
-                        return $ curPos == x
-            else return False
-    if atRest
+    if rest
         then return $ p{playerVelocity = Vec3 pvx 0.0 pvz}
     else
         let newY = max (pvy - getWorldDelta world * 0.5) (-1)
@@ -323,13 +349,32 @@ applyGravityVelocity p@(Player{}) = do
 applyGravityVelocity _ =
     error "Player.applyGravityVelocity can only be used on Players."
 
+atRest :: GameObject t -> Game t Bool
+atRest p@(Player{}) = do
+    let Vec3 _ pvy _ = playerVelocity p
+
+    if pvy < 0
+        then
+            let curPos = getPos p
+            in do
+                x <- getPos <$> moveWithStep p (Vec3 0 pvy 0)
+                return $ curPos == x
+    else if pvy == 0
+        then
+            let curPos = getPos p
+            in do
+                x <- getPos <$> moveWithStep p (Vec3 0 (-0.5) 0)
+                return $ curPos == x
+    else return False
+atRest _ = error "Player.atRest"
+
 -- | Translate velocity into a new position.
-resolveVelocity :: GameObject t -> Game t (GameObject t)
-resolveVelocity p@(Player{}) = do
+resolveVelocityNoY :: GameObject t -> Game t (GameObject t)
+resolveVelocityNoY p@(Player{}) = do
     let pVel@(Vec3 _ yv _) = playerVelocity p
     movedPlayer <- moveWithStep p pVel
     return movedPlayer{playerVelocity =
                 Vec3 0 yv 0}
-resolveVelocity _ =
+resolveVelocityNoY _ =
     error $ "Player.resolveVelocity can only be used"
             ++ " on Players"

@@ -1,11 +1,4 @@
-{-
-{-# OPTIONS_GHC -O2 -Wall -fexcess-precision -flate-dmd-anal
-                -funfolding-use-threshold=16
-                -fmax-simplifier-iterations=10 #-}
-{-# OPTIONS_GHC -fllvm -fllvm-pass-vectors-in-regs -optlc-O3 #-}
--}
 module Main where
-
 import Data.Time (diffUTCTime)
 import Control.Monad.State (unless, evalState, execState)
 
@@ -37,6 +30,8 @@ main = do
 
     -- Make cursor Hidden.
     GLFW.setCursorInputMode win GLFW.CursorInputMode'Disabled
+
+    print $ worldPlayer world
 
     -- Begin game loop.
     loop win world

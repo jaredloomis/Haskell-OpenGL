@@ -18,7 +18,6 @@ import FRP.Elerea.Simple (SignalGen, Signal)
 
 mainE :: IO ()
 mainE = loop $ networkMove recieveInput
---loop $ countIf (\x -> x `mod` 3 == 0) networkFib
 
 driveNetwork :: Show a => SignalGen (Signal a) -> IO ()
 driveNetwork = forever . (\x -> join x >>= print) . E.start
@@ -30,8 +29,6 @@ driveFor i x =
 loop :: Show a => SignalGen (Signal a) -> IO ()
 loop signal =
     E.start signal >>= fix ((>>) <$> (>>= print) <*>)
---  let loop' action = action >>= print >> loop' action
---  in E.start signal >>= loop'
 
 recieveInput :: SignalGen (Signal Bool)
 recieveInput = E.effectful $ do
@@ -48,7 +45,7 @@ networkMove tBool = do
             E.delay 1 =<<
                 if b
                     then trace "true" $ foldp (const (+1)) 1 $ return first
-                else constant 0
+                else trace "false" $ foldp (const (subtract 1)) 1 $ return first
         first <- final >>= E.delay 1 :: SignalGen (Signal Integer)
     final
 
