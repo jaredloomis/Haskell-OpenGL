@@ -1,0 +1,13 @@
+*.o
+*.hi
+*.swp
+*.html
+*.ll
+*.dump*
+Main
+*.sock
+*.eventlog
+*.tix
+*.mix
+*.html
+*.dyn_hi
