@@ -1,7 +1,7 @@
 module Engine.Graphics.Graphics (
     initGL, resizeScene,
-    cleanupObjects, renderWorldMat,
-    cleanupWorld, renderObjectsMat,
+    cleanupObjects, renderWorld,
+    cleanupWorld, renderObjects,
     renderAllPasses, makeFrameBuffer,
     renderWorldWithPostprocessing
 ) where
@@ -11,7 +11,6 @@ import Foreign.Marshal (with)
 import Foreign.C (withCString)
 import Data.Bits ((.|.))
 import Data.Maybe (fromJust)
-import Data.Time (utctDayTime)
 
 import qualified Graphics.UI.GLFW as GLFW
 
@@ -34,8 +33,8 @@ import Engine.Matrix.Matrix
 import Engine.Graphics.Window (Window(..))
 import Engine.Model.Model (Model(..))
 
-renderWorldMat :: World t -> IO (World t)
-renderWorldMat world = do
+renderWorld :: World t -> IO (World t)
+renderWorld world = do
     glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
 
     -- Get window dimensions from GLFW
@@ -47,11 +46,11 @@ renderWorldMat world = do
                         (worldPlayer world) dimensions
 
     -- Render world with matrices.
-    newEntites <- renderObjectsMat world worldMats (worldEntities world)
+    newEntites <- renderObjects world worldMats (worldEntities world)
     return world{worldEntities = newEntites}
 
-renderObjectsMat :: World t -> WorldMatrices -> [GameObject t] -> IO [GameObject t]
-renderObjectsMat world wm (object:rest) = do
+renderObjects :: World t -> WorldMatrices -> [GameObject t] -> IO [GameObject t]
+renderObjects world wm (object:rest) = do
     let model = getModel object
         Vec3 objx objy objz = getPos object
         Vec3 objrx objry objrz = getRot object
@@ -89,10 +88,10 @@ renderObjectsMat world wm (object:rest) = do
     let newObject = object{entityModel =
                     (entityModel object){modelShader = newShader}}
 
-    restObjects <- renderObjectsMat world wm rest
+    restObjects <- renderObjects world wm rest
 
     return $ newObject : restObjects
-renderObjectsMat _ _ [] = return []
+renderObjects _ _ [] = return []
 
 -------------------------------
 -- UTILITY / SETUP FUNCTIONS --
@@ -189,7 +188,7 @@ renderWorldWithPostprocessing world = do
     let effects = snd $ graphicsPostProcessors $ worldGraphics world 
     glBindFramebuffer gl_FRAMEBUFFER $
         fbufName $ fst $ graphicsPostProcessors $ worldGraphics world 
-    ret <- renderWorldMat world
+    ret <- renderWorld world
 
     renderAllPasses ret effects
     return ret
@@ -232,8 +231,7 @@ renderPostPass fb wState shader = do
     texId <- withCString "renderedTexture" $ glGetUniformLocation shader
     glUniform1i texId 0
 
-    let utcTime = stateTime wState
-        dayTime = realToFrac $ utctDayTime utcTime
+    let dayTime = stateTime wState
 
     setUniforms shader [("time", return [dayTime])]
 
@@ -300,7 +298,7 @@ makeFrameBuffer (winW, winH) = do
 
     quadVB <- fillNewBuffer quadBufferData
 
-    return $ FB fbName fbTex (winW, winH)
+    return $ Framebuffer fbName fbTex (winW, winH)
                 quadVB depthRenderBuffer
 
 quadBufferData :: [GLfloat]

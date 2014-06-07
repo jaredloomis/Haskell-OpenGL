@@ -4,7 +4,8 @@ module Engine.Core.World (
     getWorldTime
 ) where
 
-import Data.Time (getCurrentTime, UTCTime)
+import Data.Time (getCurrentTime, utctDayTime)
+import Control.Applicative ((<$>))
 
 import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
@@ -24,6 +25,6 @@ setWorldUniforms world shader =
 getWorldDelta :: World t -> GLfloat
 getWorldDelta = stateDelta . worldState
 
--- | Synonym for getCurrentTime.
-getWorldTime :: IO UTCTime
-getWorldTime = getCurrentTime
+-- | Call "Data.Time.getCurrentTime", convert to fractional.
+getWorldTime :: Fractional a => IO a
+getWorldTime = realToFrac . utctDayTime <$> getCurrentTime

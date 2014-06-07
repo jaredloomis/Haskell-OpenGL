@@ -7,6 +7,7 @@ module Engine.Terrain.Generator (
 
 import qualified Data.DList as D
 import System.Random (randomRIO)
+import Control.Parallel.Strategies
 
 import Graphics.Rendering.OpenGL.Raw
     (GLfloat, GLint, GLuint)
@@ -66,12 +67,15 @@ generateTerrain vert frag w spacing octaves wavelength intensity texture = do
             Simplex seed (floor w, floor w) (0, 0) spacing octaves
             wavelength intensity (perm seed)
         vertices = D.toList $ createSimplexTerrain simplex
-        normals = calculateNormals vertices
+        normals = calculateNormals vertices `using` parChunk (floor w)
 
     maybe
         (loadTerrainWithTexture' simplex vert frag vertices normals undefined)
         (loadTerrainWithTexture' simplex vert frag vertices normals)
         texture
+
+parChunk :: Int -> Strategy [a]
+parChunk len = parListChunk (len `div` 4) r0
 
 loadTerrainWithTexture' ::
     Simplex ->

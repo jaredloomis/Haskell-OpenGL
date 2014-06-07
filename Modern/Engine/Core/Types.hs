@@ -1,5 +1,11 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Engine.Core.Types (
     Game(..), GameIO(..), HasName(..),
     World(..), WorldState(..), Graphics(..),
@@ -8,16 +14,15 @@ module Engine.Core.Types (
     emptyWorldState
 ) where
 
-import Data.Monoid
+import Data.Label
+import Data.Default
 import Control.Applicative (Applicative)
-import Data.Time (UTCTime)
-import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Data.Maybe (isNothing)
 import Control.Monad.State
     (State, StateT, MonadIO,
      MonadState)
-import qualified Data.Map as M
-import qualified Data.IntMap as I
+import Control.Parallel.Strategies
+    (parMap, r0)
 
 import Graphics.Rendering.OpenGL.Raw (GLuint, GLfloat)
 import qualified Graphics.UI.GLFW as GLFW
@@ -35,140 +40,54 @@ import Engine.Graphics.Shaders (ShaderUniform)
 import Engine.Graphics.Framebuffer (Framebuffer)
 import Engine.Model.Model (Model(..), emptyModel)
 
+-- = New API (Not Great...)
 
--- = New API
+import Data.Vinyl
 
-newtype Game' a = Game' {
-    gameState' :: State World' a
-} deriving (Functor, Applicative, Monad, MonadState World')
+type GameObject'' = ["position" ::: Vec3,  "rotation"  ::: Vec3,
+                     "velocity" ::: Vec3,  "update"    ::: UpdateType,
+                     "model"    ::: Model, "input"     ::: Input',
+                     "aabb"     ::: AABB,  "intersect" ::: ICheck]
 
-newtype GameIO' a = GameIO' {
-    gameIoState' :: StateT World' IO a
-} deriving (Functor, Applicative, Monad, MonadIO, MonadState World')
+-- Just to stop errors.
+data Input' = Input' Int
+data UpdateType = UpdateType Int
+data ICheck = ICheck Int
 
+position' :: "position" ::: Vec3
+position' = Field
+rotation' :: "rotation" ::: Vec3
+rotation' = Field
+velocity' :: "velocity" ::: Vec3
+velocity' = Field
+update' :: "update" ::: UpdateType
+update' = Field
+model' :: "model" ::: Model
+model' = Field
+input' :: "input" ::: Input'
+input' = Field
+aabb' :: "aabb" ::: AABB
+aabb' = Field
+parent :: "parent" ::: PlainRec GameObject''
+parent = Field
 
-data World' = World' {
-    worldObjCount :: Int,
-    world'Objs :: I.IntMap GameObject',
-    world'Octree :: Octree AABB,
-    world'Graphics :: Graphics,
-    world'State :: WorldState
-}
+--xsg = rLens parent . rLens position' .~ 10 $ jon
 
-type GameObject' = M.Map String Attr
+parentPos :: (("parent" ::: PlainRec GameObject'') -?> rs, Functor f) =>
+              (Vec3 -> f Vec3) -> PlainRec rs -> f (PlainRec rs)
+parentPos = rLens parent . rLens position'
 
-test :: GameObject'
-test = fromList $ [
-    (Position 0)
-    ]
+jon = position'  =: 12
+  <+> rotation'  =: 20
+  <+> velocity'  =: 7
+  <+> parent     =: undefined
 
-test2 :: Attr
-test2 = Rotation 0
+type x -?> xs = IElem x xs
+type x >~ xs = x -?> xs
+type x `E` xs = IElem x xs
 
-test3 :: Attr
-test3 = Position 1
-
-data Attr =
-    Position Vec3
-  | Rotation Vec3
-  | Velocity Vec3
-  | Update UpdateType
-  | ModelAttr Model
-  | InputField (Input ())
-  | BoundingBox AABB
-  | IntersectCheck (GameObject' -> Bool)
--- TODO: FIX/REMOVE
-instance Show Attr where
-    show = attrName
-
-data UpdateType =
-    DirectUpdate (GameObject' -> State World' GameObject')
-  | GlobalUpdate (State World' ())
-instance Monoid UpdateType where
-    mempty = DirectUpdate return
-    mappend (DirectUpdate l) (DirectUpdate r) = DirectUpdate $ (r =<<) . l
-    mappend (GlobalUpdate l) (GlobalUpdate r) = GlobalUpdate $ l >> r
-    mappend (DirectUpdate direct) (GlobalUpdate global) =
-        DirectUpdate $ ((global >>) . return =<<) . direct
-    mappend (GlobalUpdate global) (DirectUpdate direct) =
-        DirectUpdate $ (global >>) . direct
-
-collisionResolve :: Attr -> Attr -> Attr
-collisionResolve (Position l) (Position r) = Position $ l+r
-collisionResolve (Rotation l) (Rotation r) = Rotation $ l+r
-collisionResolve (Velocity l) (Velocity r) = Velocity $ l+r
-collisionResolve (Update l) (Update r) = Update $ l <> r
--- TODO
-collisionResolve l@(ModelAttr{}) (ModelAttr{}) = l
--- TODO
-collisionResolve l@(InputField{}) (InputField{}) = l
-collisionResolve l@(BoundingBox{}) (BoundingBox{}) = l
-collisionResolve l@(IntersectCheck{}) (IntersectCheck{}) = l
-collisionResolve _ _ =
-    error $ "Engine.Core.Types.collisionResolve -" ++
-            "given Attr collision cannot be resolved."
-
--- | /O(log n)/ Get an attrib from GameObject.
-(@!) :: GameObject' -> String -> Maybe Attr
-(@!) = flip M.lookup
-
--- | /O(log n) / Add an attrib to a GameObject'.
-(@+) :: Attr -> GameObject' -> GameObject'
-(@+) x xs = M.insertWith collisionResolve (attrName x) x xs
-
--- | /O(log n)/ Delete an attrib from a GameObject'.
-(@-) :: GameObject' -> String -> GameObject'
-(@-) = flip M.delete
-
--- | /O(log n)/ Modify an attrib of a GameObject'.
-modify :: (Attr -> Attr) -> String -> GameObject' -> GameObject'
-modify = M.adjust
-
--- | /O(n * log n)/ create GameObject' from list of "Attr"s.
-fromList :: [Attr] -> GameObject'
-fromList = M.fromListWith collisionResolve . createKeys
-
-createKeys :: [Attr] -> [(String, Attr)]
-createKeys = map (\x -> (attrName x, x))
-
-getPosition :: GameObject' -> Vec3
-getPosition obj =
-    getGeneric obj (Position undefined) (\(Position x)->x)
-getRotation :: GameObject' -> Vec3
-getRotation obj =
-    getGeneric obj (Rotation undefined) (\(Position x)->x)
-
-getGeneric :: GameObject' -> Attr -> (Attr -> a) -> a
-getGeneric obj defVal func =
-    let mval = obj @! attrName defVal
-    in maybe (func defVal) func mval
-
-position :: String
-position = attrName $ Position undefined
-rotation :: String
-rotation = attrName $ Rotation undefined
-velocity :: String
-velocity = attrName $ Velocity undefined
-update :: String
-update = attrName $ Update undefined
-model :: String
-model = attrName $ ModelAttr undefined
-input :: String
-input = attrName $ InputField undefined
-boundingBox :: String
-boundingBox = attrName $ BoundingBox undefined
-intersectCheck :: String
-intersectCheck = attrName $ IntersectCheck undefined
-
-attrName :: Attr -> String
-attrName (Position{}) = "pos"
-attrName (Rotation{}) = "rot"
-attrName (Velocity{}) = "vel"
-attrName (Update{}) = "update"
-attrName (ModelAttr{}) = "modrend"
-attrName (InputField{}) = "input"
-attrName (BoundingBox{}) = "bbox"
-attrName (IntersectCheck{}) = "icheck"
+move' :: (("position" ::: Vec3) -?> rs) => Vec3 -> PlainRec rs -> PlainRec rs
+move' = rPut position'
 
 -- = State Monads
 
@@ -203,13 +122,17 @@ data World t = World {
 -- | The type used to contain values that
 --   change and affect the state of the World.
 data WorldState = WorldState {
-    stateTime :: UTCTime,
+    stateTime :: GLfloat,
     stateDelta :: GLfloat,
     statePaused :: Bool,
     stateWindow :: Window
 } deriving (Show)
+
+instance Default WorldState where
+    def = WorldState 0 0 False def
+
 emptyWorldState :: WorldState
-emptyWorldState = WorldState (posixSecondsToUTCTime 0) 0 False defaultWindow
+emptyWorldState = WorldState 0 0 False defaultWindow
 
 -- | The type used to contain global values relating to
 --   graphics / shaders.
@@ -225,6 +148,24 @@ emptyGraphics = Graphics [] (undefined, []) (undefined, 0)
 
 -- | Type representing nearly anything in the game
 --   that is somewhat "physical".
+{-
+data Player = Player {
+    playerPosition :: Vec3,
+    playerRotation :: Vec3,
+    playerVelocity :: Vec3,
+    playerSpeed :: GLfloat,
+    playerUpdate :: Game t (),
+    playerInput :: Input t
+}
+data GameObject t = GameObject {
+    entityPosition :: Vec3,
+    entityRotation :: Vec3,
+    entityVelocity :: Vec3,
+    entityUpdate :: GameObject t -> Game t (GameObject t),
+    entityModel :: Model,
+    entityAttribute :: t
+}
+-}
 data GameObject t = Player {
     playerPosition :: Vec3,
     playerRotation :: Vec3,
@@ -242,7 +183,6 @@ data GameObject t = Player {
 }
 emptyEntity :: GameObject ()
 emptyEntity = Entity 0 0 0 return emptyModel ()
-
 -- TODO: Make this more flexible
 playerAABB :: AABB
 playerAABB = AABB (Vec3 (-0.5) (-1.5) (-0.5)) (Vec3 0.5 1.5 0.5)
@@ -252,7 +192,7 @@ instance Show (GameObject t) where
         "Player{" ++
         "position = " ++ show (getPos obj) ++
         ", rotation = " ++ show (getRot obj) ++
-        ", speed = " ++ show (playerSpeed obj) ++
+--        ", speed = " ++ show (playerSpeed obj) ++
         "}"
     show obj@(Entity{}) =
         "Entity{" ++
@@ -296,7 +236,7 @@ instance HasAABB (GameObject t) where
         | otherwise =
             let pos = getPos obj
                 aabbs = getAABBs obj
-            in map (\(AABB l h) -> AABB (l+pos) (h+pos)) aabbs
+            in parMap r0 (\(AABB l h) -> AABB (l+pos) (h+pos)) aabbs
 
     transformedWholeAABB obj
         | isNothing $ getWholeAABB obj = Nothing
@@ -335,3 +275,8 @@ data Input t = Input {
     inputLastMousePos :: Vec2,
     inputMouseSpeed :: GLfloat
 }
+
+--mkLabel ''GameObject
+
+--x :: GameObject t :~> GLfloat
+--x = playerSpeed

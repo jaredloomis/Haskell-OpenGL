@@ -1,15 +1,24 @@
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Engine.FRP.FRP where
 
-import Control.Monad
-import Control.Monad.Fix
+import Prelude hiding ((.))
+import Data.Monoid (Monoid)
+import Control.Monad.Identity
 import Control.Applicative
+import Data.Time (NominalDiffTime)
+import Control.Monad.IO.Class
+import System.IO
+import Control.Parallel.Strategies
 
 import Debug.Trace (trace)
 
-import qualified FRP.Netwire as N hiding (id, (.))
-import FRP.Netwire (Wire, HasTime)
+import qualified FRP.Netwire as N
+import FRP.Netwire ((-->), (<&), (&>))
+import qualified Control.Wire.Core as C
+import qualified Control.Wire.Session as S
+import FRP.Netwire (Wire, HasTime, (.))
 
 import qualified FRP.Elerea.Simple as E
 import FRP.Elerea.Simple (SignalGen, Signal)
@@ -93,16 +102,45 @@ count = E.stateful 0 (+1)
 countIf :: (a -> Bool) -> SignalGen (Signal a) -> SignalGen (Signal Int)
 countIf f = foldp (\v c -> c + fromEnum (f v)) 0
 
--- = Netwire
+-------------
+-- Netwire --
+-------------
 
-test :: Monad m => Wire s e m Int Int
+control :: (Applicative m, MonadIO m, Monoid e) =>
+    (e -> m ()) ->
+    (b -> m ()) ->
+    Wire (S.Timed NominalDiffTime ()) e Identity () b ->
+    m b1
+control whenInhibited whenProduced =
+    loopN N.clockSession_
+  where
+    loopN session' wire' = do
+        (ds, s) <- S.stepSession session'
+        let Identity (mx, w) = C.stepWire wire' ds (Right ())
+        _ <- case mx of
+            Left ex -> whenInhibited ex
+            Right x -> whenProduced x
+        loopN s w
+
+countN :: (Monad m, HasTime t s) => Wire s () m () Double
+countN = N.integral 0 . 1
+
+test2 :: (Monad m, HasTime t s) => Wire s () m () String
+test2 = N.for 3 . "First" --> N.for 3 . "Second"
+
+events :: (HasTime t s, Monad m) => Wire s () m () t
+events = N.asSoonAs . (N.at 2 &> N.at 3) . N.time
+
+inParallel :: Wire s e m a a
+inParallel = N.evalWith rpar
+
+test :: Monad m => Wire s () m () Double
 test = pure 15
 
 clock :: (Monad m, HasTime b s) => Wire s e m a b
-clock = liftA2 (\t c -> c - 2*t) N.time (pure 60)
+clock = 60 - 2*N.time
 
-wire :: Monad m => Wire s () m a Integer
-wire = pure 15
-
-netwireRun :: IO ()
-netwireRun = N.testWire (pure ()) wire
+mainN :: IO ()
+mainN = control (\i -> putStrLn ("Inhibited: " ++ show i) >> hFlush stdout)
+                (\p -> putStrLn ("Produced: " ++ show p)  >> hFlush stdout)
+                (inParallel . events)

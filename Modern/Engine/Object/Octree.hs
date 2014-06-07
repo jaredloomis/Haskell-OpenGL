@@ -6,6 +6,7 @@ module Engine.Object.Octree (
 ) where
 
 import Data.List (foldl')
+import qualified Data.DList as D
 
 import Engine.Model.AABB
     (AABB(..), HasAABB(..),
@@ -19,6 +20,7 @@ import Engine.Core.Vec (Vec3(..), vmap)
 data Octree a =
     ONode AABB [Octree a]
   | OLeaf AABB [a] Int
+    deriving (Eq)
 
 instance Show a => Show (Octree a) where
     show (ONode aabb children) =
@@ -35,14 +37,6 @@ instance Functor Octree where
     fmap f (OLeaf aabb contents len) =
         OLeaf aabb (map f contents) len
 
-{-
-data MOctree a =
-    MNode AABB (MV.IOVector (MOctree a))
-  | PNode AABB (V.Vector (MOctree a))
-  | MLeaf AABB (MV.IOVector a) Int
-  | PLeaf AABB (V.Vector a) Int
--}
-
 maxCapacity :: Int
 maxCapacity = 64
 {-# INLINE maxCapacity #-}
@@ -53,7 +47,7 @@ createOctree aabb = OLeaf aabb [] 0
 
 createOctreeFromAABBs :: HasAABB a => AABB -> [a] -> Octree AABB
 createOctreeFromAABBs aabb =
-    foldl' ((. transformedAABBs) . foldl octInsert) (OLeaf aabb [] 0)
+    foldl' ((. transformedAABBs) . foldl' octInsert) (OLeaf aabb [] 0)
 
 findNearby :: HasAABB a => Octree a -> a -> [a]
 findNearby (ONode _ children) val =
@@ -72,19 +66,42 @@ findNearby' (ONode _ children) val =
         else concatMap (`findNearby'` val) insertIntos
 findNearby' (OLeaf _ contents _) _ = contents
 
-octInsert :: HasAABB a => Octree a -> a -> Octree a
+octInsert :: (HasAABB a, Eq a) => Octree a -> a -> Octree a
 octInsert (ONode aabb children) val =
-    let (insertIntos, others) = filterPartition (checkOctant val) children
+    let (insertIntos, others) = dpartition (checkOctant val) children
+    in  -- I would do this, but doing a comparison with
+        -- a DList forces it to turn into a list, which
+        -- causes this function to be slower than the
+        -- list-only version.
+        -- > if insertIntos == D.empty
+        -- >    then error "Collision.octInsert..."
+        -- > else ...
+        ONode aabb . D.toList . (`D.append` others) .
+             D.map (`octInsert` val) $ insertIntos
+{-
+octInsert (ONode aabb children) val =
+    let (insertIntos, others) = partition (checkOctant val) children
     in if null insertIntos
-            then error $ "Error in Collision.octInsert" ++
+            then error $ "Error in Collision.octInsert: " ++
                   "value could not be inserted into tree."
-        else ONode aabb $ map (`octInsert` val) insertIntos ++ others
+        else ONode aabb . (++ others) .
+             map (`octInsert` val) $ insertIntos
+-}
+
 octInsert leaf@(OLeaf aabb contents size) val =
     if size+1 <= maxCapacity
         then OLeaf aabb (val : contents) (size+1)
     else octInsert (subdivide leaf) val
 
-subdivide :: HasAABB a => Octree a -> Octree a
+dpartition :: (a -> Bool) -> [a] -> (D.DList a, D.DList a)
+dpartition p xs = foldr (dselect p) (D.empty, D.empty) xs
+{-# INLINE dpartition #-}
+
+dselect :: (a -> Bool) -> a -> (D.DList a, D.DList a) -> (D.DList a, D.DList a)
+dselect p x (ts, fs) | p x = (x `D.cons` ts,fs)
+                     | otherwise = (ts, x `D.cons` fs)
+
+subdivide :: (HasAABB a, Eq a) => Octree a -> Octree a
 subdivide (OLeaf wholeAABB@(AABB minVec maxVec) contents _) =
     let halfVec@(Vec3 halfX halfY halfZ) = vmap (/2) (abs $ maxVec - minVec)
         newAABBTemplate = AABB minVec $ minVec + halfVec 
@@ -115,19 +132,6 @@ subdivide (OLeaf wholeAABB@(AABB minVec maxVec) contents _) =
                                    southEastALeaf, southEastBLeaf]
     in foldl' octInsert newNode contents
 subdivide _ = error "Collision.subdivide: cannot subdivide a ONode."
-
-filterPartition :: (a -> Bool) -> [a] -> ([a], [a])
-filterPartition f (x:xs)
-    | f x = (Just x, Nothing) `consTuple` filterPartition f xs
-    | otherwise = (Nothing, Just x) `consTuple` filterPartition f xs
-filterPartition _ [] = ([], [])
-
-consTuple :: (Maybe a, Maybe a) -> ([a], [a]) -> ([a], [a])
-consTuple (Just x, Nothing) (xs, ys) = (x:xs, ys)
-consTuple (Nothing, Just y) (xs, ys) = (xs, y:ys)
-consTuple _ _ =
-    error "Octree.consTuple: invalid arguments."
-{-# INLINE consTuple #-}
 
 checkOctant :: HasAABB a => a -> Octree a -> Bool
 checkOctant val (ONode aabb _) =

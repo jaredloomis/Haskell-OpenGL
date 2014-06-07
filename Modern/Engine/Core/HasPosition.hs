@@ -26,6 +26,8 @@ class HasRotation r where
         setRot r (getRot r + deltaR)
     {-# MINIMAL getRot, setRot #-}
 
+-- | A class for types that have a velocity
+--   that can be retrieved and set.
 class HasVelocity v where
     getVel :: v -> Vec3
     setVel :: v -> Vec3 -> v

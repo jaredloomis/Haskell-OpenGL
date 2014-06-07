@@ -3,6 +3,7 @@ module Engine.Graphics.Window (
     openWindow, shutdown
 ) where
 
+import Data.Default
 import System.Exit (exitSuccess)
 
 import qualified Graphics.UI.GLFW as GLFW
@@ -14,6 +15,9 @@ data Window = Window {
     windowSize :: (GLint, GLint),
     windowInner :: Maybe GLFW.Window
 } deriving (Show)
+
+instance Default Window where
+    def = defaultWindow
 
 defaultWindow :: Window
 defaultWindow =

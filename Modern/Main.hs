@@ -1,5 +1,5 @@
 module Main where
-import Data.Time (diffUTCTime)
+
 import Control.Monad.State (unless, evalState, execState)
 
 import qualified Graphics.UI.GLFW as GLFW
@@ -10,7 +10,7 @@ import Engine.Core.Types (
 import Engine.Graphics.Graphics
     (resizeScene, cleanupWorld,
      cleanupObjects)
-import Engine.Core.Vec (Vec2(..))
+import Engine.Core.Vec (Vec2(..), Vec3(..))
 import Engine.Graphics.Window
     (Window(..), shutdown)
 import Engine.Core.World (getWorldTime, setWorldPlayer)
@@ -19,10 +19,32 @@ import Engine.Object.GameObject (updateWorld)
 import Engine.Graphics.NewGraphics (renderWorldNewPost)
 import Engine.Core.WorldCreator (createWorld, defaultSettings)
 
+import Engine.Model.AABB (AABB(..))
+import Engine.Object.Octree
 main :: IO ()
-main = do
+main = print $ findNearby (octInsert octree (AABB 23 46)) (AABB 38 93)
+--print $ octInsert octree (AABB 23 46)
+{-defaultMainWith defaultConfig (return ()) [
+    bench "octree" $ whnf (findNearby octree) (AABB 20 20)
+    ]
+-}
+octree :: Octree AABB
+octree = createOctreeFromAABBs (AABB 0 1000) aabbs
+aabbs :: [AABB]
+aabbs = [let v = Vec3 x y z in AABB v (v+1)
+          | x <- map func [low..high],
+            y <- map func [low..high],
+            z <- map func [low..high]]
+  where
+    low = 2
+    high = 100
+    func = (*2)
+
+main' :: IO ()
+main' = do
     -- Create default world.
     world <- createWorld defaultSettings
+
     let Just win = windowInner $ stateWindow $ worldState world
 
     -- Register the function called when the window is resized.
@@ -30,8 +52,6 @@ main = do
 
     -- Make cursor Hidden.
     GLFW.setCursorInputMode win GLFW.CursorInputMode'Disabled
-
-    print $ worldPlayer world
 
     -- Begin game loop.
     loop win world
@@ -80,7 +100,7 @@ updateStepComplete win world = do
 
     -- Update the world time and delta.
     worldTime <- getWorldTime
-    let delta = realToFrac $ diffUTCTime worldTime (stateTime wState)
+    let delta = worldTime - stateTime wState
         newState = wState{
             stateTime = worldTime, stateDelta = delta}
 

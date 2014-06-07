@@ -111,8 +111,8 @@ instance Renderable Terrain RenderInfo where
 
             -- Move Object
             modelMat = gidentityMatrix
-
             newMatrices = (renderInfoMatrices info){matrixModel = modelMat}
+
         -- Set uniforms. (World uniforms and Matrices).
         newShader <-
             setMatrixUniforms mShader newMatrices
@@ -236,11 +236,11 @@ renderWorldNewPost world = do
     renderAllPasses ret effects
     return ret
 
--- | An \"Empty\" Framebuffer, just renders
+-- | An "Empty" Framebuffer, just renders
 --   to the screen.
 screenFramebuffer :: (GLint, GLint) -> Framebuffer
 screenFramebuffer dimensions =
-    FB 0 0 dimensions 0 0
+    Framebuffer 0 0 dimensions 0 0
 
 -- | Perform action with Framebuffer binded.
 withFramebuffer :: Framebuffer -> IO a -> IO a

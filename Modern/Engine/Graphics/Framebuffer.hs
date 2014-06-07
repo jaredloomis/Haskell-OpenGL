@@ -9,7 +9,7 @@ import Graphics.Rendering.OpenGL.Raw
 
 -- | All OpenGL handles for a Framebuffer and
 --   Renderbuffer.
-data Framebuffer = FB {
+data Framebuffer = Framebuffer {
     fbufName :: GLuint,
     fbufTexture :: GLuint,
     fbufDimensions :: (GLint, GLint),
@@ -19,4 +19,4 @@ data Framebuffer = FB {
 mkScreenFramebuffer :: GLFW.Window -> IO Framebuffer
 mkScreenFramebuffer win = do
     (w, h) <- GLFW.getFramebufferSize win
-    return $ FB 0 0 (fromIntegral w, fromIntegral h) 0 0
+    return $ Framebuffer 0 0 (fromIntegral w, fromIntegral h) 0 0

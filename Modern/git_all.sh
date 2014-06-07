@@ -25,7 +25,7 @@ if [ "$commitfile" != "n" ]; then
 else
     echo "Enter commit message:"
     read commitmessage
-    git commit -m '$commitmessage'
+    git commit -m $commitmessage
 fi
 echo ""
 

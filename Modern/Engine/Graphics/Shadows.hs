@@ -69,7 +69,7 @@ makeShadowFrameBuffer (width, height) = do
             then "Framebuffer successfully created"
             else "Framebuffer error")
 
-    return $ FB fbName depthTexture
+    return $ Framebuffer fbName depthTexture
             (width, height)
             (-1)
             (-1)

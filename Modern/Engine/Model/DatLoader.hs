@@ -4,20 +4,24 @@ module Engine.Model.DatLoader (
     loadDatModel
 ) where
 
+import Data.Binary
+import Data.Binary.Put
 import Data.List (intercalate)
 import Data.List.Split (splitOn)
 import System.IO (openFile, IOMode(..), hPutStrLn)
 import Data.Maybe (isJust)
+import Control.Parallel (par)
+
 -- In all tests so far, the strict version is a bit faster.
 -- It may be necessary to switch to the lazy version
 -- depending on the user's RAM and the size of the file being
--- loaded, as the strict one loads the file directly into memory.
+-- loaded, as the strict one loads the file directly into memory (?).
 import qualified Data.ByteString.Char8 as B
-    (ByteString, lines, hGetContents, pack,
+    (ByteString, lines, pack,
      unpack, isPrefixOf, append, split,
      words, splitWith, head, readInt,
      elemIndex, tail, length, hPutStrLn,
-     hPutStr)
+     hPutStr, readFile)
 
 import Graphics.Rendering.OpenGL.Raw (GLfloat, GLint)
 
@@ -31,7 +35,9 @@ writeDataToFile _ _ =
     error $ "DatLoader.writeDataToFile:" ++
             "arguments not properly formatted."
 
-writeVntToDat :: FilePath -> ([GLfloat], [GLfloat], [GLfloat], [GLfloat])-> [GLfloat] -> [B.ByteString] -> IO ()
+writeVntToDat :: FilePath ->
+    ([GLfloat], [GLfloat], [GLfloat], [GLfloat]) ->
+    [GLfloat] -> [B.ByteString] -> IO ()
 writeVntToDat datFile (verts, norms, texCoords, texIds) colors images =
     let vertStr = listToString verts
         normStr = listToString norms
@@ -99,13 +105,13 @@ loadDatModel f vert frag =
 
 loadData :: FilePath -> IO ([[GLfloat]], [FilePath])
 loadData datFile = do
-    fileContents <- openFile datFile ReadMode >>= B.hGetContents
+    fileContents <- B.readFile datFile
     let fileLines = B.lines fileContents
         verts = loadVerts fileLines
-        norms = loadNormals fileLines
-        colors = loadColors fileLines
-        texCoords = loadTexCoords fileLines
-        texIds = loadTexIds fileLines
+        norms = verts `par` loadNormals fileLines
+        colors = norms `par` loadColors fileLines
+        texCoords = colors `par` loadTexCoords fileLines
+        texIds = texCoords `par` loadTexIds fileLines
         directory = B.pack $ (intercalate "/" . init $ splitOn "/" datFile) ++ "/" 
         textures = loadTextures directory fileLines
     return ([verts, texCoords, norms, colors, texIds], map B.unpack textures)
@@ -174,3 +180,12 @@ takeFirst func (x:xs)
     | otherwise = takeFirst func xs
 takeFirst _ _ = error "DatLoader.takeFirst: pattern not matched."
 {-# INLINE takeFirst #-}
+
+-- BINARY --
+
+writeBinaryDat :: [GLfloat] -> Put
+writeBinaryDat verts = do
+    mapM_ (put . toFloat) verts
+
+toFloat :: GLfloat -> Float
+toFloat = realToFrac

@@ -6,6 +6,7 @@ module Engine.Terrain.Noise (
 import Data.Bits ((.&.))
 import System.Random.Shuffle (shuffle')
 import System.Random hiding (next)
+import Control.Parallel.Strategies
 import qualified Data.Vector.Unboxed as V
 
 import Graphics.Rendering.OpenGL.Raw (GLfloat)
@@ -124,20 +125,7 @@ simplexNoise width spacing octaves wavelength intensity = do
             [(realToFrac x, realToFrac y) |
                 x <- [0, spacing .. (fromIntegral $ width-1)],
                 y <- [0, spacing .. (fromIntegral $ width-1)]]
-    return $ splitInterval raw width
-
-{-
-simplexNoiseSection :: (Int, Int) -> (Int, Int) -> Int -> GLfloat -> GLfloat -> IO [[GLfloat]]
-simplexNoiseSection (width, height) (startx, starty) octaves wavelength intensity = do
-    seed <- randomRIO (0, 100)
-    let raw = map
-            (\(x, y) -> intensity * realToFrac
-                (simplex3D (perm seed) octaves (realToFrac wavelength) x y 0))
-            [(realToFrac x, realToFrac y) |
-                x <- [startx .. (width-1)],
-                y <- [starty .. (height-1)]]
-    return $ splitInterval raw width
--}
+    return (splitInterval raw width `using` parChunk (width-1))
 
 splitInterval :: [a] -> Int -> [[a]]
 splitInterval xs i
@@ -145,3 +133,6 @@ splitInterval xs i
         let (ret, rest) = splitAt i xs
         in ret : splitInterval rest i
     | otherwise = []
+
+parChunk :: Int -> Strategy [a]
+parChunk len = parListChunk (len `div` 4) r0

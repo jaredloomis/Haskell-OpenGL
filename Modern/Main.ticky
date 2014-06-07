@@ -1,0 +1,378 @@
+
+STACK USAGE:
+
+ENTERS: 51011712  of which 51011712 (100.0%) direct to the entry code
+		  [the rest indirected via Node's info ptr]
+   19245371 ( 37.7%) thunks
+     470564 (  0.9%) data values
+          0 (  0.0%) normal indirections
+          0 (  0.0%) permanent indirections
+
+FUNCTION ENTRIES: 31295777
+
+TAIL CALLS: 33889125, of which 19167409 (57%) were to known functions
+
+SLOW APPLICATIONS: 0 evaluated, 0 unevaluated
+
+         Too few args   Correct args   Too many args
+   FUN            0              0               0
+   PAP            0              0               0
+
+
+RETURNS: 3532961
+          0 (  0.0%) from entering a new constructor
+		  [the rest from entering an existing constructor]
+
+UPDATE FRAMES: 8293550 (0 omitted from thunks)
+CATCH FRAMES:  0
+UPDATES: 0
+          0 (  0.0%) data values
+		  [0 in place, 0 allocated new space]
+          0 (  0.0%) partial applications
+		  [0 in place, 0 allocated new space]
+          0 (  0.0%) updates by squeezing
+
+The following table is explained by http://ghc.haskell.org/trac/ghc/wiki/Debugging/TickyTicky
+All allocation numbers are in bytes.
+
+**************************************************
+
+    Entries      Alloc    Alloc'd  Non-void Arguments      STG Name
+--------------------------------------------------------------------------------
+          1          0          0   1 p                    main:Engine.Graphics.Window.$wa1{v rh}
+         12          0          0   1 L                    a{v r27pe} (main:Engine.Graphics.Graphics)
+          8          0          0   1 L                    a1{v r27pf} (main:Engine.Graphics.Graphics)
+         12          0          0   1 L                    a2{v r27pg} (main:Engine.Graphics.Graphics)
+          3          0          0   1 L                    main:Engine.Graphics.Graphics.cleanupObjects1{v r20nt}
+          3          0          0   1 L                    main:Engine.Graphics.Graphics.cleanupWorld2{v r20nr}
+          1          0          0   1 S                    main:Engine.Graphics.Graphics.cleanupWorld1{v r20ns}
+        270      15120          0   1 S                    main:Engine.Object.Player.mkPlayer15{v r1P2M}
+          6        224          0   1 S                    main:Engine.Object.Player.mkPlayer11{v r1P2O}
+        184       8832          0   1 S                    main:Engine.Object.Player.mkPlayer25{v r1P2F}
+       1206      12864          0   2 MS                   main:Engine.Object.GameObject.moveObjectSlide1{v r1EJI}
+       1608      32160          0   3 S>S                  main:Engine.Core.Types.$fMonadGame3{v r1hGX}
+        134      22512          0   4 Mfff                 main:Engine.Object.GameObject.$wmoveObjectSlide{v r1EJC}
+          9        360          0   2 MS                   main:Engine.Core.Types.$fHasPositionGameObject_$cmovePos{v r1hHx}
+        200       9600          0   1 S                    main:Engine.Object.Player.mkPlayer23{v r1P2G}
+        626          0          0   2 fL                   $wlgo{v r1WZK} (main:Engine.Object.Player)
+        626      10016          0   1 S                    lvl6{v r1WZJ} (main:Engine.Object.Player)
+        626      10016          0   2 SL                   main:Engine.Object.Intersect.anyIntersectGet{v rWi4}
+        626          0          0   2 +M                   main:Engine.Core.Types.$fHasAABBGameObject_$cgetAABBs{v r1hHJ}
+        626          0          0   1 M                    sat_s1s0g{v} (main:Engine.Core.Types) in r1hE7
+     360888          0          0  10 >>>>>>>>.L           main:Engine.Object.Intersect.$w$sgetObjectIntersecter{v rWhY}
+     361514          0          0   2 +M                   main:Engine.Core.Types.$fHasAABBGameObject_$cgetWholeAABB{v r1hHH}
+     361514          0          0   1 M                    sat_s1s0h{v} (main:Engine.Core.Types) in r1hE7
+     362766      20032          0  10 >>>>>>>>..           main:Engine.Object.Intersect.$wgetIntersecter{v rWi0}
+       5424     260352          0   1 S                    main:Engine.Object.Player.mkPlayer21{v r1P2H}
+        930          0          0   2 pS                   main:Main.main_$sa{v r2yVy}
+        931          0          0   6 wTSSwL               main:Engine.Graphics.Graphics.$w$sa{v r20n4}
+       1862          0          0   1 S                    main:Engine.Core.Types.stateTime{v r1hIT}
+       1862          0          0   1 S                    sat_sEcg{v} (main:Engine.Graphics.Shaders) in ro0U
+       5586      89376          0   0                      sat_s27sp{v} (main:Engine.Graphics.Graphics) in r20n5
+       1862      29792          0   3 SLS                  main:Engine.Graphics.Shaders.$wa4{v ro0U}
+       1862          0          0   2 SL                   main:Engine.Graphics.Shaders.setUniforms1{v ro0R}
+       1862          0          0   1 S                    sat_s27s9{v} (main:Engine.Graphics.Graphics) in r20n5
+       1862     178752          0   4 wSSw                 main:Engine.Graphics.Graphics.$wa2{v r20n5}
+        931          0          0   2 SL                   main:Engine.Graphics.Graphics.renderAllPasses1{v r20nu}
+        931          0          0   1 L                    main:Engine.Graphics.NewGraphics.$wa2{v r2cEo}
+        931          0          0   2 SS                   main:Engine.Graphics.NewGraphics.$fRenderableTerrainRenderInfo1{v r2cEk}
+        931          0          0   1 S                    main:Engine.Terrain.Generator.terrainTextures{v r109i}
+        931          0          0   1 S                    main:Engine.Terrain.Generator.terrainShaderVars{v r109k}
+       4655      96824          0   4 SSLS                 main:Engine.Graphics.NewGraphics.$wa3{v r2cEn}
+        931          0          0   2 SS                   main:Engine.Graphics.NewGraphics.$fRenderableTerrainRenderInfo2{v r2cEj}
+       2793      96824          0   3 wLS                  main:Engine.Graphics.NewGraphics.$wa4{v r2cEm}
+        931          0          0   2 SS                   main:Engine.Graphics.NewGraphics.$fRenderableTerrainRenderInfo3{v r2cEl}
+        931      22344          0   1 S                    poly_a{v r1JA4} (main:Engine.Object.GameObject)
+      16758          0          0   1 L                    main:Engine.Graphics.Shaders.disableShaderAttribs1{v ro1a}
+       1862          0          0   1 M                    main:Engine.Graphics.NewGraphics.$wa{v r2cEy}
+       1862          0          0   2 MS                   main:Engine.Graphics.NewGraphics.$fRenderableGameObjectRenderInfo1{v r2cEu}
+       5586          0          0   1 +                    main:Engine.Graphics.NewGraphics.renderCleanup{v r2cEI}
+       3724          0          0   1 S                    sat_sEqV{v} (main:Engine.Graphics.Shaders) in ro1b
+       2793          0          0   1 S                    main:Engine.Graphics.Shaders.shaderId{v ro1N}
+       2793          0          0   1 S                    sat_sEpU{v} (main:Engine.Graphics.Shaders) in ro1b
+         14        192          0   1 i                    main:Engine.Model.DatLoader.$wxs{v r102I}
+      28861     528808          0   2 LS                   main:Engine.Graphics.Shaders.bindTextures1{v ro1b}
+         15        480          0   3 SSS                  main:Engine.Graphics.Shaders.$WShaderAttrib{v ronX}
+         78       1560          0   3 LLL                  main:Engine.Graphics.Shaders.createShaderAttribs{v ro29}
+      16758          0          0   1 L                    main:Engine.Graphics.Shaders.setShaderAttribs1{v ro0W}
+       2793          0          0   1 S                    sat_s1Ouw{v} (main:Engine.Matrix.Matrix) in r1Ahg
+      36309     268128          0   1 L                    go{v r1Oe2} (main:Engine.Matrix.Matrix)
+       2793          0          0   1 S                    sat_s1Ou2{v} (main:Engine.Matrix.Matrix) in r1Ahg
+      36309     268128          0   1 L                    go1{v r1Oe3} (main:Engine.Matrix.Matrix)
+       2793          0          0   1 S                    sat_s1Oto{v} (main:Engine.Matrix.Matrix) in r1Ahg
+      36309    1653456          0   6 SSSSSS               main:Engine.Matrix.Matrix.$wgfrustumMatrix{v r1AhI}
+      36309     268128          0   1 L                    go2{v r1Oe4} (main:Engine.Matrix.Matrix)
+       2793          0          0   1 S                    sat_s1OsC{v} (main:Engine.Matrix.Matrix) in r1Ahg
+       1862          0          0   1 M                    main:Engine.Core.Types.$fHasPositionGameObject_$cgetPos{v r1hHz}
+       1862          0          0   1 +                    main:Engine.Core.HasPosition.getPos{v rCNv}
+       1862          0          0   1 M                    main:Engine.Core.Types.$fHasRotationGameObject_$cgetRot{v r1hHu}
+       1862          0          0   1 +                    main:Engine.Core.HasPosition.getRot{v rCNr}
+      41895          0          0   1 S                    a1{v r1Oe6} (main:Engine.Matrix.Matrix)
+      41895     670320          0   1 F                    sat_s1Ovp{v} (main:Engine.Matrix.Matrix) in r1CnH
+      41895     782040          0   1 L                    gnormalizeVec{v r1CnH} (main:Engine.Matrix.Matrix)
+    1619940          0          0   2 Lf                   main:Engine.Matrix.Matrix.$wsum'1{v r1Aic}
+     312816    5005056          0   1 L                    sat_s1OnQ{v} (main:Engine.Matrix.Matrix) in s1OnS
+      78204    1251264          0   1 L                    sat_s1OnS{v} (main:Engine.Matrix.Matrix) in r1Ail
+      58653     782040          0   2 LL                   main:Engine.Matrix.Matrix.$fNum[]_$c*{v r1Ail}
+     377055   13182960          0   2 SL                   main:Engine.Matrix.Matrix.$wgrotationMatrix'{v r1AhQ}
+      20482     461776          0   1 L                    main:Engine.Matrix.Matrix.grotationMatrix{v r1AiD}
+      31654    1012928          0   3 ++.                  main:Engine.Matrix.Matrix.calculateModelMatrix{v r1AiJ}
+      36309     268128          0   1 L                    go3{v r1Oe5} (main:Engine.Matrix.Matrix)
+       7788     211856          0   2 MS                   main:Engine.Object.Player.$wa2{v r1P33}
+       1558      24928          0   3 SSS                  main:Engine.Terrain.Noise.getSimplexHeight{v r3e}
+       1558          0          0   2 SS                   sat_s15TW{v} (main:Engine.Terrain.Generator) in r108X
+    3264532   78373696          0   1 M                    main:Engine.Core.Types.$w$ctransformedWholeAABB{v r1hHA}
+      15228     609120          0   2 MS                   main:Engine.Object.GameObject.moveObject{v r1EJP}
+       4674          0          0   4 ++.L                 main:Engine.Object.Intersect.getObjectIntersecter{v rWid}
+      60381     322240          0   1 L                    go{v s14zs} (main:Engine.Object.Octree) in r1086
+     249114          0          0   3 +.M                  checkOctant{v r10nu} (main:Engine.Object.Octree)
+     249114          0          0   1 M                    sat_s14zn{v} (main:Engine.Object.Octree) in r1086
+     382525    4655288          0   1 L                    go{v s14Av} (main:Engine.Object.Octree) in r107J
+     269613          0          0   2 SL                   main:Engine.Model.AABB.anyIntersectInclusive{v rFQy}
+     539852   12956448          0   1 S                    main:Engine.Model.AABB.$fHasAABBAABB_$ctransformedAABBs{v rFQa}
+     269613   21569040          0   1 S                    main:Engine.Model.AABB.$fHasAABBAABB_$cgetAABBs{v rFQb}
+      14967          0          0   1 f                    $w$j{v sKNR} (main:Engine.Model.AABB) in rFQA
+      14967          0          0   1 f                    $w$j{v sKMf} (main:Engine.Model.AABB) in rFQA
+      29934     957888          0   2 SS                   main:Engine.Core.Vec.$fNumVec3_$c+{v rkeD}
+      74835    1317096          0   1 S                    a4{v s1rZH} (main:Engine.Core.Types) in r1hHB
+    3602062  259348464          0   1 S                    main:Engine.Model.AABB.$fHasAABBAABB_$cgetWholeAABB{v rFQ9}
+    2159500    8627616          0  10 >>>>>>>>..           main:Engine.Model.AABB.$wobjectsIntersectInclusive{v rFPw}
+    1371160          0          0   2 SM                   $scheckOctant{v r10vo} (main:Engine.Object.Octree)
+    1371160          0          0   1 M                    sat_s14Al{v} (main:Engine.Object.Octree) in r107J
+    1542555   32907840          0   2 >L                   $wfilterPartition{v r14wS} (main:Engine.Object.Octree)
+      35295          0          0   1 L                    go{v s14HV} (main:Engine.Object.Octree) in r1038
+      17919    1003464          0   1 M                    main:Engine.Object.Octree.subdivide_$ssubdivide{v r1038}
+    1128689   41580424          0   2 MS                   main:Engine.Object.Octree.octInsert_$soctInsert{v r107J}
+      14969          0          0   2 ML                   main:Engine.Object.Octree.createOctreeFromAABBs_lgo{v r107Q}
+          1         56          0   1 M                    main:Engine.Core.WorldCreator.defaultSettings51{v r2vRy}
+     104771    6585480          0   1 L                    main:Engine.Model.AABB.aabbByFace{v rFQA}
+       4388     115264          0   1 M                    main:Engine.Core.Types.$w$ctransformedAABBs{v r1hHB}
+          2        160          0   1 +                    main:Engine.Core.Types.$fHasAABBGameObject{v r1hE7}
+          1          0          0   1 +                    main:Engine.Model.AABB.transformedAABBs{v rFQm}
+          3          0          0   1 L                    go{v s14Qp} (main:Engine.Object.Octree) in r1087
+          3         80          0   3 +SL                  main:Engine.Object.Octree.createOctreeFromAABBs{v r1087}
+     109698    2766560          0   3 +M.                  main:Engine.Object.Octree.findNearby{v r1086}
+      32718    1159152          0   8 MSMLMMSS             main:Engine.Object.GameObject.$wa3{v r1EJK}
+      10906     351552          0  10 MfffMLMMSS           main:Engine.Object.GameObject.$wa2{v r1EJA}
+       4680     121664          0  10 MfffMLMMSS           main:Engine.Object.Player.$wa3{v r1P30}
+       1059      75072          0   2 MS                   main:Engine.Object.Player.$wa{v r1P34}
+       6838     192560          0   1 M                    main:Engine.Object.Player.$wplayerMouseUpdate{v r1P36}
+      80997    2145024          0   3 MII                  main:Engine.Matrix.Matrix.$wcalculateMatricesFromPlayer{v r1AhB}
+      11172          0          0   1 S                    sat_sEfi{v} (main:Engine.Graphics.Shaders) in ro16
+      11172    1251264          0   3 SLL                  main:Engine.Graphics.Shaders.$wa3{v ro16}
+      30723     536256          0   3 SLS                  main:Engine.Matrix.Matrix.$wa1{v r1Ahg}
+      13034     253232          0   4 MSLS                 main:Engine.Graphics.NewGraphics.$wa1{v r2cEx}
+       1862          0          0   2 MS                   main:Engine.Graphics.NewGraphics.$fRenderableGameObjectRenderInfo2{v r2cEt}
+       5586          0          0   2 SS                   main:Engine.Graphics.NewGraphics.$fRenderableWorldRenderInfo1{v r2cEd}
+       5586          0          0   1 +                    main:Engine.Graphics.NewGraphics.renderDraw{v r2cEH}
+       2793      67032          0   3 SLL                  main:Engine.Graphics.Shaders.setUniformsAndRemember_$sa{v rkWG}
+       2793          0          0   1 S                    sat_sEnr{v} (main:Engine.Graphics.Shaders) in ro0Q
+      30723          0          0   2 LL                   main:Engine.Graphics.Shaders.findMaybeUniformLocation_findUniformLocation'{v ro1d}
+       2793          0          0   0                      main:Engine.Core.WorldCreator.defaultSettings4{v r2vRY}
+       2793      44688          0   2 SL                   main:Engine.Graphics.Shaders.setUniformsAndRemember1{v ro0Q}
+      33516     737352          0   4 MLSS                 main:Engine.Graphics.NewGraphics.$wa5{v r2cEf}
+       2793          0          0   2 SS                   main:Engine.Graphics.NewGraphics.$fRenderableWorldRenderInfo2{v r2cEe}
+          4         32          0   1 L                    go{v s2wzT} (main:Engine.Core.WorldCreator) in r2vSx
+       5586     104272          0   2 MS                   main:Engine.Graphics.NewGraphics.$fRenderableGameObjectRenderInfo3{v r2cEv}
+       5586          0          0   1 +                    main:Engine.Graphics.NewGraphics.renderBind{v r2cEJ}
+      14896     387296          0   1 S                    sat_s1JNO{v} (main:Engine.Object.GameObject) in r1EJy
+      10241     134064          0   1 L                    main:Engine.Object.GameObject.updateWorld2{v r1EJy}
+       4655          0          0   6 ++.S.L               main:Engine.Graphics.NewGraphics.renderWorldNew2{v r2cDX}
+        931     186200          0  13 MLMMLwSTSSLTS        main:Engine.Graphics.NewGraphics.$wa13{v r2cDG}
+       1710      41040          0   1 S                    a{v r1WZF} (main:Engine.Object.Player)
+      10260    1559520          0   6 MLMMSS               $j{v s1X7t} (main:Engine.Object.Player) in r1P2q
+      10260          0          0   1 S                    sat_s1X9p{v} (main:Engine.Object.Player) in r1P2q
+      11970     820800          0   4 LSSS                 main:Engine.Object.Player.$w$splayerKeyUpdateTailSafe{v r1P2q}
+       1710     259920          0   6 MLMMSS               $j{v s1Xa2} (main:Engine.Object.Player) in r1P37
+       1710          0          0   1 S                    sat_s1XbY{v} (main:Engine.Object.Player) in r1P37
+       1710     136800          0   1 M                    main:Engine.Object.Player.playerKeyUpdateTailSafe{v r1P37}
+       8779     615504          0   9 MLMMSSSES            main:Engine.Object.Player.$wa1{v r1P2E}
+        931      22344          0   1 S                    main:Engine.Object.Player.mkPlayer26{v r1P2Q}
+      20482     625632          0   2 SL                   a{v s2yVM} (main:Main) in r2y3l
+       2489     108072          0   4 SLSS                 main:Main.$wa1{v r2y3l}
+       9893     615376          0   9 pMLMMSSES            main:Main.$wa{v r2y3v}
+          1          0          0   9 pMLMMSSES            main:Main.$w$sa{v r2ywH}
+       4660      74560          0   1 +                    main:Engine.Core.World.getWorldTime1{v r1Aga}
+          3        128          0   2 SS                   main:Engine.Graphics.Shadows.$wa{v r2cz2}
+          7        336          0   1 L                    a{v r2wzq} (main:Engine.Core.WorldCreator)
+          1          0          0   1 S                    lvl6{v r27pD} (main:Engine.Graphics.Graphics)
+          3        144          0   2 SS                   main:Engine.Graphics.Graphics.$wa1{v r20n6}
+    2181652   34906416          0   1 i                    main:Engine.Terrain.Generator.$wxs{v r108y}
+          1         24          0   1 i                    main:Engine.Terrain.Generator.generateTerrain_xs{v r108M}
+    2100852   44925912          0   2 Li                   go{v s15Z3} (main:Engine.Terrain.Generator) in r108Y
+     929224   27472680          0   1 L                    main:Engine.Terrain.Generator.calculateNormals{v r108Y}
+          1          0          0   1 S                    main:Engine.Terrain.Noise.simpSpacing{v r34}
+          4         32          0   1 i                    xs{v st2B} (main:Engine.Terrain.Noise) in st2Z
+        513         72          0   5 iipiL                main:Engine.Terrain.Noise.perm_$spoly_a{v r2v}
+         11        216          0   0                      sat_st2Z{v} (main:Engine.Terrain.Noise) in r3d
+          1         16          0   1 I                    main:Engine.Terrain.Noise.perm{v r3d}
+         13       1160          0   3 ETL                  poly_a{v rsAL} (main:Engine.Terrain.Noise)
+          1        296          0   0                      lvl27{v rsBc} (main:Engine.Terrain.Noise)
+          1          0          0   1 S                    main:Engine.Terrain.Noise.simpWavelength{v r32}
+     163162          0          0   2 Di                   main:Engine.Terrain.Noise.$w$s^{v r2Q}
+     163162          0          0   2 Di                   main:Engine.Terrain.Noise.$w$s^^{v r2P}
+     326324          0          0   1 i                    $wf1{v ssO0} (main:Engine.Terrain.Noise) in r2G
+     163162    7831776          0   6 MiDDDD               main:Engine.Terrain.Noise.$wsimplex3D{v r2G}
+    1142134   11747664          0   6 iSfMSS               main:Engine.Terrain.Noise.$wgetSimplexHeight{v r2C}
+          1          0          0   1 S                    main:Engine.Terrain.Noise.simpIntensity{v r38}
+          1          0          0   1 S                    main:Engine.Terrain.Noise.simpOctaves{v r37}
+        996      27064          0   5 iSSiL                a2{v s15Rr} (main:Engine.Terrain.Generator) in r108Z
+     520000   11520000          0   1 L                    sat_s15Qy{v} (main:Engine.Terrain.Generator) in s15Iu
+     480200   23680000          0   1 L                    go1{v s15Iu} (main:Engine.Terrain.Generator) in s15Ay
+       2600      57600          0   1 L                    sat_s15OL{v} (main:Engine.Terrain.Generator) in s15Ay
+        400       6400          0   1 L                    sat_s15QC{v} (main:Engine.Terrain.Generator) in s15Ay
+       3401     155200          0   1 L                    go{v s15Ay} (main:Engine.Terrain.Generator) in r108Z
+        996      27064          0   5 iSSiL                a2{v s15zE} (main:Engine.Terrain.Generator) in r108Z
+       2600      57600          0   1 L                    sat_s15HV{v} (main:Engine.Terrain.Generator) in s15Bl
+       2401     118400          0   1 L                    go1{v s15Bl} (main:Engine.Terrain.Generator) in r108Z
+         13        288          0   1 L                    sat_s15Ez{v} (main:Engine.Terrain.Generator) in r108Z
+          2         32          0   1 L                    sat_s15I2{v} (main:Engine.Terrain.Generator) in r108Z
+         33       1224          0   1 S                    main:Engine.Terrain.Generator.createSimplexTerrain{v r108Z}
+         13        480          0   6 SLLLLL               main:Engine.Terrain.Generator.generateTerrain2{v r108X}
+          9        192          0   8 LLSSISSM             main:Engine.Terrain.Generator.generateTerrain1{v r1092}
+          8          0          0   1 S                    a10{v r16ku} (main:Engine.Model.DatLoader)
+         12          0          0   1 S                    a6{v r16kq} (main:Engine.Model.DatLoader)
+          4          0          0   1 S                    a4{v r16ko} (main:Engine.Model.DatLoader)
+          6          0          0   1 S                    a8{v r16ks} (main:Engine.Model.DatLoader)
+         16          0          0   2 ip                   main:Engine.Graphics.GraphicsUtils.$wa{v rkDE}
+         16          0          0   2 IS                   main:Engine.Graphics.GraphicsUtils.createBufferId3{v rkDF}
+     277545          0          0   1 w                    lvl24{v r16kf} (main:Engine.Model.DatLoader)
+     374520    6982200          0   7 >piiipM              $s$wa{v s16GT} (main:Engine.Model.DatLoader) in r16kk
+     419352          0          0   3 fif                  $wg1{v r16jH} (main:Engine.Model.DatLoader)
+     885500          0          0   2 fi                   main:Engine.Model.DatLoader.$wf{v r102P}
+     538812          0          0   2 Si                   main:Engine.Model.DatLoader.$w$s^{v r102Q}
+    5301858  126985992          0   4 pMii                 $wparseBsFloat'{v r16kk} (main:Engine.Model.DatLoader)
+     538812          0          0   1 S                    parseBsFloat{v r1035} (main:Engine.Model.DatLoader)
+          2          0          0   1 S                    a2{v r16km} (main:Engine.Model.DatLoader)
+         16        256          0   1 L                    main:Engine.Graphics.GraphicsUtils.createBufferId2{v rkDG}
+         15          0          0   1 L                    main:Engine.Graphics.GraphicsUtils.createBufferId1{v rkDH}
+         18        360          0   1 L                    main:Engine.Graphics.GraphicsUtils.createBufferIdAll1{v rkDD}
+         12          0          0   1 S                    sat_sEbu{v} (main:Engine.Graphics.Shaders) in sEbk
+         39        960          0   2 SL                   a2{v sEbk} (main:Engine.Graphics.Shaders) in ro15
+          3          0          0   1 S                    sat_sEbg{v} (main:Engine.Graphics.Shaders) in ro15
+          9        288          0   2 SL                   main:Engine.Graphics.Shaders.getAttrLocs1{v ro15}
+         18          0          0   1 L                    a1{v rDNq} (main:Engine.Graphics.Shaders)
+         18          0          0   1 L                    a3{v sEsH} (main:Engine.Graphics.Shaders) in ro0Z
+          6          0          0   1 S                    sat_sExe{v} (main:Engine.Graphics.Shaders) in sEwg
+         18        480          0   1 L                    a5{v sEwg} (main:Engine.Graphics.Shaders) in ro0Z
+          6          0          0   1 S                    sat_sEvd{v} (main:Engine.Graphics.Shaders) in ro0Z
+         12        768          0   1 L                    main:Engine.Graphics.Shaders.loadProgram2{v ro0Z}
+          3        288          0   2 LL                   main:Engine.Graphics.Shaders.loadProgram1{v ro11}
+         10        400          0   6 LLLLLS               main:Engine.Model.Model.createModel1{v rWir}
+          7        672          0   1 M                    main:Engine.Graphics.Textures.juicyLoadImageRaw2{v r8sp}
+          6        336          0   0                      sat_s16QR{v} (main:Engine.Model.DatLoader) in s16QY
+          6        432          0   1 S                    sat_s16QY{v} (main:Engine.Model.DatLoader) in r102M
+          7        112          0   1 L                    main:Engine.Graphics.Textures.juicyLoadTexture1{v r8s9}
+    3771654  116382864          0   1 i                    $wloop{v s16u9} (main:Engine.Model.DatLoader) in r16jO
+         24          0          0   1 S                    lvl3{v r16jM} (main:Engine.Model.DatLoader)
+    4257444          0          0   1 w                    lvl4{v r16jN} (main:Engine.Model.DatLoader)
+    4257480       2592          0   7 >piiipM              $s$wa{v s16sw} (main:Engine.Model.DatLoader) in r16jO
+         12        768          0   4 pMii                 $wparseDataLine{v r16jO} (main:Engine.Model.DatLoader)
+         10          0          0   1 S                    lvl32{v r16ky} (main:Engine.Model.DatLoader)
+         42          0          0   2 >L                   takeFirst{v r1037} (main:Engine.Model.DatLoader)
+          8        144          0   1 L                    main:Engine.Model.DatLoader.loadDatModel19{v r102L}
+         42        848          0   1 L                    main:Engine.Model.DatLoader.loadDatModel20{v r102M}
+         18        384          0   3 LLL                  main:Engine.Model.DatLoader.loadDatModel1{v r102N}
+         10         96          0   3 LLL                  main:Engine.Model.ObjLoader.loadObjModel1{v r1Agq}
+          6        224          0   5 LLLL.                main:Engine.Core.WorldCreator.$wa{v r2vSx}
+          3         48          0   1 L                    poly_a{v r2wzp} (main:Engine.Core.WorldCreator)
+          2          0          0   2 ii                   main:Engine.Graphics.Graphics.$wa{v r20nf}
+          2          0          0   3 SII                  main:Engine.Graphics.Graphics.initGL2{v r20nh}
+          1          0          0   1 S                    main:Engine.Graphics.Graphics.initGL1{v r20ni}
+          3          0          0   1 L                    main:Engine.Graphics.Window.openWindow3{v rs}
+          5        136          0   1 S                    main:Engine.Graphics.Window.openWindow1{v rt}
+         19        576          0   9 MTMLSSLTL            main:Engine.Core.WorldCreator.$wa1{v r2vSv}
+          1          0          0   0                      main:Main.main1{v r2y3t}
+          1          0          0   0                      main:Main.main4{v r2yVz}
+          1          0          0   0                      main::Main.main{v 01D}
+
+**************************************************
+   21352554 ALLOC_HEAP_ctr
+  926781688 ALLOC_HEAP_tot
+   21595490 HEAP_CHK_ctr
+   43452428 STK_CHK_ctr
+          0 ALLOC_RTS_ctr
+          0 ALLOC_RTS_tot
+     894430 ALLOC_FUN_ctr
+   25036056 ALLOC_FUN_gds
+      69804 ALLOC_PAP_ctr
+          0 ALLOC_PAP_adm
+    2273496 ALLOC_PAP_gds
+   13593588 ALLOC_UP_THK_ctr
+     622480 ALLOC_SE_THK_ctr
+  485072752 ALLOC_THK_gds
+   19050880 ALLOC_CON_ctr
+  416702928 ALLOC_CON_gds
+     167544 ALLOC_PRIM_ctr
+   51395864 ALLOC_PRIM_gds
+          0 ALLOC_PRIM_slp
+          0 ENT_VIA_NODE_ctr
+     260409 ENT_STATIC_CON_ctr
+     210155 ENT_DYN_CON_ctr
+   22222748 ENT_STATIC_FUN_DIRECT_ctr
+    9073029 ENT_DYN_FUN_DIRECT_ctr
+    2332031 ENT_LNE_ctr
+          0 ENT_STATIC_IND_ctr
+          0 ENT_DYN_IND_ctr
+          0 E!NT_PERM_IND_ctr requires +RTS -Z
+          0 ENT_AP_ctr
+          0 ENT_PAP_ctr
+          0 ENT_AP_STACK_ctr
+          0 ENT_BH_ctr
+          0 ENT_STATIC_THK_SINGLE_ctr
+        174 ENT_STATIC_THK_MANY_ctr
+    1236158 ENT_DYN_THK_SINGLE_ctr
+   18009039 ENT_DYN_THK_MANY_ctr
+          0 UPD_CAF_BH_UPDATABLE_ctr
+         87 UPD_CAF_BH_SINGLE_ENTRY_ctr
+          0 SLOW_CALL_fast_v16_ctr
+      40077 SLOW_CALL_fast_v_ctr
+          0 SLOW_CALL_fast_f_ctr
+          0 SLOW_CALL_fast_d_ctr
+          0 SLOW_CALL_fast_l_ctr
+    4534989 SLOW_CALL_fast_n_ctr
+   10175682 SLOW_CALL_fast_p_ctr
+          0 SLOW_CALL_fast_pv_ctr
+       1960 SLOW_CALL_fast_pp_ctr
+      16758 SLOW_CALL_fast_ppv_ctr
+          0 SLOW_CALL_fast_ppp_ctr
+          0 SLOW_CALL_fast_pppv_ctr
+          0 SLOW_CALL_fast_pppp_ctr
+          0 SLOW_CALL_fast_ppppp_ctr
+          0 SLOW_CALL_fast_pppppp_ctr
+          0 VERY_SLOW_CALL_ctr
+   14721716 UNKNOWN_CALL_ctr
+   19119659 KNOWN_CALL_ctr
+        402 KNOWN_CALL_TOO_FEW_ARGS_ctr
+      47348 KNOWN_CALL_EXTRA_ARGS_ctr
+          0 MULTI_CHUNK_SLOW_CALL_ctr
+          0 MULTI_CHUNK_SLOW_CALL_CHUNKS_ctr
+          0 SLOW_CALL_ctr
+          0 SLOW_CALL_FUN_TOO_FEW_ctr
+          0 SLOW_CALL_FUN_CORRECT_ctr
+          0 SLOW_CALL_FUN_TOO_MANY_ctr
+          0 SLOW_CALL_PAP_TOO_FEW_ctr
+          0 SLOW_CALL_PAP_CORRECT_ctr
+          0 SLOW_CALL_PAP_TOO_MANY_ctr
+          0 SLOW_CALL_UNEVALD_ctr
+          0 RET_NEW_ctr
+     470564 RET_OLD_ctr
+    3062397 RET_UNBOXED_TUP_ctr
+          0 UPDF_OMITTED_ctr
+    8293550 UPDF_PUSHED_ctr
+          0 CATCHF_PUSHED_ctr
+          0 UPDF_RCC_PUSHED_ctr
+          0 UPDF_RCC_OMITTED_ctr
+          0 UPD_SQUEEZED_ctr
+          0 UPD_CON_IN_NEW_ctr
+          0 UPD_CON_IN_PLACE_ctr
+          0 UPD_PAP_IN_NEW_ctr
+          0 UPD_PAP_IN_PLACE_ctr
+          0 UPD_NEW_IND_ctr
+          0 U!PD_NEW_PERM_IND_ctr requires +RTS -Z
+          0 UPD_OLD_IND_ctr
+          0 U!PD_OLD_PERM_IND_ctr requires +RTS -Z
+          0 GC_SEL_ABANDONED_ctr
+          0 GC_SEL_MINOR_ctr
+          0 GC_SEL_MAJOR_ctr
+          0 GC_FAILED_PROMOTION_ctr

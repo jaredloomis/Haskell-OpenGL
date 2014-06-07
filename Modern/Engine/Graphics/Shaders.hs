@@ -46,7 +46,7 @@ wrapShader :: GLuint -> Shader
 wrapShader program = Shader program []
 {-# INLINE wrapShader #-}
 
--- | Simply pack the arguments together into an array of
+-- | Simply pack the arguments together into a list of
 --   ShaderAttribs.
 createShaderAttribs :: [GLuint] -> [GLuint] -> [GLuint] -> [ShaderAttrib]
 createShaderAttribs (attr:attrs) (buff:buffs) (size:sizes) =
