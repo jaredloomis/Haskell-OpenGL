@@ -37,11 +37,16 @@ Performance by GHC/GHCI command:
 
 <h4>Top</h4>
 - <b>General code cleanup, make it easier to use and clearer.</b>
+- <b>Better documentation / comments.</b>
+- <b>Create cabal file, mostly to keep track of deps.</b>
+- <b>Generalize graphics code even more, making it api-independant. Possibly look at design of [GPipe](http://hackage.haskell.org/package/GPipe) (<i>I would consider actually using GPipe, but I like using OpenGL 3+ features</i>).</b>
+- <b>Maybe switch to using the OpenGL package instead of OpenGLRaw.</b>
+- <b>Test suite.</b>
 - <b>Repair shadows.</b>
 - <b>A collision detection system for <i>dynamic</i> objects.</b>
 - <b>Use State Monads more. Convert functions with types like `World t -> GameObject t -> a` to `GameObject t -> Game a`</b>
+- Create a FRP module, making it optional (Elerea or Netwire).
 - Normal mapping.
-- Create a FRP module, making it optional. (Elerea)
 - AI / Pathfinding (A\*?).
 - Chunks or other methods to allow for infinite terrain.
 
@@ -49,6 +54,8 @@ Performance by GHC/GHCI command:
 - Make walking more stable and efficient.
 
 <h4>Additions</h4>
+- AI / Pathfinding (A\*?).
+- Chunks or other methods to allow for infinite terrain.
 - Normal mapping / normal textures.
 - Text / GUI
 - Physics
@@ -58,16 +65,13 @@ Performance by GHC/GHCI command:
 
 <h4>OpenGL</h4>
 - LOD via [Tesselation shaders](http://prideout.net/blog/?p=48)
-- [Good resource for example shaders](https://github.com/MovingBlocks/Terasology/tree/develop/engine/src/main/resources/assets/shaders)
-- [Render to Texture / FBO](https://code.google.com/p/opengl-tutorial-org/source/browse/tutorial14_render_to_texture/tutorial14.cpp)
 - [Lots of stuff to add shader/graphics-wise](http://developer.download.nvidia.com/SDK/9.5/Samples/samples.html)
-- OpenGL 3.3+ [Sampler Objects](http://www.sinanc.org/blog/?p=215) (Pretty easy).
+- OpenGL 3.3+ [Sampler Objects](http://www.sinanc.org/blog/?p=215) (Pretty easy) [in OpenGLRaw package](http://hackage.haskell.org/package/OpenGLRaw-1.5.0.0/docs/Graphics-Rendering-OpenGL-Raw-ARB-SamplerObjects.html).
 - Shadows
     - [GPUGems](http://http.developer.nvidia.com/GPUGems/gpugems_ch09.html)
 
 <h4>Performance increases</h4>
-- Use [Parallelism](http://www.haskell.org/haskellwiki/Parallel) in parts of the program like loading .obj/.mtl files.
-- Use more efficient data structures - [ByteString](http://hackage.haskell.org/package/bytestring-0.9.2.1/docs/Data-ByteString.html) insteat of String, and [Vectors](https://hackage.haskell.org/package/vector) or [Arrays](https://hackage.haskell.org/package/array) instead of lists.
+- Use more parallelism.
 
 <h4>Organization</h4>
 - Define classes to constrain functions, instead of forcing the use of `GameObjects`?
