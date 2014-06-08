@@ -45,6 +45,7 @@ Performance by GHC/GHCI command:
 - <b>Repair shadows.</b>
 - <b>A collision detection system for <i>dynamic</i> objects.</b>
 - <b>Use State Monads more. Convert functions with types like `World t -> GameObject t -> a` to `GameObject t -> Game a`</b>
+- Use someone else's matrices, "mine" (Ilmari Heikkinen's) are not very efficient.
 - Create a FRP module, making it optional (Elerea or Netwire).
 - Normal mapping.
 - AI / Pathfinding (A\*?).

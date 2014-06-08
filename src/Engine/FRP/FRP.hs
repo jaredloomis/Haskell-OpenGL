@@ -15,7 +15,7 @@ import Control.Parallel.Strategies
 import Debug.Trace (trace)
 
 import qualified FRP.Netwire as N
-import FRP.Netwire ((-->), (<&), (&>))
+import FRP.Netwire ((-->), (&>))
 import qualified Control.Wire.Core as C
 import qualified Control.Wire.Session as S
 import FRP.Netwire (Wire, HasTime, (.))

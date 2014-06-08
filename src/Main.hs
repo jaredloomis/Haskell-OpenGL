@@ -21,8 +21,8 @@ import Engine.Core.WorldCreator (createWorld, defaultSettings)
 
 import Engine.Model.AABB (AABB(..))
 import Engine.Object.Octree
-main :: IO ()
-main = print $ findNearby (octInsert octree (AABB 23 46)) (AABB 38 93)
+main' :: IO ()
+main' = print $ findNearby (octInsert octree (AABB 23 46)) (AABB 38 93)
 --print $ octInsert octree (AABB 23 46)
 {-defaultMainWith defaultConfig (return ()) [
     bench "octree" $ whnf (findNearby octree) (AABB 20 20)
@@ -40,8 +40,8 @@ aabbs = [let v = Vec3 x y z in AABB v (v+1)
     high = 100
     func = (*2)
 
-main' :: IO ()
-main' = do
+main :: IO ()
+main = do
     -- Create default world.
     world <- createWorld defaultSettings
 

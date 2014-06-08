@@ -75,25 +75,26 @@ defaultSettings =
     ProtoWorld
         (Just $ Simplex 0 (200, 200) (0, 0) 1 1 20 10 undefined)
         --Nothing
-        ("shaders" </> "correct_v.glsl", "shaders" </> "correct_f.glsl")
-        (Just $ "res" </> "textures" </> "grass.jpg")
-        [fromObj ("res" </> "objects" </> "wow" </> "wow.obj")
-         ("shaders" </> "correct_v.glsl")
-         ("shaders" </> "correct_f.glsl") (),
+        (".." </> "res" </> "shaders" </> "correct_v.glsl",
+         ".." </> "res" </> "shaders" </> "correct_f.glsl")
+        (Just $ ".." </> "res" </> "textures" </> "grass.jpg")
+        [fromObj (".." </> "res" </> "objects" </> "wow" </> "wow.obj")
+         (".." </> "res" </> "shaders" </> "correct_v.glsl")
+         (".." </> "res" </> "shaders" </> "correct_f.glsl") (),
          modify (\x -> x{entityPosition = Vec3 (-20) (-20) (-5)}) $
-         fromObj ("res" </> "objects" </> "ibanez" </> "ibanez.obj")
-         ("shaders" </> "correct_v.glsl")
-         ("shaders" </> "correct_f.glsl") ()]
+         fromObj (".." </> "res" </> "objects" </> "ibanez" </> "ibanez.obj")
+         (".." </> "res" </> "shaders" </> "correct_v.glsl")
+         (".." </> "res" </> "shaders" </> "correct_f.glsl") ()]
         (AABB (-100) 200)
         (ProtoWindow defaultWindow)
         {-[("shaders" </> "postprocessing" </> "passthrough" </> "passthrough_v.glsl",
          "shaders" </> "postprocessing" </> "passthrough" </> "passthrough_f.glsl")]-}
-        [("shaders" </> "postprocessing" </> "dof"  </> "dof_v.glsl",
-          "shaders" </> "postprocessing" </> "dof"  </> "dof_f.glsl"),
-         ("shaders" </> "postprocessing" </> "fxaa" </> "fxaa_v.glsl",
-          "shaders" </> "postprocessing" </> "fxaa" </> "fxaa_f.glsl")]
-         ("shaders" </> "shadow" </> "shadow_v.glsl",
-          "shaders" </> "shadow" </> "shadow_f.glsl")
+        [(".." </> "res" </> "shaders" </> "postprocessing" </> "dof"  </> "dof_v.glsl",
+          ".." </> "res" </> "shaders" </> "postprocessing" </> "dof"  </> "dof_f.glsl"),
+         (".." </> "res" </> "shaders" </> "postprocessing" </> "fxaa" </> "fxaa_v.glsl",
+          ".." </> "res" </> "shaders" </> "postprocessing" </> "fxaa" </> "fxaa_f.glsl")]
+         (".." </> "res" </> "shaders" </> "shadow" </> "shadow_v.glsl",
+          ".." </> "res" </> "shaders" </> "shadow" </> "shadow_f.glsl")
         [("lightPos", return [0.0, 10.0, 0.0])]
 
 defaultWorld :: World t
