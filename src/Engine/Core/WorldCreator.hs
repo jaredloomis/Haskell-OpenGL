@@ -78,9 +78,9 @@ defaultSettings =
         (".." </> "res" </> "shaders" </> "correct_v.glsl",
          ".." </> "res" </> "shaders" </> "correct_f.glsl")
         (Just $ ".." </> "res" </> "textures" </> "grass.jpg")
-        [fromObj (".." </> "res" </> "objects" </> "wow" </> "wow.obj")
+        [{-fromObj (".." </> "res" </> "objects" </> "wow" </> "wow.obj")
          (".." </> "res" </> "shaders" </> "correct_v.glsl")
-         (".." </> "res" </> "shaders" </> "correct_f.glsl") (),
+         (".." </> "res" </> "shaders" </> "correct_f.glsl") (),-}
          modify (\x -> x{entityPosition = Vec3 (-20) (-20) (-5)}) $
          fromObj (".." </> "res" </> "objects" </> "ibanez" </> "ibanez.obj")
          (".." </> "res" </> "shaders" </> "correct_v.glsl")

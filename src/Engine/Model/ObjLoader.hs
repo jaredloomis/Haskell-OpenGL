@@ -224,7 +224,13 @@ parseNormLine =
 
 parseTexLine :: Parser ObjLine
 parseTexLine =
-    "vt" *> skipSpace *> (LineTex <$> parseVec2)
+    "vt" *> skipSpace *> (LineTex . texCoordToGLFormat <$> parseVec2)
+
+-- | .obj files store texture coordinates in a
+--   way that OpenGL doesn't understand. This
+--   puts it in the right format.
+texCoordToGLFormat :: Vec2 -> Vec2
+texCoordToGLFormat (Vec2 x y) = Vec2 x (1-y)
 
 parseFaceLine' :: Parser ObjLine
 parseFaceLine' = do
@@ -240,7 +246,8 @@ parseFaceDat =
                     "parseFaceDat.toV3 - Bad list length!")
 
 -- | This MUST be NOINLINE'd if -O2 is used,
---   otherwise it crashes.
+--   otherwise it crashes, due to a GHC 7.8.2
+--   bug.
 timesSep :: Int -> Parser a -> Parser b -> Parser [a]
 timesSep = times' 0
   where

@@ -19,8 +19,10 @@ import Engine.Object.GameObject (updateWorld)
 import Engine.Graphics.NewGraphics (renderWorldNewPost)
 import Engine.Core.WorldCreator (createWorld, defaultSettings)
 
+{-
 import Engine.Model.AABB (AABB(..))
 import Engine.Object.Octree
+
 main' :: IO ()
 main' = print $ findNearby (octInsert octree (AABB 23 46)) (AABB 38 93)
 --print $ octInsert octree (AABB 23 46)
@@ -39,6 +41,7 @@ aabbs = [let v = Vec3 x y z in AABB v (v+1)
     low = 2
     high = 100
     func = (*2)
+-}
 
 main :: IO ()
 main = do
