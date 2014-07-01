@@ -4,6 +4,7 @@ module Engine.Graphics.Shadows (
 ) where
 
 import Data.Bits ((.|.))
+import Data.Vec
 
 import Graphics.Rendering.OpenGL.Raw
 import Foreign (alloca, peek, withArray)
@@ -11,13 +12,11 @@ import Foreign (alloca, peek, withArray)
 import Engine.Core.Types
     (World(..),
      Graphics(..), WorldState(..),
-     GameObject(..))
+     Entity(..))
 import Engine.Matrix.Matrix
-    (WorldMatrices(..), Matrix4x4,
-     gorthoMatrix, glookAtMatrix,
-     gidentityMatrix, calculateMatricesFromPlayer,
-     gtranslationMatrix, toGLFormat)
-import Engine.Core.Vec (Vec3(..))
+    (WorldMatrices(..),
+     calculateMatricesFromPlayer,
+     toGLFormat)
 import Engine.Object.GameObject
     (getModel, getPos)
 import Engine.Core.World (setWorldUniforms)
@@ -30,7 +29,7 @@ import Engine.Graphics.Graphics
 import Engine.Graphics.GraphicsUtils (offset0)
 import Engine.Graphics.Window (Window(..))
 import Engine.Graphics.Framebuffer (Framebuffer(..))
-import Engine.Model.Model (Model(..))
+import Engine.Mesh.Mesh (Mesh(..))
 
 -- | Create a Framebuffer.
 makeShadowFrameBuffer :: (GLint, GLint) -> IO Framebuffer
@@ -90,17 +89,19 @@ renderWorldWithShadows world = do
 
     glUseProgram depthShader
 
-    let lightInvDir = Vec3 0.5 2.0 2.0
-        depthProjMat = gorthoMatrix (-50) 50 (-50) 50 (-50) 100
-        depthViewMat = glookAtMatrix lightInvDir (Vec3 0 0 0) (Vec3 0 1 0)
-        depthModelMat = gidentityMatrix
+    let lightInvDir = 0.5 :. 2.0 :. 2.0 :. ()
+        -- XXX: idk if this is correct.
+        depthProjMat = orthogonal (-50) 100 (50 :. 50 :. ())
+        --depthProjMat = gorthoMatrix (-50) 50 (-50) 50 (-50) 100
+        depthViewMat = rotationLookAt (0 :. 1 :. 0 :. ()) (0 :. 0 :. 0 :. ()) lightInvDir
+        depthModelMat = identity
 
         worldMats =
             WorldMatrices depthModelMat depthViewMat depthProjMat
 
     mvpMatrix <- quickGetUniform depthShader "mvpMatrix"
 
-    let depthMVP = depthProjMat * depthViewMat * depthModelMat
+    let depthMVP = depthProjMat `multmm` depthViewMat `multmm` depthModelMat
 
     renderInitialShadows (worldEntities world)
         worldMats
@@ -136,20 +137,19 @@ renderWorldWithShadows world = do
     return world
 
 renderObjectsWithShadows ::
-    World t -> WorldMatrices -> Matrix4x4 ->
-    Framebuffer -> [GameObject t] -> IO ()
+    World t -> WorldMatrices -> Mat44 GLfloat ->
+    Framebuffer -> [Entity t] -> IO ()
 renderObjectsWithShadows world wm depthMVP fbuf (cur : rest) = do
     let curModel = getModel cur
-        mShader = modelShader curModel
-        Vec3 ox oy oz = getPos cur
-        modelMat = gtranslationMatrix [ox, oy, oz]
+        mShader = meshShader curModel
+        modelMat = translation $ getPos cur
     glUseProgram $ shaderId mShader
 
     _ <- setMatrixUniformsBias mShader wm{matrixModel = modelMat} depthMVP
 
     _ <- setWorldUniforms world mShader
 
-    bindTextures (modelTextures curModel) $ shaderId mShader
+    bindTextures (meshTextures curModel) $ shaderId mShader
     
     let textureOffset = 20
     glActiveTexture $ gl_TEXTURE0 + textureOffset
@@ -157,34 +157,33 @@ renderObjectsWithShadows world wm depthMVP fbuf (cur : rest) = do
     quickGetUniform (shaderId mShader) "shadowMap" >>=
         (`glUniform1i` fromIntegral textureOffset)
 
-    setShaderAttribs $ modelShaderVars curModel
-    glDrawArrays gl_TRIANGLES 0 (modelVertCount curModel)
+    setShaderAttribs $ meshShaderVars curModel
+    glDrawArrays gl_TRIANGLES 0 (meshVertCount curModel)
 
     renderObjectsWithShadows world wm depthMVP fbuf rest
 renderObjectsWithShadows _ _ _ _ _ = return ()
 
-renderInitialShadows :: [GameObject t] -> WorldMatrices -> GLint -> IO ()
+renderInitialShadows :: [Entity t] -> WorldMatrices -> GLint -> IO ()
 renderInitialShadows (cur : rest) wm mvpUniform = do
-    setShaderAttribs $ modelShaderVars $ getModel cur
+    setShaderAttribs $ meshShaderVars $ getModel cur
 
-    let Vec3 ox oy oz = getPos cur
-        modelMat = gtranslationMatrix [ox, oy, oz]
+    let modelMat = translation $ getPos cur
 
-        mvp = matrixProjection wm * matrixView wm * modelMat
+        mvp = matrixProjection wm `multmm` matrixView wm `multmm` modelMat
 
     withArray
         (toGLFormat mvp)
         $ glUniformMatrix4fv mvpUniform 1 (fromIntegral gl_FALSE)
 
     glDrawArrays gl_TRIANGLES 0
-        (modelVertCount $ getModel cur)
+        (meshVertCount $ getModel cur)
     glDisableVertexAttribArray 0
     renderInitialShadows rest wm mvpUniform
 renderInitialShadows _ _ _ = return ()
 
 -- TODO: Make this function cause the shader to remember
 --       uniform locations.
-setMatrixUniformsBias :: Shader -> WorldMatrices -> Matrix4x4 -> IO Shader
+setMatrixUniformsBias :: Shader -> WorldMatrices -> Mat44 GLfloat -> IO Shader
 setMatrixUniformsBias shader wm depthMVP = do
     (shader', modelMatrix) <- findUniformLocationAndRemember shader "modelMatrix"
     withArray (toGLFormat $ matrixModel wm)
@@ -203,18 +202,19 @@ setMatrixUniformsBias shader wm depthMVP = do
     (shader'''', mvpMatrix) <- findUniformLocationAndRemember
                                 shader''' "mvpMatrix"
     withArray
-        (toGLFormat $ matrixProjection wm * matrixView wm * matrixModel wm)
+        (toGLFormat $ matrixProjection wm `multmm` matrixView wm `multmm` matrixModel wm)
         $ glUniformMatrix4fv mvpMatrix 1 (fromIntegral gl_FALSE)
 
-    let biasMatrix = [[0.5, 0.0, 0.0, 0.0],
+    let biasMatrix = matFromLists
+                     [[0.5, 0.0, 0.0, 0.0],
                       [0.0, 0.5, 0.0, 0.0],
                       [0.0, 0.0, 0.5, 0.0],
-                      [0.5, 0.5, 0.5, 1.0]] :: Matrix4x4
+                      [0.5, 0.5, 0.5, 1.0]] :: Mat44 GLfloat
 
     (shader''''', mvpBiasMatrix) <- findUniformLocationAndRemember
                                 shader'''' "mvpBiasMatrix"
     withArray
-        (toGLFormat $ biasMatrix * depthMVP)
+        (toGLFormat $ biasMatrix `multmm` depthMVP)
         $ glUniformMatrix4fv mvpBiasMatrix 1 (fromIntegral gl_FALSE)
 
     return shader'''''

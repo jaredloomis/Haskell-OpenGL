@@ -8,25 +8,22 @@ module Engine.Terrain.Generator (
 import qualified Data.DList as D
 import System.Random (randomRIO)
 import Control.Parallel.Strategies
+import Data.Vec ((:.)(..))
 
 import Graphics.Rendering.OpenGL.Raw
     (GLfloat, GLint, GLuint)
 
-import Engine.Core.Vec (Vec3(..))
-import Engine.Terrain.Noise (Simplex(..))
-import Engine.Graphics.Shaders (Shader(..), ShaderAttrib)
-import Engine.Graphics.Textures (Texture)
-import Engine.Model.AABB (AABB(..))
-import Engine.Model.Model (Model(..))
 import Engine.Graphics.Shaders
-    (loadProgram, getAttrLocs, createShaderAttribs)
-import Engine.Model.AABB (aabbFromPoints)
+    (Shader(..), ShaderAttrib,
+     loadProgram, getAttrLocs,
+     createShaderAttribs)
+import Engine.Mesh.AABB (AABB(..), aabbFromPoints)
 import Engine.Graphics.GraphicsUtils (createBufferIdAll)
 import Engine.Object.Intersect (Intersect(..))
-import Engine.Model.Model (createModel)
+import Engine.Mesh.Mesh (Mesh(..), createMesh)
 import Engine.Terrain.Noise
-    (perm, getSimplexHeight)
-import Engine.Graphics.Textures (juicyLoadTexture)
+    (Simplex(..), perm, getSimplexHeight)
+import Engine.Graphics.Textures (Texture, juicyLoadTexture)
 
 -- | A data type for a procedurally generally
 --   terrain.
@@ -46,11 +43,11 @@ emptyTerrain = Terrain undefined
             (\_ _ -> -10e100)
 
 instance Intersect Terrain AABB where
-    intersecting terr (AABB (Vec3 lx ly lz) _) =
+    intersecting terr (AABB (lx :. ly :. lz :. ()) _) =
         ly < terrainHeightFunc terr lx lz
 
 instance Intersect AABB Terrain where
-    intersecting (AABB (Vec3 lx ly lz) _) terr =
+    intersecting (AABB (lx :. ly :. lz :. ()) _) terr =
         ly < terrainHeightFunc terr lx lz
 
 generateTerrain :: FilePath -> FilePath ->
@@ -70,7 +67,7 @@ generateTerrain vert frag w spacing octaves wavelength intensity texture = do
         normals = calculateNormals vertices `using` parChunk (floor w)
 
     maybe
-        (loadTerrainWithTexture' simplex vert frag vertices normals undefined)
+        (loadTerrainNoTexture simplex vert frag vertices normals)
         (loadTerrainWithTexture' simplex vert frag vertices normals)
         texture
 
@@ -94,6 +91,21 @@ loadTerrainWithTexture' simplex vert frag vertices normals texture =
             (fromIntegral $ lengthVertices `div` 3)
         textureData <- juicyLoadTexture texture
         return $ loadedTerrain{terrainTextures = [(textureData, 1)]}
+
+loadTerrainNoTexture ::
+    Simplex ->
+    FilePath -> FilePath ->
+    [GLfloat] -> [GLfloat] ->
+    IO Terrain
+loadTerrainNoTexture simplex vert frag vertices normals =
+    let lengthVertices = length vertices
+    in createTerrain simplex vert frag
+            ["position", "normal", "color", "texCoord", "textureId"]
+            [vertices, normals, take (lengthVertices * 3) (cycle [0, 1, 0]),
+            take (lengthVertices * 3) $ cycle [0, 0, 1, 0, 0, 1],
+            replicate lengthVertices 0]
+            [3, 3, 3, 2, 1]
+            (fromIntegral $ lengthVertices `div` 3)
 
 createTerrain ::
     Simplex ->      -- Simplex info.
@@ -121,7 +133,7 @@ genSimplexModel :: FilePath -> FilePath ->
     GLfloat ->          -- Wavelength
     GLfloat ->          -- Waveheight / intensity
     Maybe FilePath ->   -- The texture (Maybe)
-    IO Model
+    IO Mesh
 genSimplexModel vert frag w spacing octaves wavelength intensity texture = do
     seed <- randomRIO (0, 2048)
     let simplex =
@@ -131,7 +143,7 @@ genSimplexModel vert frag w spacing octaves wavelength intensity texture = do
         normals = calculateNormals vertices
 
     maybe
-        (loadTerrainNoTexture vert frag vertices normals)
+        (loadTerrainNoTexture' vert frag vertices normals)
         (loadTerrainWithTexture vert frag vertices normals)
         texture
 
@@ -139,11 +151,11 @@ loadTerrainWithTexture ::
     FilePath -> FilePath ->
     [GLfloat] -> [GLfloat] ->
     FilePath ->
-    IO Model
+    IO Mesh
 loadTerrainWithTexture vert frag vertices normals texture =
     let lengthVertices = length vertices
     in do
-        loadedModel <- createModel vert frag
+        loadedModel <- createMesh vert frag
             ["position", "normal", "color", "texCoord", "textureId"]
             [vertices, normals, take (lengthVertices * 3) (cycle [0, 1, 0]),
             take (lengthVertices * 3) $ cycle [0, 0, 1, 0, 0, 1],
@@ -151,15 +163,15 @@ loadTerrainWithTexture vert frag vertices normals texture =
             [3, 3, 3, 2, 1]
             (fromIntegral $ lengthVertices `div` 3)
         textureData <- juicyLoadTexture texture
-        return $ loadedModel{modelTextures = [(textureData, 1)]}
+        return $ loadedModel{meshTextures = [(textureData, 1)]}
 
-loadTerrainNoTexture ::
+loadTerrainNoTexture' ::
     FilePath -> FilePath ->
     [GLfloat] -> [GLfloat] ->
-    IO Model
-loadTerrainNoTexture vert frag vertices normals =
+    IO Mesh
+loadTerrainNoTexture' vert frag vertices normals =
     let lengthVertices = length vertices
-    in createModel vert frag
+    in createMesh vert frag
             ["position", "normal", "color", "texCoord", "textureId"]
             [vertices, normals, take (lengthVertices * 3) (cycle [0, 1, 0]),
             replicate (lengthVertices * 3) 0,

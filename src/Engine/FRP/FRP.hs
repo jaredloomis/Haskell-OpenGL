@@ -11,6 +11,7 @@ import Data.Time (NominalDiffTime)
 import Control.Monad.IO.Class
 import System.IO
 import Control.Parallel.Strategies
+--import Control.Arrow hiding (loop)
 
 import Debug.Trace (trace)
 
@@ -121,12 +122,112 @@ control whenInhibited whenProduced =
             Left ex -> whenInhibited ex
             Right x -> whenProduced x
         loopN s w
+controlIO :: (MonadIO m, Applicative m) =>
+             (e -> m ()) ->
+             (a -> m ()) ->
+             Wire (S.Timed NominalDiffTime ()) e m a a ->
+             a ->
+             m ()
+controlIO whenInhibited whenProduced =
+    loopN N.clockSession_
+  where
+    loopN session wire val = do
+        (ds, s) <- S.stepSession session
+        (mx, w) <- C.stepWire wire ds (Right val)
+        case mx of
+            Left ex -> do
+                whenInhibited ex
+            Right x -> do
+                whenProduced x
+                loopN s w x
+
+controlIO_ :: (MonadIO m, Applicative m) =>
+              (e -> m ()) ->
+              (b -> m ()) ->
+              Wire (S.Timed NominalDiffTime ()) e m () b ->
+              m ()
+controlIO_ whenInhibited whenProduced =
+    loopN N.clockSession_
+  where
+    loopN session wire = do
+        (ds, s) <- S.stepSession session
+        (mx, w) <- C.stepWire wire ds (Right ())
+        _ <- case mx of
+            Left ex -> do
+                whenInhibited ex
+            Right x -> do
+                whenProduced x
+        loopN s w
+
+inputWire :: Monoid s => Wire s e IO (Int, Int) (Int, Int)
+inputWire = C.mkGenN trans
+  where
+    trans (x, y) = do
+        input <- hGetChar stdin
+        let newCoord =
+                case input of
+                    'a' -> (x-1, y)
+                    'd' -> (x+1, y)
+                    'w' -> (x, y+1)
+                    's' -> (x, y-1)
+                    _   -> (x, y)
+        return (Right newCoord, inputWire)
+
+keyPress :: Wire s e IO () (N.Event Char)
+keyPress = keyCheck . getKey
+
+keyCheck :: Wire s e m Char (N.Event Char)
+keyCheck = N.became (`elem` keys)
+  where
+    keys = ['a', 'd', 'w', 's']
+
+getKey :: Wire s e IO a Char
+getKey = C.mkGen_ trans
+  where
+    trans _ = Right <$> hGetChar stdin
+
+playerWire :: HasTime t s => Wire s () IO () (Int, Int)
+playerWire = N.holdFor 1 . playerEvent
+
+playerEvent :: Wire s e IO () (N.Event (Int, Int))
+playerEvent = N.accumE move (0, 0) . keyPress
+  where
+    move (x, y) key =
+        case key of
+            'a' -> (x-1, y)
+            'd' -> (x+1, y)
+            'w' -> (x, y+1)
+            's' -> (x, y-1)
+            _   -> (x, y)
+
+gameWire :: (HasTime t s) => Wire s () IO () String
+gameWire = monster . playerWire
+
+monster :: (HasTime t s, Monoid e, Monoid s) => Wire s e IO (Int, Int) String
+monster = "Roar!!!" . N.holdFor 1 . atMonster -- <|> "Snore..."
+
+atMonster :: Wire s e m (Int, Int) (N.Event (Int, Int))
+atMonster = N.became (==(0,1))
+
+liftIOToWire :: Monoid s => (a -> IO b) -> Wire s e IO a b
+liftIOToWire f = C.mkGen trans
+  where
+    trans _ value = do
+        x <- f value
+        return (Right x, liftIOToWire f)
+
+printWire :: Monoid s => Wire s e IO Int Int
+printWire = C.mkGen trans
+  where
+    trans _ a = do
+        putStrLn $ "Hello" ++ show a
+        return (Right (a+1), printWire)
 
 countN :: (Monad m, HasTime t s) => Wire s () m () Double
 countN = N.integral 0 . 1
 
-test2 :: (Monad m, HasTime t s) => Wire s () m () String
-test2 = N.for 3 . "First" --> N.for 3 . "Second"
+sequenced :: (Monad m, HasTime t s) => Wire s () m () String
+sequenced = N.for 3 . "First" --> N.for 3 . "Second"
 
 events :: (HasTime t s, Monad m) => Wire s () m () t
 events = N.asSoonAs . (N.at 2 &> N.at 3) . N.time
@@ -134,13 +235,17 @@ events = N.asSoonAs . (N.at 2 &> N.at 3) . N.time
 inParallel :: Wire s e m a a
 inParallel = N.evalWith rpar
 
-test :: Monad m => Wire s () m () Double
-test = pure 15
-
-clock :: (Monad m, HasTime b s) => Wire s e m a b
-clock = 60 - 2*N.time
-
 mainN :: IO ()
-mainN = control (\i -> putStrLn ("Inhibited: " ++ show i) >> hFlush stdout)
-                (\p -> putStrLn ("Produced: " ++ show p)  >> hFlush stdout)
-                (inParallel . events)
+mainN = controlIO_
+    (const $ putStrLn "Inhibited" >> hFlush stdout)
+    (\p -> putStrLn ("Produced: " ++ show p) >> hFlush stdout)
+    (playerWire)
+
+{-
+mainN :: IO ()
+mainN = controlIO
+    (const $ putStrLn "Inhibited" >> hFlush stdout)
+    (\p -> putStrLn ("Produced: " ++ show p) >> hFlush stdout)
+    (inputWire)
+    (0, 0)
+-}

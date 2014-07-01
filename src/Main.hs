@@ -1,16 +1,24 @@
 module Main where
 
+import Control.Monad (forM)
 import Control.Monad.State (unless, evalState, execState)
+import Data.Vec ((:.)(..), Vec2)
 
 import qualified Graphics.UI.GLFW as GLFW
+import Graphics.Rendering.OpenGL.Raw (GLfloat)
+
+import Physics.Bullet.Raw
+import Physics.Bullet.Raw.Utils
+--import Physics.Bullet.Raw.Types hiding (Vec2, Vec3)
+import qualified Physics.Bullet.Raw.Types as B
+import Physics.Bullet.Raw.Class
 
 import Engine.Core.Types (
     World(..), WorldState(..), Game(..),
-     GameObject(..), Input(..))
+    Input(..), Player(..))
 import Engine.Graphics.Graphics
     (resizeScene, cleanupWorld,
      cleanupObjects)
-import Engine.Core.Vec (Vec2(..), Vec3(..))
 import Engine.Graphics.Window
     (Window(..), shutdown)
 import Engine.Core.World (getWorldTime, setWorldPlayer)
@@ -18,30 +26,6 @@ import Engine.Object.Player (resetPlayerInput)
 import Engine.Object.GameObject (updateWorld)
 import Engine.Graphics.NewGraphics (renderWorldNewPost)
 import Engine.Core.WorldCreator (createWorld, defaultSettings)
-
-{-
-import Engine.Model.AABB (AABB(..))
-import Engine.Object.Octree
-
-main' :: IO ()
-main' = print $ findNearby (octInsert octree (AABB 23 46)) (AABB 38 93)
---print $ octInsert octree (AABB 23 46)
-{-defaultMainWith defaultConfig (return ()) [
-    bench "octree" $ whnf (findNearby octree) (AABB 20 20)
-    ]
--}
-octree :: Octree AABB
-octree = createOctreeFromAABBs (AABB 0 1000) aabbs
-aabbs :: [AABB]
-aabbs = [let v = Vec3 x y z in AABB v (v+1)
-          | x <- map func [low..high],
-            y <- map func [low..high],
-            z <- map func [low..high]]
-  where
-    low = 2
-    high = 100
-    func = (*2)
--}
 
 main :: IO ()
 main = do
@@ -121,16 +105,13 @@ updateStepComplete win world = do
     -- Update the rest of the world.
     return $ evalState (gameState updateWorld) updatedWorldWithUpdatedPlayer
 
-updatePlayerInput :: GLFW.Window -> GameObject t -> IO (GameObject t)
-updatePlayerInput win player@(Player{}) = do
+updatePlayerInput :: GLFW.Window -> Player t -> IO (Player t)
+updatePlayerInput win player = do
     let input = playerInput player
     newIn <- updateInput win input
     return $ player{
         playerInput = newIn
     }
-updatePlayerInput _ _ =
-    error $ "Main.updatePlayerInput can only"
-        ++ " be used on Players."
 
 updateInput :: GLFW.Window -> Input t -> IO (Input t)
 updateInput win input = do
@@ -164,7 +145,7 @@ updateInput win input = do
         return $ curVal : restVal
     loopThrough _ [] = return []
 
-    mouseUpdate :: GLFW.Window -> IO Vec2
+    mouseUpdate :: GLFW.Window -> IO (Vec2 GLfloat)
     mouseUpdate w = do
         (x, y) <- GLFW.getCursorPos w
-        return $ Vec2 (realToFrac x) (realToFrac y)
+        return $ realToFrac x :. realToFrac y

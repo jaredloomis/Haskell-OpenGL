@@ -1,13 +1,6 @@
-module Engine.Core.Vec (
-    Vec2(..), Vec3(..), Vec4(..), vec3ToVec4,
-    normalizeVec3, scaleVec3, lengthVec3,
-    crossVec3, vec4GetIndex, toList3, toList2,
-    Vec(..)
-) where
+module Engine.Core.Vec  where
 
-import Control.DeepSeq (NFData(..))
 
-import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
 {-
 data Vec4 = Vec4
@@ -24,6 +17,7 @@ data Vec2 = Vec2
     GLfloat deriving (Show, Eq)
 -}
 
+{-
 data Vec4 = Vec4
     {-# UNPACK #-} !GLfloat
     {-# UNPACK #-} !GLfloat
@@ -141,3 +135,4 @@ toList3 (Vec3 x y z) = [x, y, z]
 toList2 :: Vec2 -> [GLfloat]
 toList2 (Vec2 x y) = [x, y]
 {-# INLINE toList2 #-}
+-}

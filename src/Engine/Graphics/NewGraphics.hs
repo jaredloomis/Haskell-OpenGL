@@ -8,6 +8,7 @@ module Engine.Graphics.NewGraphics (
 
 import Data.Bits ((.|.))
 import Data.Maybe (isJust, fromJust)
+import Data.Vec hiding (head)
 
 import Graphics.Rendering.OpenGL.Raw
     (GLint, glUseProgram, glDrawArrays, gl_TRIANGLES,
@@ -16,7 +17,7 @@ import Graphics.Rendering.OpenGL.Raw
 
 import Engine.Core.Types
     (World(..), WorldState(..),
-     GameObject(..),
+     Entity(..),
      Graphics(..))
 import Engine.Core.World (setWorldUniforms)
 import Engine.Graphics.Shaders
@@ -26,13 +27,13 @@ import Engine.Object.GameObject (getModel)
 import Engine.Matrix.Matrix
     (WorldMatrices(..), emptyMatrices,
      setMatrixUniforms, calculateMatricesFromPlayer,
-     gidentityMatrix, calculateModelMatrix)
+     calculateModelMatrix)
 import Engine.Graphics.Window (Window(..))
 import Engine.Graphics.Shaders (Shader(..))
 import Engine.Terrain.Generator (Terrain(..))
 import Engine.Graphics.Framebuffer (Framebuffer(..))
 import Engine.Graphics.Graphics (renderAllPasses)
-import Engine.Model.Model (Model(..))
+import Engine.Mesh.Mesh (Mesh(..))
 
 -- | The data passed around through the stages of
 --   rendering.
@@ -63,9 +64,9 @@ class Renderable t g where
     renderCleanup _ = return
     defaultGlobal :: t -> g
 
-instance Renderable (GameObject t) RenderInfo where
+instance Renderable (Entity t) RenderInfo where
     renderBind obj info =
-        let shader = modelShader $ getModel obj
+        let shader = meshShader $ getModel obj
         in do
             glUseProgram $ shaderId shader
             return info{renderInfoShader = shader}
@@ -83,17 +84,17 @@ instance Renderable (GameObject t) RenderInfo where
             setMatrixUniforms mShader newMatrices
 
         -- Bind buffers to variable names in shader.
-        setShaderAttribs $ modelShaderVars model
-        bindTextures (modelTextures model) $ shaderId newShader
+        setShaderAttribs $ meshShaderVars model
+        bindTextures (meshTextures model) $ shaderId newShader
 
-        glDrawArrays gl_TRIANGLES 0 (modelVertCount model)
+        glDrawArrays gl_TRIANGLES 0 (meshVertCount model)
 
         return $ RenderInfo newShader newMatrices
 
     renderCleanup object _ = do
         let model = getModel object
         -- Necessary?
-        disableShaderAttribs $ modelShaderVars model
+        disableShaderAttribs $ meshShaderVars model
         -- Disable the object's shader.
         glUseProgram 0
         return emptyInfo
@@ -110,7 +111,7 @@ instance Renderable Terrain RenderInfo where
         let mShader = renderInfoShader info
 
             -- Move Object
-            modelMat = gidentityMatrix
+            modelMat = identity
             newMatrices = (renderInfoMatrices info){matrixModel = modelMat}
 
         -- Set uniforms. (World uniforms and Matrices).

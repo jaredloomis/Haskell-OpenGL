@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 module Engine.Object.GameObject (
     getPos, moveObjectSlide,
     updateWorld, applyGravity,
@@ -10,18 +11,20 @@ import Control.Applicative ((<$>))
 import Control.Monad (foldM)
 import Data.Maybe (isJust, fromJust)
 import Control.Monad.State (get)
+import Data.Vec ((:.)(..), Vec3)
 
 import Engine.Core.Types
-    (Game, World(..), GameObject(..),
+    (Game, World(..), Entity(..), Player(..),
      playerAABB)
 import Engine.Core.HasPosition
     (HasPosition(..))
-import Engine.Core.Vec (Vec3(..))
-import Engine.Model.AABB (AABB(..))
-import Engine.Model.Model (Model(..))
+import Engine.Mesh.AABB (AABB(..), HasAABB(..))
+import Engine.Mesh.Mesh (Mesh(..))
 import Engine.Object.Octree (findNearby)
-import Engine.Object.Intersect (intersectsAny, getObjectIntersecter)
+import Engine.Object.Intersect (Intersect(..), intersectsAny, getObjectIntersecter)
 import Engine.Core.World (getWorldDelta)
+
+import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
 -- = Utility update functions.
 
@@ -31,7 +34,7 @@ updateWorld = do
     newObjs <- updateEntities
     return world{worldEntities = newObjs}
 
-updateEntities :: Game t [GameObject t]
+updateEntities :: Game t [Entity t]
 updateEntities = do
     world <- get
     mapM (\o -> entityUpdate o o) (worldEntities world)
@@ -39,48 +42,47 @@ updateEntities = do
 -- = Velocity-changing functions.
 
 -- | Change Player's velocity to simulate gravity.
-applyGravity :: GameObject t -> Game t (GameObject t)
-applyGravity p@(Player{}) = do
-    let Vec3 pvx pvy pvz = playerVelocity p
+applyGravity :: Player t -> Game t (Player t)
+applyGravity p = do
+    let pvx :. pvy :. pvz :. () = playerVelocity p
     world <- get
 
     atRest <- if pvy < 0
                 then
                     let curPos = getPos p
                     in do
-                        x <- getPos <$> moveObjectSafe p (Vec3 0 pvy 0)
+                        x <- getPos <$> moveObjectSafe p (0 :. pvy :. 0 :. ())
                         return $ curPos == x
             else if pvy == 0
                 then
                     let curPos = getPos p
                     in do
-                        x <- getPos <$> moveObjectSafe p (Vec3 0 (-0.5) 0)
+                        x <- getPos <$> moveObjectSafe p (0 :. (-0.5) :. 0 :. ())
                         return $ curPos == x
             else return False
     if atRest
-        then return $ p{playerVelocity = Vec3 pvx 0.0 pvz}
+        then return $ p{playerVelocity = pvx :. 0.0 :. pvz :. ()}
     else
         let newY = max (pvy - getWorldDelta world * 0.5) (-1)
         in return p{playerVelocity =
-            Vec3 pvx newY pvz}
-applyGravity _ =
-    error "Player.applyGravityVelocity can only be used on Players."
+            pvx :. newY :. pvz :. ()}
 
 -- = Position-changing functions.
 
 -- | Move an object on each axis independently, and return
 --   all AABBs it intersected with, if applicable.
-moveSlideIntersecters ::
-    GameObject t -> Vec3 -> Game t (GameObject t, [AABB])
-moveSlideIntersecters object (Vec3 dx dy dz) = do
-    (movedx, intx) <- moveSlideIntersecter object (Vec3 dx 0 0)
-    (movedy, inty) <- moveSlideIntersecter movedx (Vec3 0 dy 0)
-    (movedz, intz) <- moveSlideIntersecter movedy (Vec3 0 0 dz)
+moveSlideIntersecters :: (HasPosition object, HasAABB object) =>
+                          object -> Vec3 GLfloat -> Game t (object, [AABB])
+moveSlideIntersecters object (dx :. dy :. dz :. ()) = do
+    (movedx, intx) <- moveSlideIntersecter object (dx :. 0 :. 0 :. ())
+    (movedy, inty) <- moveSlideIntersecter movedx (0 :. dy :. 0 :. ())
+    (movedz, intz) <- moveSlideIntersecter movedy (0 :. 0 :. dz :. ())
 
     let aabbs = map fromJust $ filter isJust [intx, inty, intz]
     return (movedz, aabbs)
 
-moveSlideIntersecter :: GameObject t -> Vec3 -> Game t (GameObject t, Maybe AABB)
+moveSlideIntersecter :: (HasPosition object, HasAABB object) =>
+                        object -> Vec3 GLfloat -> Game t (object, Maybe AABB)
 moveSlideIntersecter object movement = do
     world <- get
     let objectXP = moveObject object movement
@@ -91,12 +93,14 @@ moveSlideIntersecter object movement = do
         then return (object, intersect)
     else return (objectXP, Nothing)
 
-moveObjectSlide :: GameObject t -> Vec3 -> Game t (GameObject t)
-moveObjectSlide object (Vec3 dx dy dz) = do
+moveObjectSlide :: (HasPosition object, HasAABB object) =>
+                    object -> Vec3 GLfloat -> Game t object
+moveObjectSlide object (dx :. dy :. dz :. ()) = do
     foldM ((return .) . moveObject) object
-        [Vec3 dx 0 0, Vec3 0 dy 0, Vec3 0 0 dz]
+        [dx :. 0 :. 0 :. (), 0 :. dy :. 0 :. (), 0 :. 0 :. dz :. ()]
 
-moveObjectSafe :: GameObject t -> Vec3 -> Game t (GameObject t)
+moveObjectSafe :: (HasPosition object, Intersect object AABB) => 
+                   object -> Vec3 GLfloat -> Game t object
 moveObjectSafe object vec = do
     world <- get
     let moved = moveObject object vec
@@ -107,11 +111,9 @@ moveObjectSafe object vec = do
         then return object
     else return moved
 
-moveObject :: GameObject t -> Vec3 -> GameObject t
+moveObject :: HasPosition object => object -> Vec3 GLfloat -> object
 moveObject obj deltaPos =
     setPos obj (getPos obj + deltaPos)
 
-getModel :: GameObject t -> Model
-getModel (Player{}) =
-    error "GameObject.getModel called on Player"
+getModel :: Entity t -> Mesh
 getModel pe@(Entity{}) = entityModel pe

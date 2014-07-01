@@ -11,10 +11,10 @@ import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
 import Engine.Core.Types
     (World(..), WorldState(..), Graphics(..),
-     GameObject(..))
+     Player(..))
 import Engine.Graphics.Shaders (Shader(..), setUniformsAndRemember)
 
-setWorldPlayer :: GameObject t -> World t -> World t
+setWorldPlayer :: Player t -> World t -> World t
 setWorldPlayer player world = world{worldPlayer = player}
 
 -- | Set a world's uniforms to given shader.

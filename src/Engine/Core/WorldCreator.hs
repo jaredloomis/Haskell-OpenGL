@@ -10,26 +10,26 @@ module Engine.Core.WorldCreator (
 import Control.Applicative ((<$>))
 import Data.Maybe (isJust, fromJust)
 import System.FilePath ((</>))
+import Data.Vec ((:.)(..))
 
 import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
-import Engine.Core.Vec (Vec3(..))
 import Engine.Core.Types
     (World(..), WorldState(..), Graphics(..),
-     GameObject(..),
+     Entity(..),
      emptyGraphics, emptyWorldState)
 import Engine.Graphics.Window (Window(..), defaultWindow, openWindow)
 import Engine.Object.Player (mkPlayer)
 import Engine.Object.Octree (Octree(..), createOctreeFromAABBs)
 import Engine.Core.World (getWorldTime)
-import Engine.Model.ObjLoader (loadObjObject)
+import Engine.Mesh.ObjLoader (loadObjObject)
 import Engine.Terrain.Generator (generateTerrain)
 import Engine.Graphics.Graphics (makeFrameBuffer)
 import Engine.Graphics.Shaders (loadProgram)
 import Engine.Graphics.Shadows (makeShadowFrameBuffer)
 import Engine.Terrain.Noise (Simplex(..))
 import Engine.Terrain.Generator (Terrain(..))
-import Engine.Model.AABB (AABB(..))
+import Engine.Mesh.AABB (AABB(..))
 import Engine.Graphics.Graphics (initGL)
 
 data family Proto a
@@ -39,7 +39,7 @@ data instance Proto (World t) =
         settingsSimplex :: Maybe Simplex,
         settingsTerrainShaders :: (FilePath, FilePath),
         settingsTerrainTexture :: Maybe FilePath,
-        settingsObjs :: [Proto (GameObject t)],
+        settingsObjs :: [Proto (Entity t)],
         settingsWholeAABB :: AABB,
         settingsWindow :: Proto Window,
         settingsPostShaders :: [(FilePath, FilePath)],
@@ -47,26 +47,26 @@ data instance Proto (World t) =
         settingsShaderAttribs :: [(String, IO [GLfloat])]
     }
 
-data instance Proto (GameObject t) =
-    FromObj FilePath FilePath FilePath [GameObject t -> GameObject t] t
+data instance Proto (Entity t) =
+    FromObj FilePath FilePath FilePath [Entity t -> Entity t] t
 
 data instance Proto Window = ProtoWindow Window
 
 -- | Create a "ProtoObject" that contains
 --   instructions to parse a file and create
 --   a "GameObject".
-fromObj :: FilePath -> FilePath -> FilePath -> t -> Proto (GameObject t)
+fromObj :: FilePath -> FilePath -> FilePath -> t -> Proto (Entity t)
 fromObj file vert frag attr = FromObj file vert frag [] attr
 
 -- | Add a function that will modify the
 --   GameObject after it is loaded.
-modify :: (GameObject t -> GameObject t) ->
-          Proto (GameObject t) ->
-          Proto (GameObject t)
+modify :: (Entity t -> Entity t) ->
+          Proto (Entity t) ->
+          Proto (Entity t)
 modify f (FromObj file vert frag mods attr) =
     FromObj file vert frag (f:mods) attr
 
-createFromProto :: Proto (GameObject t) -> IO (GameObject t)
+createFromProto :: Proto (Entity t) -> IO (Entity t)
 createFromProto (FromObj file vert frag mods attr) =
     (\obj -> foldr (\f o -> f o) obj mods) <$> loadObjObject vert frag attr file
 
@@ -74,21 +74,22 @@ defaultSettings :: Proto (World ())
 defaultSettings =
     ProtoWorld
         (Just $ Simplex 0 (200, 200) (0, 0) 1 1 20 10 undefined)
-        --Nothing
         (".." </> "res" </> "shaders" </> "correct_v.glsl",
          ".." </> "res" </> "shaders" </> "correct_f.glsl")
         (Just $ ".." </> "res" </> "textures" </> "grass.jpg")
-        [{-fromObj (".." </> "res" </> "objects" </> "wow" </> "wow.obj")
+        [fromObj (".." </> "res" </> "objects" </> "wow" </> "wow.obj")
          (".." </> "res" </> "shaders" </> "correct_v.glsl")
-         (".." </> "res" </> "shaders" </> "correct_f.glsl") (),-}
-         modify (\x -> x{entityPosition = Vec3 (-20) (-20) (-5)}) $
+         (".." </> "res" </> "shaders" </> "correct_f.glsl") (),
+         modify (\x -> x{entityPosition = (-20) :. (-20) :. (-5) :. ()}) $
          fromObj (".." </> "res" </> "objects" </> "ibanez" </> "ibanez.obj")
          (".." </> "res" </> "shaders" </> "correct_v.glsl")
          (".." </> "res" </> "shaders" </> "correct_f.glsl") ()]
         (AABB (-100) 200)
         (ProtoWindow defaultWindow)
-        {-[("shaders" </> "postprocessing" </> "passthrough" </> "passthrough_v.glsl",
-         "shaders" </> "postprocessing" </> "passthrough" </> "passthrough_f.glsl")]-}
+        {-[(".." </> "res" </> "shaders" </> "postprocessing"
+          </> "passthrough" </> "passthrough_v.glsl",
+          ".." </> "res" </> "shaders" </> "postprocessing"
+          </> "passthrough" </> "passthrough_f.glsl")]-}
         [(".." </> "res" </> "shaders" </> "postprocessing" </> "dof"  </> "dof_v.glsl",
           ".." </> "res" </> "shaders" </> "postprocessing" </> "dof"  </> "dof_f.glsl"),
          (".." </> "res" </> "shaders" </> "postprocessing" </> "fxaa" </> "fxaa_v.glsl",

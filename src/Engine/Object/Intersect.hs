@@ -8,9 +8,9 @@ module Engine.Object.Intersect (
 ) where
 
 import Data.Maybe (isJust, fromJust)
+import Data.Vec ((:.)(..))
 
-import Engine.Core.Vec (Vec3(..))
-import Engine.Model.AABB
+import Engine.Mesh.AABB
 
 -- | A type class for any two things
 --   that can intersect.
@@ -20,8 +20,10 @@ class Intersect l r where
 
 instance Intersect AABB AABB where
     intersecting
-        (AABB (Vec3 min1x min1y min1z) (Vec3 max1x max1y max1z))
-        (AABB (Vec3 min2x min2y min2z) (Vec3 max2x max2y max2z)) =
+        (AABB (min1x :. min1y :. min1z :. ())
+              (max1x :. max1y :. max1z :. ()))
+        (AABB (min2x :. min2y :. min2z :. ())
+              (max2x :. max2y :. max2z :. ())) =
             max1x > min2x &&
             min1x < max2x &&
             max1y > min2y &&

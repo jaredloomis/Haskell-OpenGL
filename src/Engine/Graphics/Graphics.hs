@@ -11,13 +11,14 @@ import Foreign.Marshal (with)
 import Foreign.C (withCString)
 import Data.Bits ((.|.))
 import Data.Maybe (fromJust)
+import Data.Vec hiding (map)
 
 import qualified Graphics.UI.GLFW as GLFW
 
 import Graphics.Rendering.OpenGL.Raw
 
 import Engine.Core.Types
-    (World(..), WorldState(..), GameObject(..),
+    (World(..), WorldState(..), Entity(..),
      Graphics(..))
 import Engine.Graphics.Shaders
     (Shader(..), ShaderAttrib(..), setShaderAttribs,
@@ -25,13 +26,12 @@ import Engine.Graphics.Shaders
 import Engine.Graphics.Framebuffer (Framebuffer(..))
 import Engine.Graphics.GraphicsUtils (offset0, fillNewBuffer)
 import Engine.Core.HasPosition (HasPosition(..), HasRotation(..))
-import Engine.Core.Vec (Vec3(..))
 import Engine.Object.GameObject (getModel)
 import Engine.Matrix.Matrix
     (WorldMatrices(..), calculateMatricesFromPlayer,
-     gtranslationMatrix, grotationMatrix, setMatrixUniforms)
+     setMatrixUniforms)
 import Engine.Graphics.Window (Window(..))
-import Engine.Model.Model (Model(..))
+import Engine.Mesh.Mesh (Mesh(..))
 
 renderWorld :: World t -> IO (World t)
 renderWorld world = do
@@ -49,16 +49,16 @@ renderWorld world = do
     newEntites <- renderObjects world worldMats (worldEntities world)
     return world{worldEntities = newEntites}
 
-renderObjects :: World t -> WorldMatrices -> [GameObject t] -> IO [GameObject t]
+renderObjects :: World t -> WorldMatrices -> [Entity t] -> IO [Entity t]
 renderObjects world wm (object:rest) = do
     let model = getModel object
-        Vec3 objx objy objz = getPos object
-        Vec3 objrx objry objrz = getRot object
-        mShader = modelShader model
+        objx :. objy :. objz :. () = getPos object
+        objrx :. objry :. objrz :. () = getRot object
+        mShader = meshShader model
 
         -- Move Object
-        modelMat = gtranslationMatrix [objx, objy, objz] *
-                   grotationMatrix [objrx, objry, objrz]
+        modelMat = translate (objx :. objy :. objz :. ()) $
+                   rotationEuler (objrx :. objry :. objrz :. ())
 
     -- Use object's shader
     glUseProgram $ shaderId mShader
@@ -68,25 +68,25 @@ renderObjects world wm (object:rest) = do
         setMatrixUniforms mShader wm{matrixModel = modelMat}
 
     -- Bind buffers to variable names in shader.
-    setShaderAttribs $ modelShaderVars model
-    bindTextures (modelTextures model) $ shaderId newShader
+    setShaderAttribs $ meshShaderVars model
+    bindTextures (meshTextures model) $ shaderId newShader
 
     -- Do the drawing.
-    glDrawArrays gl_TRIANGLES 0 (modelVertCount model)
+    glDrawArrays gl_TRIANGLES 0 (meshVertCount model)
 
     -- TODO: Remove if not necessary.
     -- Disable textures.
     --unBindTextures (fromIntegral . length . modelTextures $ model)
 
     -- Turn off VBO/VAO
-    disableShaderAttribs $ modelShaderVars model
+    disableShaderAttribs $ meshShaderVars model
 
     -- Disable the object's shader.
     glUseProgram 0
 
     -- Update the object's shader
     let newObject = object{entityModel =
-                    (entityModel object){modelShader = newShader}}
+                    (entityModel object){meshShader = newShader}}
 
     restObjects <- renderObjects world wm rest
 
@@ -154,21 +154,21 @@ cleanupWorld world = do
     mapM_ glDeleteProgram shaders
     with (fbufRenderBuffer fb) $ glDeleteRenderbuffers 1
 
-cleanupObjects :: [GameObject t] -> IO ()
+cleanupObjects :: [Entity t] -> IO ()
 cleanupObjects (object:rest) = do
     -- Delete buffers.
     let shaderVarAttrIds = map (\(ShaderAttrib attrId _ _) -> attrId)
-                              (modelShaderVars $ getModel object)
+                              (meshShaderVars $ getModel object)
         shaderVarBufIds = map (\(ShaderAttrib _ bufId _) -> bufId)
-                              (modelShaderVars $ getModel object)
+                              (meshShaderVars $ getModel object)
     mapM_ (\x -> with x $ glDeleteBuffers 1) shaderVarBufIds
 
     -- Delete shader.
-    glDeleteProgram (shaderId $ modelShader $ getModel object)
+    glDeleteProgram (shaderId $ meshShader $ getModel object)
 
     -- Delete textures.
     let model = getModel object
-        textures = map fst $ modelTextures model
+        textures = map fst $ meshTextures model
     mapM_ (\x -> with x $ glDeleteTextures 1) textures
 
     -- Delete vertex arrays.
