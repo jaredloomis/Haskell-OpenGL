@@ -9,8 +9,17 @@ module Engine.Object.Player (
 
 import Data.Maybe (isJust, fromJust)
 import Control.Applicative ((<$>))
-import Control.Monad.State (get, put)
+import Control.Monad (void)
+import Control.Monad.State
+    (get, gets, put, liftIO)
 import Data.Vec ((:.)(..), Vec3)
+import Unsafe.Coerce (unsafeCoerce)
+--import Data.Vect.Float.Base ((*.))
+
+import Physics.Bullet.Raw (btDynamicsWorld_stepSimulation, btBoxShape)
+import Physics.Bullet.Raw.Types (Transform(..))
+import Physics.Bullet.Raw.Class (BtBoxShape)
+import qualified Physics.Bullet.Raw.Types as BT (Vec3(..))
 
 import Graphics.Rendering.OpenGL.Raw (GLfloat)
 import qualified Graphics.UI.GLFW as GLFW
@@ -25,14 +34,31 @@ import Engine.Core.HasPosition
     (HasPosition(..))
 import Engine.Terrain.Generator (Terrain(..))
 import Engine.Object.Intersect (Intersect(..))
+import Engine.Bullet.Bullet
+    (Physics(..), AttrOp(..),
+     set, worldTransform,
+     linearVelocity, addShape)
+import qualified Engine.Bullet.Bullet as B (get)
 
 -------- FPS ------------------
 
-mkPlayer :: Player t
-mkPlayer = Player   (0 :. 60 :. 0 :. ()) (0 :. 0 :. 0 :. ())
-                    (0 :. 0 :. 0 :. ()) 5
-                    pUpdate
-                    baseInput
+mkPlayer :: Physics -> IO (Player t)
+mkPlayer physics = do
+    shape <- mkPlayerShape
+    player <-
+        Player (0 :. 60 :. 0 :. ())
+               (0 :. 0 :. 0 :. ())
+               (0 :. 0 :. 0 :. ())
+               5
+               pUpdate
+               baseInput
+               <$> addShape shape 1 physics
+    void $ set (playerRigidBody player)
+        [worldTransform :~ (\(Transform mat _) -> Transform mat $ BT.Vec3 0 60 0)]
+    return player
+
+mkPlayerShape :: IO BtBoxShape
+mkPlayerShape = btBoxShape $ BT.Vec3 1 1 1
 
 -- | Input for first person camera.
 baseInput :: Input t
@@ -83,7 +109,7 @@ spaceIn w =
             if abs vy < 0.01
                 then w{worldPlayer =
                     p{playerVelocity =
-                        curVel + (0 :. 0.2 :. 0 :. ())}}
+                        curVel + (0 :. 12 :. 0 :. ())}}
             else w
 
 escIn :: World t -> World t
@@ -99,14 +125,14 @@ escIn w =
 --------------- END FPS ---------------
 
 
-pUpdate :: Game t ()
+pUpdate :: GameIO t ()
 pUpdate = do
     w <- get
     if not $ statePaused $ worldState w
         then pUpdateNormal
-    else pUpdatePaused
+    else hoistGame pUpdatePaused
 
-pUpdateNormal :: Game t ()
+pUpdateNormal :: GameIO t ()
 pUpdateNormal = do
     w <- get
     let p = worldPlayer w
@@ -115,12 +141,11 @@ pUpdateNormal = do
         speed = origSpeed * stateDelta state
         newP = p{playerSpeed = speed}
     -- Do actual update
-    playerKeyUpdateSafe
     modifiedW <- (\w' -> w'{worldPlayer = playerMouseUpdate newP}) <$> get
     put modifiedW
-    playerKeyUpdateSafe
+    hoistGame playerKeyUpdateSafe
     modifiedP <- worldPlayer <$> get
-    resolvedP <- resolveVelocityWithGravity modifiedP
+    resolvedP <- resolveVelocityBullet modifiedP
 
     put modifiedW{worldPlayer =
         resolvedP{playerSpeed = origSpeed}}
@@ -282,7 +307,7 @@ playerMouseUpdate player =
         newRot = newRx :. newRy :. rz :. ()
     in player{playerRotation = newRot, playerInput = newInput}
 
--- | Player update with collision detection.
+-- | Update player's keys.
 playerKeyUpdateSafe :: Game t ()
 playerKeyUpdateSafe = do
     world <- get
@@ -299,7 +324,7 @@ playerKeyUpdateSafe = do
 --   Use playerKeyUpdateSafe instead.
 playerKeyUpdateTailSafe :: Player t -> Game t ()
 playerKeyUpdateTailSafe
-    (Player _ _ _ _ _ (Input ((_, desired, found, func):xs) mouse lm ms)) = do
+    (Player _ _ _ _ _ (Input ((_, desired, found, func):xs) mouse lm ms) _) = do
     w <- get
     -- If the recorded keystate matches desired keystate,
     -- apply corresponding function to player.
@@ -319,11 +344,38 @@ playerKeyUpdateTailSafe
         retp = newPlayer{playerInput = Input xs mouse lm ms}
     put newWorld{worldPlayer = retp}
     playerKeyUpdateTailSafe retp
-playerKeyUpdateTailSafe (Player _ _ _ _ _ (Input [] _ _ _)) = get >>= put
+playerKeyUpdateTailSafe (Player _ _ _ _ _ (Input [] _ _ _) _) = get >>= put
 
 resolveVelocityWithGravity :: Player t -> Game t (Player t)
 resolveVelocityWithGravity p =
     applyGravityVelocity p >>= resolveVelocityNoY
+
+resolveVelocityBullet :: Player t -> GameIO t (Player t)
+resolveVelocityBullet p = do
+    -- Delta.
+    world <- get
+    let delta = stateDelta $ worldState world
+
+    let vx :. vy :. vz :. () = playerVelocity p
+        rigidBody = playerRigidBody p
+
+    -- Change velocity in bullet.
+    void . liftIO $ set rigidBody
+        [linearVelocity :~ (+ BT.Vec3 (uC vx) (uC vy) (uC vz))]
+
+    -- Step physics.
+    physics <- gets worldPhysics
+    void . liftIO $ btDynamicsWorld_stepSimulation (physicsWorld physics)
+                (uC delta) 10 (1/60)
+
+    (Transform _mat (BT.Vec3 nx ny nz)) <- liftIO $ rigidBody `B.get` worldTransform
+
+    --let BT.Vec3 nx ny nz = mat *. pos
+    return $ p{playerPosition = uC nx :. uC ny :. uC nz :. (),
+               playerVelocity = 0 :. 0 :. 0 :. ()}
+  where
+    uC :: a -> b
+    uC = unsafeCoerce
 
 -- | Change Player's velocity to simulate gravity.
 applyGravityVelocity :: Player t -> Game t (Player t)

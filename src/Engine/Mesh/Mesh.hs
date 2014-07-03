@@ -8,10 +8,10 @@ import Graphics.Rendering.OpenGL.Raw
 
 import Engine.Mesh.AABB
     (AABB(..), AABBSet(..), aabbByFace, aabbFromPoints)
-import Engine.Graphics.Shaders (Shader(..), ShaderAttrib)
-import Engine.Graphics.Textures (Texture)
 import Engine.Graphics.Shaders
-    (loadProgram, getAttrLocs, createShaderAttribs)
+    (Shader(..), ShaderAttrib, loadProgram,
+     getAttrLocs, createShaderAttribs)
+import Engine.Graphics.Textures (Texture)
 import Engine.Graphics.GraphicsUtils (createBufferIdAll)
 
 -- | A data type for representing a model

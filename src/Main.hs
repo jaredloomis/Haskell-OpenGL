@@ -1,21 +1,18 @@
 module Main where
 
-import Control.Monad (forM)
-import Control.Monad.State (unless, evalState, execState)
+import Control.Monad.State (unless, evalState, execStateT)
 import Data.Vec ((:.)(..), Vec2)
 
 import qualified Graphics.UI.GLFW as GLFW
 import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
 import Physics.Bullet.Raw
-import Physics.Bullet.Raw.Utils
---import Physics.Bullet.Raw.Types hiding (Vec2, Vec3)
-import qualified Physics.Bullet.Raw.Types as B
-import Physics.Bullet.Raw.Class
+
+
 
 import Engine.Core.Types (
     World(..), WorldState(..), Game(..),
-    Input(..), Player(..))
+    Input(..), Player(..), GameIO(..),)
 import Engine.Graphics.Graphics
     (resizeScene, cleanupWorld,
      cleanupObjects)
@@ -26,6 +23,7 @@ import Engine.Object.Player (resetPlayerInput)
 import Engine.Object.GameObject (updateWorld)
 import Engine.Graphics.NewGraphics (renderWorldNewPost)
 import Engine.Core.WorldCreator (createWorld, defaultSettings)
+import Engine.Bullet.Bullet (Physics(..))
 
 main :: IO ()
 main = do
@@ -61,6 +59,7 @@ main = do
             --glGetError >>= \err ->
             --  if err /= gl_NO_ERROR then print err else return ()
 
+            btDiscreteDynamicsWorld_debugDrawWorld (physicsWorld $ worldPhysics world)
             -- Swap back and front buffer.
             GLFW.swapBuffers win
 
@@ -96,9 +95,9 @@ updateStepComplete win world = do
 
     -- Update player
     let worldWithPlayer = world{worldPlayer = player, worldState = newState}
-        updatedWorld =
-            execState (gameState $ playerUpdate player) worldWithPlayer
-        updatedWorldWithUpdatedPlayer =
+    updatedWorld <-
+            execStateT (gameIoState $ playerUpdate player) worldWithPlayer
+    let updatedWorldWithUpdatedPlayer =
             setWorldPlayer (resetPlayerInput $ worldPlayer updatedWorld)
                             updatedWorld
 

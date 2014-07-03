@@ -11,6 +11,7 @@ module Engine.Core.Types (
     World(..), WorldState(..), Graphics(..),
     Player(..), Entity(..), Input(..),
     (.~), (.=), (%~), (%=),
+    hoistGame,
     emptyEntity, playerAABB, emptyGraphics,
     emptyWorldState, lPlayerPosition,
     lPlayerRotation, lPlayerVelocity,
@@ -35,8 +36,9 @@ import Data.Default (Default(..))
 import Control.Applicative (Applicative)
 import Data.Maybe (isNothing)
 import Control.Monad.State
-    (State, StateT, MonadIO,
-     MonadState)
+    (State, StateT(..), MonadIO,
+     MonadState, runStateT)
+import Data.Functor.Identity (runIdentity)
 
 import Data.Vec ((:.)(..), Vec3, Vec2)
 
@@ -45,6 +47,8 @@ import qualified Data.Label.Monadic as LM
 
 import Graphics.Rendering.OpenGL.Raw (GLuint, GLfloat)
 import qualified Graphics.UI.GLFW as GLFW
+
+import Physics.Bullet.Raw.Class (BtRigidBody)
 
 import Engine.Core.HasPosition
     (HasPosition(..), HasRotation(..), HasVelocity(..))
@@ -57,6 +61,7 @@ import Engine.Object.Octree (Octree(..))
 import Engine.Graphics.Shaders (ShaderUniform)
 import Engine.Graphics.Framebuffer (Framebuffer)
 import Engine.Mesh.Mesh (Mesh(..), emptyMesh)
+import Engine.Bullet.Bullet (Physics(..))
 
 -- = Vinyl API (unimplemented, just testing with it.)
 
@@ -149,6 +154,11 @@ move' dPos obj =
 
 -- = State Monads
 
+--type Game t a = State (World t) a
+--type GameIO t a = StateT (World t) IO a
+--hoistGame :: Game t a -> GameIO t a
+--hoistGame m = StateT (\s -> return (runIdentity (runStateT m s)))
+
 newtype Game t a = Game {
     gameState :: State (World t) a
 } deriving (Functor, Applicative, Monad, MonadState (World t))
@@ -156,6 +166,10 @@ newtype Game t a = Game {
 newtype GameIO t a = GameIO {
     gameIoState :: StateT (World t) IO a
 } deriving (Functor, Applicative, Monad, MonadIO, MonadState (World t))
+
+hoistGame :: Game t a -> GameIO t a
+hoistGame game = GameIO . StateT $
+    (\s -> return (runIdentity (runStateT (gameState game) s)))
 
 -- = Global data types
 
@@ -166,6 +180,7 @@ data World t = World {
     worldEntities :: [Entity t],
     worldTerrain :: Maybe Terrain,
     worldOctree :: Octree AABB,
+    worldPhysics :: Physics,
     worldGraphics :: Graphics,
     worldState :: WorldState
     }
@@ -200,8 +215,9 @@ data Player t = Player {
     playerRotation :: Vec3 GLfloat,
     playerVelocity :: Vec3 GLfloat,
     playerSpeed :: GLfloat,
-    playerUpdate :: Game t (),
-    playerInput :: Input t
+    playerUpdate :: GameIO t (),
+    playerInput :: Input t,
+    playerRigidBody :: BtRigidBody
     }
 -- TODO: Make this more flexible
 playerAABB :: AABB
@@ -216,10 +232,11 @@ data Entity t = Entity {
     entityVelocity :: Vec3 GLfloat,
     entityUpdate :: Entity t -> Game t (Entity t),
     entityModel :: Mesh,
+    entityRigidBody :: BtRigidBody,
     entityAttribute :: t
     }
 emptyEntity :: Entity ()
-emptyEntity = Entity 0 0 0 return emptyMesh ()
+emptyEntity = Entity 0 0 0 return emptyMesh undefined ()
 
 -- = Input
 

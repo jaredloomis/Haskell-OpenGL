@@ -24,21 +24,25 @@ import Engine.Mesh.Material
     (Material(..), emptyMaterial, loadMtlFile)
 import Engine.Mesh.Mesh
     (Mesh(..), createMesh)
+import Engine.Mesh.AABB (AABBSet(..))
 import Engine.Core.Types (Entity(..))
 import Engine.Mesh.DatLoader
     (writeDataToFile, loadDatModel)
+import Engine.Bullet.Bullet (Physics(..), addAABBs)
 
 -- | Load an .obj into a "Model" and
 --   put that into a "GameObject".
 loadObjObject ::
+    Physics ->
     FilePath ->
     FilePath ->
     t ->
     FilePath ->
     IO (Entity t)
-loadObjObject vert frag t obj = do
+loadObjObject phys vert frag t obj = do
     model <- loadObjModel obj vert frag
-    return $ Entity 0 0 0 return model t
+    let AABBSet _ aabbs = meshAABBSet model
+    Entity 0 0 0 return model <$> addAABBs aabbs 0 phys <*> return t
 
 -- | Parse an .obj file and return the "Model"
 --   containing the data needed to render it.

@@ -13,6 +13,8 @@ import Data.Maybe (isJust, fromJust)
 import Control.Monad.State (get)
 import Data.Vec ((:.)(..), Vec3)
 
+import Graphics.Rendering.OpenGL.Raw (GLfloat)
+
 import Engine.Core.Types
     (Game, World(..), Entity(..), Player(..),
      playerAABB)
@@ -23,8 +25,6 @@ import Engine.Mesh.Mesh (Mesh(..))
 import Engine.Object.Octree (findNearby)
 import Engine.Object.Intersect (Intersect(..), intersectsAny, getObjectIntersecter)
 import Engine.Core.World (getWorldDelta)
-
-import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
 -- = Utility update functions.
 

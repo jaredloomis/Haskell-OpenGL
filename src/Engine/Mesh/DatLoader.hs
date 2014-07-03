@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Engine.Mesh.DatLoader (
     writeDataToFile, loadData,
-    loadDatModel
+    loadDatModel, loadDatModelKeepVerts
 ) where
 
 import Debug.Trace (trace)
@@ -41,6 +41,23 @@ loadDatModel f vert frag =
         let mTexIds = replicate (length textures) 0 :: [GLint]
         return tmp{meshTextures =
             zip textures mTexIds}
+
+loadDatModelKeepVerts :: FilePath -> FilePath -> FilePath -> IO (Mesh, [GLfloat])
+loadDatModelKeepVerts f vert frag =
+    let attrNames = ["position", "texCoord", "normal", "color", "textureId"]
+    in do
+        (totalDat, images) <- loadData f
+        textures <- mapM juicyLoadTexture images
+
+        tmp <- createMesh vert frag
+            attrNames
+            totalDat
+            [3, 2, 3, 3, 1]
+            (fromIntegral (length . head $ totalDat) `div` 3)
+
+        let mTexIds = replicate (length textures) 0 :: [GLint]
+        return (tmp{meshTextures =
+            zip textures mTexIds}, head totalDat)
 
 writeDataToFile :: FilePath -> [[GLfloat]] -> [B.ByteString] -> IO ()
 writeDataToFile datFile [verts, coords, norms, colors, tids] images =
@@ -102,11 +119,10 @@ getImages = do
     else return []
 
 writeBinaryDat :: [GLfloat] -> Put
-writeBinaryDat verts = do
-    mapM_ (put . toFloat) verts
+writeBinaryDat = mapM_ (put . toFloat)
 
 getBinaryDat :: Int -> Get [GLfloat]
-getBinaryDat i = do
+getBinaryDat i =
     fmap (map toGL) <$> forM [1..i] $ const (get :: Get Float)
 
 toFloat :: GLfloat -> Float

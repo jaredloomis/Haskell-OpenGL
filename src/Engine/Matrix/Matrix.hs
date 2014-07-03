@@ -80,6 +80,6 @@ toGLFormat :: Mat44 GLfloat -> [GLfloat]
 toGLFormat = toRowMajor . matToLists
   where
     toRowMajor [(a:as), (b:bs), (c:cs), (d:ds)] =
-        a:b:c:d:toRowMajor [as, bs, cs, ds]
+        a : b : c : d : toRowMajor [as, bs, cs, ds]
     toRowMajor [[],[],[],[]] = []
     toRowMajor _ = error "Engine.Matrix.NewMatrix.toGLFormat"

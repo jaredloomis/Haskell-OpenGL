@@ -7,10 +7,16 @@ module Engine.Core.WorldCreator (
     defaultSettings
 ) where
 
+import Control.Monad (void)
 import Control.Applicative ((<$>))
 import Data.Maybe (isJust, fromJust)
 import System.FilePath ((</>))
 import Data.Vec ((:.)(..))
+
+import Unsafe.Coerce (unsafeCoerce)
+
+import Physics.Bullet.Raw.Types
+    (Vec3(..), Transform(..), idmtx)
 
 import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
@@ -31,6 +37,8 @@ import Engine.Terrain.Noise (Simplex(..))
 import Engine.Terrain.Generator (Terrain(..))
 import Engine.Mesh.AABB (AABB(..))
 import Engine.Graphics.Graphics (initGL)
+import Engine.Bullet.Bullet
+    (Physics, AttrOp(..), mkPhysics, set, worldTransform)
 
 data family Proto a
 
@@ -66,9 +74,17 @@ modify :: (Entity t -> Entity t) ->
 modify f (FromObj file vert frag mods attr) =
     FromObj file vert frag (f:mods) attr
 
-createFromProto :: Proto (Entity t) -> IO (Entity t)
-createFromProto (FromObj file vert frag mods attr) =
-    (\obj -> foldr (\f o -> f o) obj mods) <$> loadObjObject vert frag attr file
+createFromProto :: Physics -> Proto (Entity t) -> IO (Entity t)
+createFromProto phys (FromObj file vert frag mods attr) = do
+    entity <- (\obj -> foldr (\f o -> f o) obj mods) <$>
+                loadObjObject phys vert frag attr file
+    let x :. y :. z :. () = entityPosition entity
+        pos = Vec3 (uC x) (uC y) (uC z)
+        trans = Transform idmtx pos
+    void $ set (entityRigidBody entity) [worldTransform := trans]
+    return entity
+  where
+    uC = unsafeCoerce
 
 defaultSettings :: Proto (World ())
 defaultSettings =
@@ -100,16 +116,19 @@ defaultSettings =
 
 defaultWorld :: World t
 defaultWorld =
-    World mkPlayer []
+    World undefined []
           Nothing (OLeaf (AABB 0 0) [] 0)
+          undefined
           emptyGraphics
           emptyWorldState
 
 createWorld :: Proto (World t) -> IO (World t)
 createWorld settings = do
+    physics <- mkPhysics
     window <- createWindow $ settingsWindow settings
-    objects <- mapM createFromProto $ settingsObjs settings
+    objects <- mapM (createFromProto physics) $ settingsObjs settings
     terrain <- createTerrain settings
+    player <- mkPlayer physics
 
     let octree = createOctreeFromAABBs
                 (settingsWholeAABB settings)
@@ -131,9 +150,11 @@ createWorld settings = do
     let state = WorldState t 0 False window
 
     return defaultWorld {
+            worldPlayer = player,
             worldEntities = objects,
             worldTerrain = terrain,
             worldOctree = octree,
+            worldPhysics = physics,
             worldGraphics = graphics,
             worldState = state
         }
