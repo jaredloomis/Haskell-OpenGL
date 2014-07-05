@@ -8,6 +8,7 @@ import Control.Applicative
 import Data.List (intercalate)
 import Data.List.Split (splitOn)
 import Data.Maybe (isJust, fromJust)
+import Data.Default (def)
 import System.Directory (doesFileExist)
 import qualified Data.ByteString.Char8 as B
 import Data.Vec ((:.)(..), Vec3, Vec2)
@@ -42,7 +43,7 @@ loadObjObject ::
 loadObjObject phys vert frag t obj = do
     model <- loadObjModel obj vert frag
     let AABBSet _ aabbs = meshAABBSet model
-    Entity 0 0 0 return model <$> addAABBs aabbs 0 phys <*> return t
+    Entity 0 0 0 return model <$> addAABBs aabbs def phys <*> return t
 
 -- | Parse an .obj file and return the "Model"
 --   containing the data needed to render it.
@@ -211,36 +212,43 @@ runObjParser contents =
 
 parseObj :: Parser [ObjLine]
 parseObj = many $ parseObjLine <* endOfLine
+{-# INLINE parseObj #-}
 
 parseObjLine :: Parser ObjLine
 parseObjLine =
         parseVertLine
     <|> parseNormLine
     <|> parseTexLine
-    <|> parseFaceLine'
+    <|> parseFaceLine
     <|> parseInvalid
+{-# INLINE parseObjLine #-}
 
 parseVertLine :: Parser ObjLine
 parseVertLine =
     char 'v' *> skipSpace *> (LineVert <$> parseVec3)
+{-# INLINE parseVertLine #-}
 
 parseNormLine :: Parser ObjLine
 parseNormLine =
     "vn" *> skipSpace *> (LineNorm <$> parseVec3)
+{-# INLINE parseNormLine #-}
 
 parseTexLine :: Parser ObjLine
 parseTexLine =
     "vt" *> skipSpace *> (LineTex . texCoordToGLFormat <$> parseVec2)
+{-# INLINE parseTexLine #-}
 
 -- | .obj files store texture coordinates in a
 --   way that OpenGL doesn't understand. This
 --   puts it in the right format.
 texCoordToGLFormat :: Vec2 GLfloat -> Vec2 GLfloat
 texCoordToGLFormat (x :. y :. ()) = x :. (1-y) :. ()
+{-# INLINE texCoordToGLFormat #-}
 
-parseFaceLine' :: Parser ObjLine
-parseFaceLine' = do
+parseFaceLine :: Parser ObjLine
+parseFaceLine = do
     char 'f' *> skipSpace *> (LineFace <$> parseFaceDat)
+{-# INLINE parseFaceLine #-}
 
 parseFaceDat :: Parser (V3 (V3 Int))
 parseFaceDat =
@@ -276,9 +284,7 @@ parseFaceGroup = do
 
 parseVec3 :: Parser (Vec3 GLfloat)
 parseVec3 = do
-    x <- realToFrac <$> double
-    skipSpace
-    y <- realToFrac <$> double
+    x :. y :. () <- parseVec2
     skipSpace
     z <- realToFrac <$> double
     return $ x :. y :. z :. ()
@@ -293,6 +299,7 @@ parseVec2= do
 parseInvalid :: Parser ObjLine
 parseInvalid =
     Invalid <$> A.takeWhile (/='\n')
+{-# INLINE parseInvalid #-}
 
 fromVec3M :: [Maybe (Vec3 GLfloat)] -> [GLfloat]
 fromVec3M (Just (x :. y :. z :. ()) : xs) =

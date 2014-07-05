@@ -10,6 +10,8 @@ import Control.Monad (forM)
 import Data.List (intercalate)
 import Data.List.Split (splitOn)
 
+import Unsafe.Coerce (unsafeCoerce)
+
 import Data.Binary
 import Data.Binary.Put
 import Data.Binary.Get
@@ -126,7 +128,7 @@ getBinaryDat i =
     fmap (map toGL) <$> forM [1..i] $ const (get :: Get Float)
 
 toFloat :: GLfloat -> Float
-toFloat = realToFrac
+toFloat = unsafeCoerce
 
 toGL :: Float -> GLfloat
-toGL = realToFrac
+toGL = unsafeCoerce

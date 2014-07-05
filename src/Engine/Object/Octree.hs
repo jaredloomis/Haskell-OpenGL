@@ -6,7 +6,9 @@
 module Engine.Object.Octree (
     Octree(..),
     maxCapacity, createOctree, createOctreeFromAABBs,
-    findNearby, octInsert, subdivide, findNearby'
+    findNearby, octInsert, subdivide, findNearby',
+    getNonEmptyAABBs, childrenCount, takeFirsts,
+    treeAABB, treeChildren
 ) where
 
 --import Control.Applicative
@@ -184,6 +186,13 @@ data Octree a =
   | OLeaf AABB [a] Int
     deriving (Eq)
 
+treeChildren :: Octree a -> [Octree a]
+treeChildren (ONode _ children) = children
+treeChildren _ = []
+
+treeAABB :: Octree a -> AABB
+treeAABB (ONode aabb _) = aabb
+treeAABB (OLeaf aabb _ _) = aabb
 
 instance Show a => Show (Octree a) where
     show (ONode aabb children) =
@@ -245,6 +254,25 @@ octInsert leaf@(OLeaf aabb contents size) val =
     if size+1 <= maxCapacity
         then OLeaf aabb (val : contents) (size+1)
     else octInsert (subdivide leaf) val
+
+getNonEmptyAABBs :: Octree a -> [AABB]
+getNonEmptyAABBs (ONode _ children) =
+    concatMap getNonEmptyAABBs children
+getNonEmptyAABBs (OLeaf aabb _ childCount)
+    | childCount > 0 = [aabb]
+    | otherwise = []
+
+-- Weird
+takeFirsts :: (Octree a -> Bool) -> Octree a -> [Octree a]
+takeFirsts f tree
+    | f tree    = [tree]
+    | otherwise = concatMap (takeFirsts f) (treeChildren tree)
+
+childrenCount :: Octree a -> Int
+childrenCount (ONode _ children) =
+    sum (map childrenCount children)
+childrenCount (OLeaf _ _ childCount) =
+    childCount
 
 dpartition :: (a -> Bool) -> [a] -> (D.DList a, D.DList a)
 dpartition p = foldr (dselect p) (D.empty, D.empty)

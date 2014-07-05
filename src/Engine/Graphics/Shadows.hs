@@ -17,8 +17,8 @@ import Engine.Matrix.Matrix
     (WorldMatrices(..),
      calculateMatricesFromPlayer,
      toGLFormat)
-import Engine.Object.GameObject
-    (getModel, getPos)
+import Engine.Object.GameObject (getModel)
+import Engine.Core.HasPosition (getPos)
 import Engine.Core.World (setWorldUniforms)
 import Engine.Graphics.Shaders
     (Shader(..), quickGetUniform,

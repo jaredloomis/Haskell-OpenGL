@@ -17,7 +17,7 @@ module Engine.Core.Types (
     lPlayerRotation, lPlayerVelocity,
     lPlayerSpeed, lPlayerUpdate, lPlayerInput,
     lWorldPlayer, lWorldEntities, lWorldTerrain,
-    lWorldOctree, lWorldGraphics, lWorldState,
+    lWorldGraphics, lWorldState,
     lInputKeys, lInputMouseDelta,
     lInputLastMousePos, lInputMouseSpeed,
     lEntityPosition, lEntityRotation,
@@ -26,7 +26,8 @@ module Engine.Core.Types (
     lGraphicsUniforms, lGraphicsPostProcessors,
     lGraphicsShadowInfo,
     lStateTime, lStateDelta, lStatePaused,
-    lStateWindow
+    lStateWindow, lWorldPhysics,
+    lPlayerRigidBody, lEntityRigidBody
 ) where
 
 import Control.Category
@@ -129,8 +130,6 @@ type Parent = "parent" ::: GameObject'
 parent :: Parent
 parent = Field
 
---xsg = rLens parent . rLens position' .~ 10 $ jon
-
 parentPos :: (("parent" ::: GameObject') -?> rs, Functor f) =>
               (Vec3 GLfloat -> f (Vec3 GLfloat)) -> PlainRec rs -> f (PlainRec rs)
 parentPos = rLens parent . rLens position'
@@ -154,11 +153,6 @@ move' dPos obj =
 
 -- = State Monads
 
---type Game t a = State (World t) a
---type GameIO t a = StateT (World t) IO a
---hoistGame :: Game t a -> GameIO t a
---hoistGame m = StateT (\s -> return (runIdentity (runStateT m s)))
-
 newtype Game t a = Game {
     gameState :: State (World t) a
 } deriving (Functor, Applicative, Monad, MonadState (World t))
@@ -167,6 +161,7 @@ newtype GameIO t a = GameIO {
     gameIoState :: StateT (World t) IO a
 } deriving (Functor, Applicative, Monad, MonadIO, MonadState (World t))
 
+-- | Do a "Game" action in the "GameIO" Monad.
 hoistGame :: Game t a -> GameIO t a
 hoistGame game = GameIO . StateT $
     (\s -> return (runIdentity (runStateT (gameState game) s)))
@@ -179,7 +174,6 @@ data World t = World {
     worldPlayer :: Player t,
     worldEntities :: [Entity t],
     worldTerrain :: Maybe Terrain,
-    worldOctree :: Octree AABB,
     worldPhysics :: Physics,
     worldGraphics :: Graphics,
     worldState :: WorldState
@@ -384,4 +378,3 @@ instance Intersect AABB (Player t) where
             needle `intersecting` hay ||
                 anyIntersecting needle haystack
         anyIntersecting _ [] = False
-

@@ -6,13 +6,9 @@ import Data.Vec ((:.)(..), Vec2)
 import qualified Graphics.UI.GLFW as GLFW
 import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
-import Physics.Bullet.Raw
-
-
-
 import Engine.Core.Types (
     World(..), WorldState(..), Game(..),
-    Input(..), Player(..), GameIO(..),)
+    Input(..), Player(..), GameIO(..))
 import Engine.Graphics.Graphics
     (resizeScene, cleanupWorld,
      cleanupObjects)
@@ -23,7 +19,6 @@ import Engine.Object.Player (resetPlayerInput)
 import Engine.Object.GameObject (updateWorld)
 import Engine.Graphics.NewGraphics (renderWorldNewPost)
 import Engine.Core.WorldCreator (createWorld, defaultSettings)
-import Engine.Bullet.Bullet (Physics(..))
 
 main :: IO ()
 main = do
@@ -46,26 +41,22 @@ main = do
     -- Shutdown when game loop is done.
     shutdown win
 
-    where
-        loop :: GLFW.Window -> World t -> IO ()
-        loop win world = do
-            -- Check if any events have occured.
-            GLFW.pollEvents
+  where
+    loop :: GLFW.Window -> World t -> IO ()
+    loop win world = do
+        -- Check if any events have occured.
+        GLFW.pollEvents
 
-            -- Perform logic update on the world and render.
-            newWorld <- updateStepComplete win world >>=
-                    (`renderStep` win)
+        -- Perform logic update on the world and render.
+        newWorld <- updateStepComplete win world >>=
+              (`renderStep` win)
 
-            --glGetError >>= \err ->
-            --  if err /= gl_NO_ERROR then print err else return ()
+        -- Swap back and front buffer.
+        GLFW.swapBuffers win
 
-            btDiscreteDynamicsWorld_debugDrawWorld (physicsWorld $ worldPhysics world)
-            -- Swap back and front buffer.
-            GLFW.swapBuffers win
-
-            shouldClose <- GLFW.windowShouldClose win
-            unless shouldClose $
-                loop win newWorld
+        shouldClose <- GLFW.windowShouldClose win
+        unless shouldClose $
+            loop win newWorld
 
 renderStep :: World t -> GLFW.Window -> IO (World t)
 renderStep world _ =

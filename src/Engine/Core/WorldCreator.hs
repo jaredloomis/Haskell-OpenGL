@@ -26,7 +26,6 @@ import Engine.Core.Types
      emptyGraphics, emptyWorldState)
 import Engine.Graphics.Window (Window(..), defaultWindow, openWindow)
 import Engine.Object.Player (mkPlayer)
-import Engine.Object.Octree (Octree(..), createOctreeFromAABBs)
 import Engine.Core.World (getWorldTime)
 import Engine.Mesh.ObjLoader (loadObjObject)
 import Engine.Terrain.Generator (generateTerrain)
@@ -117,7 +116,7 @@ defaultSettings =
 defaultWorld :: World t
 defaultWorld =
     World undefined []
-          Nothing (OLeaf (AABB 0 0) [] 0)
+          Nothing
           undefined
           emptyGraphics
           emptyWorldState
@@ -129,10 +128,6 @@ createWorld settings = do
     objects <- mapM (createFromProto physics) $ settingsObjs settings
     terrain <- createTerrain settings
     player <- mkPlayer physics
-
-    let octree = createOctreeFromAABBs
-                (settingsWholeAABB settings)
-                objects
 
     fb <- makeFrameBuffer $ windowSize window
     postShaders <- mapM (uncurry loadProgram) $ settingsPostShaders settings
@@ -153,7 +148,6 @@ createWorld settings = do
             worldPlayer = player,
             worldEntities = objects,
             worldTerrain = terrain,
-            worldOctree = octree,
             worldPhysics = physics,
             worldGraphics = graphics,
             worldState = state

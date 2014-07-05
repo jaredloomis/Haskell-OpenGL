@@ -8,7 +8,9 @@ module Engine.Object.Intersect (
 ) where
 
 import Data.Maybe (isJust, fromJust)
-import Data.Vec ((:.)(..))
+import Data.Vec ((:.)(..), Vec3)
+
+import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
 import Engine.Mesh.AABB
 
@@ -30,6 +32,15 @@ instance Intersect AABB AABB where
             min1y < max2y &&
             max1z > min2z &&
             min1z < max2z
+    {-# INLINE intersecting #-}
+
+instance Intersect (Vec3 GLfloat) AABB where
+    intersecting (px :. py :. pz :. ())
+        (AABB (minx :. miny :. minz :. ())
+              (maxx :. maxy :. maxz :. ())) =
+            px >= minx && px <= maxx &&
+            py >= miny && py <= maxy &&
+            pz >= minz && pz <= maxz
     {-# INLINE intersecting #-}
 
 instance (HasAABB a, HasAABB b) => Intersect a b where

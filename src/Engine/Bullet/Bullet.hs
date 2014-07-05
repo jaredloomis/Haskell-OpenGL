@@ -5,6 +5,7 @@ module Engine.Bullet.Bullet where
 import Control.Monad (forM_, void)
 import Unsafe.Coerce (unsafeCoerce)
 import Control.Applicative ((<$>))
+import Data.Default (Default(..))
 
 import Data.Vec ((:.)(..), Mat44)
 
@@ -18,9 +19,18 @@ import Engine.Mesh.AABB (AABB(..))
 
 type PrimMesh = [GLfloat]
 
-data Physics = Physics {
+newtype Physics = Physics {
     physicsWorld :: BtDiscreteDynamicsWorld
+    } deriving (Show, Eq, Ord)
+
+data RigidBodyInfo = RigidBodyInfo {
+    rigidBodyMass :: Float,
+    rigidBodyRestitution :: Float,
+    rigidBodyFriction :: Float,
+    rigidBodyOtherMods :: BtRigidBody_btRigidBodyConstructionInfo -> IO ()
     }
+instance Default RigidBodyInfo where
+    def = RigidBodyInfo 0 0 1.5 (const $ return ())
 
 mkPhysics :: IO Physics
 mkPhysics = do
@@ -46,11 +56,11 @@ mkPhysics = do
 
     return $ Physics dynamicsWorld
 
-addShape :: BtCollisionShapeClass o => o -> Float -> Physics -> IO BtRigidBody
-addShape shape mass physics = do
+addShape :: BtCollisionShapeClass o => o -> RigidBodyInfo -> Physics -> IO BtRigidBody
+addShape shape info physics = do
     -- Calculate inertia of shape.
     inertia <- btCollisionShape_calculateLocalInertia
-                    shape mass nullVec3
+                    shape (rigidBodyMass info) nullVec3
 
     -- Initial state of shape
     motionSt <- btDefaultMotionState
@@ -59,10 +69,17 @@ addShape shape mass physics = do
 
     -- Rigid body constructor info.
     constrInfo <- btRigidBody_btRigidBodyConstructionInfo
-                    mass
+                    (rigidBodyMass info)
                     motionSt
                     shape
                     inertia
+    -- Set restitution.
+    btRigidBody_btRigidBodyConstructionInfo_m_restitution_set
+        constrInfo (rigidBodyRestitution info)
+    -- Set friction.
+    btRigidBody_btRigidBodyConstructionInfo_m_friction_set
+        constrInfo (rigidBodyFriction info)
+
     -- Create a rigid body for shape.
     rigidBody <- btRigidBody0 constrInfo
 
@@ -71,11 +88,11 @@ addShape shape mass physics = do
 
     return rigidBody
 
-addAABBs :: [AABB] -> Float -> Physics -> IO BtRigidBody
-addAABBs xs mass physics = do
+addAABBs :: [AABB] -> RigidBodyInfo -> Physics -> IO BtRigidBody
+addAABBs xs info physics = do
     shape <- btCompoundShape False
     mapM_ (addAABB shape) xs
-    addShape shape mass physics
+    addShape shape info physics
 
 addAABB :: BtCompoundShape -> AABB -> IO ()
 addAABB shape (AABB (lx :. ly :. lz :. ()) (hx :. hy :. hz :. ())) = do
@@ -88,8 +105,8 @@ addAABB shape (AABB (lx :. ly :. lz :. ()) (hx :. hy :. hz :. ())) = do
         btCompoundShape_addChildShape shape
             (Transform idmtx lowVec) box
 
-addTriangleMesh :: PrimMesh -> Float -> Physics -> IO BtRigidBody
-addTriangleMesh triangles mass physics = do
+addTriangleMesh :: PrimMesh -> RigidBodyInfo -> Physics -> IO BtRigidBody
+addTriangleMesh triangles info physics = do
     -- Create a mesh and add triangles to it.
     mesh <- btTriangleMesh True True
     addTrianglesToMesh triangles mesh
@@ -112,7 +129,7 @@ addTriangleMesh triangles mass physics = do
     btGImpactShapeInterface_updateBound shape
     btGImpactShapeInterface_postUpdate shape
 
-    addShape shape mass physics
+    addShape shape info physics
 
 addTrianglesToMesh :: PrimMesh -> BtTriangleMesh -> IO ()
 addTrianglesToMesh (x1:y1:z1:x2:y2:z2:x3:y3:z3:others) mesh =
@@ -177,6 +194,14 @@ linearVelocity :: BtRigidBodyClass o => Attr o Vec3
 linearVelocity = Attr btRigidBody_getLinearVelocity
                       btRigidBody_setLinearVelocity
 
+linearFactor :: BtRigidBodyClass o => Attr o Vec3
+linearFactor = Attr btRigidBody_getLinearFactor
+                    btRigidBody_setLinearFactor
+
+angularFactor :: BtRigidBodyClass o => Attr o Vec3
+angularFactor = Attr btRigidBody_getAngularFactor
+                     btRigidBody_setAngularFactor
+
 ---------------
 -- Utilities --
 ---------------
@@ -210,83 +235,9 @@ nullTransform = Transform idmtx nullVec3
 nullVec3 :: Vec3
 nullVec3 = Vec3 0 0 0
 
---------------
--- Examples --
---------------
+----------------------------------
+-- Creation of AABBs for meshes --
+----------------------------------
 
-{-
-bullet2 :: IO ()
-bullet2 = do
-    -- Broadphase collision detector.
-    hc <- btHashedOverlappingPairCache
-    broadphase <- btDbvtBroadphase hc
-
-    -- Collision config (default).
-    collisionInfo <- btDefaultCollisionConstructionInfo
-    collisionConfig <- btDefaultCollisionConfiguration collisionInfo
-
-    -- Collision Dispatcher.
-    dispatcher <- btCollisionDispatcher collisionConfig
-
-    -- Constraint solver (how to get out of intersection).
-    solver <- btSequentialImpulseConstraintSolver
-
-    -- Physics world.
-    dynamicsWorld <- btDiscreteDynamicsWorld
-        dispatcher broadphase solver collisionConfig
-    -- Set gravity.
-    void $ set dynamicsWorld [worldGravity := Vec3 0 (-10) 0]
-
-
-    -- Create a static box shape.
-    shape <- btBoxShape 3
-
-    -- Initial state for static box.
-    motionSt <- btDefaultMotionState
-            nullTransform
-            nullTransform
-
-    -- Rigid body constructor info for static box.
-    rigidBodyCI <- btRigidBody_btRigidBodyConstructionInfo
-                    0
-                    motionSt
-                    shape
-                    (Vec3 0 0 0)
-    -- Create a rigid body for static box.
-    rigidBody <- btRigidBody0 rigidBodyCI
-
-    -- Add static box to world
-    btDynamicsWorld_addRigidBody dynamicsWorld rigidBody
-
-
-    -- Create a falling box shape.
-    fallingShape <- btBoxShape 1
-
-    -- Calculate inertia of falling box.
-    inertia <- btCollisionShape_calculateLocalInertia
-                    fallingShape 1 nullVec3
-
-    -- Initial state of falling box.
-    fallMotionState <- btDefaultMotionState
-            (Transform idmtx $ Vec3 0 20 0)
-            nullTransform
-
-    -- Falling box rigid body constructor info.
-    fallCI <- btRigidBody_btRigidBodyConstructionInfo
-                    1
-                    fallMotionState
-                    fallingShape
-                    inertia
-    -- Create a rigid body for falling box.
-    fallBody <- btRigidBody0 fallCI
-
-    -- Add falling box to the world.
-    btDynamicsWorld_addRigidBody dynamicsWorld fallBody
-
-    mapM_
-        (\_ -> btDynamicsWorld_stepSimulation dynamicsWorld
-            (15/1000) 10 (1/60) >>
-        (print =<<
-                 fallBody `get` worldTransform)
-          ) [0..200::Int]
--}
+bulletize :: [GLfloat] -> [AABB]
+bulletize points = undefined

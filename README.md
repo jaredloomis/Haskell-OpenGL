@@ -31,21 +31,22 @@ Performance by GHC/GHCI command:
     - RAM: `403 MiB`
 - `ghc -O2 -fllvm -funfolding-use-threshold=16`
     - CPU: `1-2%`
-    - RAM: `313 MiB`
+    - RAM: `403 MiB`
 
 <h2>Todo</h2>
 
 <h4>Top</h4>
+- <b>Redo Mesh AABB generation, so that it works better with Bullet physics. (Don't make an AABB for every face.)</b>
+- <b>Model graphics API after [LambdaCube 3D](http://lambdacube3d.wordpress.com/2012/09/07/the-lambdacube-3d-pipeline-model/), I like the design. And anything is better than what is currently in place. [GPipe](http://www.haskell.org/haskellwiki/GPipe/Tutorial) can also be used for ideas</b>
+- <b>Decrease GPU usage.</b>
 - <b>General code cleanup, make it easier to use and clearer.</b>
 - <b>Better documentation / comments.</b>
-- <b>Create cabal file, mostly to keep track of deps.</b>
-- <b>Generalize graphics code even more, making it api-independant. Possibly look at design of [GPipe](http://hackage.haskell.org/package/GPipe) (<i>I would consider actually using GPipe, but I like using OpenGL 3+ features</i>).</b>
 - <b>Maybe switch to using the OpenGL package instead of OpenGLRaw.</b>
-- <b>Test suite.</b>
-- <b>Repair shadows.</b>
 - <b>A collision detection system for <i>dynamic</i> objects.</b>
+- <b>Try to use bullet physics. Every time I try to use it I get linking errors.</b>
+- Test suite.
+- Repair shadows.
 - <b>Use State Monads more. Convert functions with types like `World t -> GameObject t -> a` to `GameObject t -> Game a`</b>
-- Use someone else's matrices, "mine" (Ilmari Heikkinen's) are not very efficient.
 - Create a FRP module, making it optional (Elerea or Netwire).
 - Normal mapping.
 - AI / Pathfinding (A\*?).
@@ -55,21 +56,20 @@ Performance by GHC/GHCI command:
 - Make walking more stable and efficient.
 
 <h4>Additions</h4>
-- AI / Pathfinding (A\*?).
-- Chunks or other methods to allow for infinite terrain.
+- When the time comes to add animations, large changes will probably need to be made, but use the [ST monad](https://hackage.haskell.org/package/base-4.7.0.0/docs/Control-Monad-ST.html) for performance, probably [STArrays](http://www.haskell.org/ghc/docs/latest/html/libraries/array/Data-Array-ST.html).
 - Normal mapping / normal textures.
-- Text / GUI
-- Physics
-- Audio support using a library
+- Text / GUI.
+- Physics.
+- Audio support using a library.
 - Save files.
 - A GLSL shader code generator would be cool.
 
 <h4>OpenGL</h4>
-- LOD via [Tesselation shaders](http://prideout.net/blog/?p=48)
-- [Lots of stuff to add shader/graphics-wise](http://developer.download.nvidia.com/SDK/9.5/Samples/samples.html)
+- LOD via [Tesselation shaders](http://prideout.net/blog/?p=48).
+- [Lots of stuff to add shader/graphics-wise](http://developer.download.nvidia.com/SDK/9.5/Samples/samples.html).
 - OpenGL 3.3+ [Sampler Objects](http://www.sinanc.org/blog/?p=215) (Pretty easy) [in OpenGLRaw package](http://hackage.haskell.org/package/OpenGLRaw-1.5.0.0/docs/Graphics-Rendering-OpenGL-Raw-ARB-SamplerObjects.html).
-- Shadows
-    - [GPUGems](http://http.developer.nvidia.com/GPUGems/gpugems_ch09.html)
+- Shadows.
+    - [GPUGems](http://http.developer.nvidia.com/GPUGems/gpugems_ch09.html).
 
 <h4>Performance increases</h4>
 - Use more parallelism.
