@@ -28,8 +28,10 @@ import Engine.Mesh.Mesh
 import Engine.Mesh.AABB (AABBSet(..))
 import Engine.Core.Types (Entity(..))
 import Engine.Mesh.DatLoader
-    (writeDataToFile, loadDatModel)
-import Engine.Bullet.Bullet (Physics(..), addAABBs)
+    (writeDataToFile, loadDatModel,
+     loadDatModelKeepVerts)
+import Engine.Bullet.Bullet
+    (Physics(..), addAABBs, addStaticTriangleMesh)
 
 -- | Load an .obj into a "Model" and
 --   put that into a "GameObject".
@@ -41,9 +43,11 @@ loadObjObject ::
     FilePath ->
     IO (Entity t)
 loadObjObject phys vert frag t obj = do
-    model <- loadObjModel obj vert frag
-    let AABBSet _ aabbs = meshAABBSet model
-    Entity 0 0 0 return model <$> addAABBs aabbs def phys <*> return t
+    (model, verts) <- loadObjModelKeepVerts obj vert frag
+    Entity 0 0 0 return model <$> addStaticTriangleMesh verts def phys <*> return t
+    --let AABBSet _ aabbs = meshAABBSet model
+    --Entity 0 0 0 return model <$> addAABBs aabbs def phys <*> return t
+    
 
 -- | Parse an .obj file and return the "Model"
 --   containing the data needed to render it.
@@ -83,6 +87,48 @@ loadObjModel objFile vert frag =
             return tmp{meshTextures =
                 zip mTextures
                     mTexIds}
+  where
+    directoryOfFile :: FilePath -> FilePath
+    directoryOfFile = (++"/") . intercalate "/" . init . splitOn "/"
+
+-- | Parse an .obj file and return the "Model"
+--   containing the data needed to render it.
+loadObjModelKeepVerts ::
+    FilePath ->
+    FilePath ->
+    FilePath ->
+    IO (Mesh, [GLfloat])
+loadObjModelKeepVerts objFile vert frag =
+    let attrNames = ["position", "texCoord", "normal", "color", "textureId"]
+    in do
+        hasDatFile <- doesFileExist $ objFile ++ ".dat"
+        if hasDatFile
+            then loadDatModelKeepVerts (objFile ++ ".dat") vert frag
+        else do
+            fileContents <- B.readFile objFile
+            let directory = directoryOfFile objFile
+
+            (mats, lib) <- loadObjMaterials directory fileContents
+
+            let total = totalObjData fileContents mats
+                images = concatMap matTexturePaths lib
+
+            writeDataToFile (objFile ++ ".dat") total images
+
+            let (totalData, mTextures) =
+                    (total, map (fromJust . matTexture) $
+                    filter (isJust . matTexture) lib)
+
+            tmp <- createMesh vert frag
+                attrNames
+                totalData
+                [3, 2, 3, 3, 1]
+                (fromIntegral (length . head $ totalData) `div` 3)
+
+            let mTexIds = replicate (length mTextures) 0 :: [GLint]
+            return (tmp{meshTextures =
+                zip mTextures
+                    mTexIds}, head totalData)
   where
     directoryOfFile :: FilePath -> FilePath
     directoryOfFile = (++"/") . intercalate "/" . init . splitOn "/"

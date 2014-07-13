@@ -184,7 +184,7 @@ octreeNodeCount _ = 1
 data Octree a =
     ONode AABB [Octree a]
   | OLeaf AABB [a] Int
-    deriving (Eq)
+  deriving (Eq)
 
 treeChildren :: Octree a -> [Octree a]
 treeChildren (ONode _ children) = children
@@ -286,7 +286,6 @@ subdivide :: (HasAABB a, Eq a) => Octree a -> Octree a
 subdivide (OLeaf wholeAABB@(AABB minVec maxVec) contents _) =
     let halfVec@(halfX :. halfY :. halfZ :. ()) =
             abs (maxVec - minVec) / 2
-            --fmap (/2) (abs $ maxVec - minVec)
         newAABBTemplate = AABB minVec $ minVec + halfVec 
 
         northWestA = newAABBTemplate

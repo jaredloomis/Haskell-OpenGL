@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleInstances #-}
 module Engine.Core.WorldCreator (
     Proto(..),
     fromObj, modify,
@@ -38,6 +39,73 @@ import Engine.Mesh.AABB (AABB(..))
 import Engine.Graphics.Graphics (initGL)
 import Engine.Bullet.Bullet
     (Physics, AttrOp(..), mkPhysics, set, worldTransform)
+
+class Buildable a where
+    data Proto' a
+    fromProto :: Proto' a -> IO a
+
+instance Buildable (Entity t) where
+    data Proto' (Entity t) = ProtoEntity
+            FilePath                  -- .obj file.
+            FilePath                  -- vertex shader.
+            FilePath                  -- fragment shader.
+            t
+            [Entity t -> Entity t]  -- Any changes to be made after being
+                                      -- created.
+            Physics                   -- Global Physics.
+    fromProto (ProtoEntity objFile vert frag t mods phys) = do
+        objObject <- loadObjObject phys vert frag t objFile
+        let entity = foldr id objObject mods
+            x :. y :. z :. () = entityPosition entity
+            pos = Vec3 (uC x) (uC y) (uC z)
+            trans = Transform idmtx pos
+        void $ set (entityRigidBody entity) [worldTransform := trans]
+        return entity
+      where
+        uC = unsafeCoerce
+
+instance Buildable Window where
+    data Proto' Window = ProtoWindow' Window
+    fromProto (ProtoWindow' win) = do
+        window <- openWindow win
+        initGL $ fromJust $ windowInner window
+        return window
+{-
+instance Buildable (World t) where
+    data Proto' (World t) = ProtoWorld'
+            [Proto' (Entity t)]     -- Objects.
+            (Proto' Window)         -- Window.
+            [(FilePath, FilePath)]  -- Post Shaders.
+    fromProto (ProtoWorld' objs pwin post) = do
+        physics <- mkPhysics
+        window <- fromProto pwin
+        objects <- mapM (createFromProto physics) objs
+        player <- mkPlayer physics
+
+        fb <- makeFrameBuffer $ windowSize window
+        postShaders <- mapM (uncurry loadProgram) post
+
+        sfb <- makeShadowFrameBuffer $ windowSize window
+        let (shV, shF) = settingsShadowShader settings
+        shadowShader <- loadProgram shV shF
+
+        let graphics = Graphics
+                (settingsShaderAttribs settings)
+                (fb, postShaders)
+                (sfb, shadowShader)
+
+        t <- getWorldTime
+        let state = WorldState t 0 False window
+
+        return defaultWorld {
+            worldPlayer = player,
+            worldEntities = objects,
+            worldTerrain = terrain,
+            worldPhysics = physics,
+            worldGraphics = graphics,
+            worldState = state
+            }
+-}
 
 data family Proto a
 

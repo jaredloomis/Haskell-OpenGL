@@ -40,7 +40,9 @@ import qualified Engine.Bullet.Bullet as B (get)
 
 mkPlayer :: Physics -> IO (Player t)
 mkPlayer physics = do
-    let info = def{rigidBodyMass = 1}
+    let info = def{
+        rigidBodyMass = 1,
+        rigidBodyStatic = False}
     shape <- mkPlayerShape
     player <-
         Player (0 :. 60 :. 0 :. ())

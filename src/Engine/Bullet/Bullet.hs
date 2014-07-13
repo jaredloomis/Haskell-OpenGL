@@ -27,10 +27,11 @@ data RigidBodyInfo = RigidBodyInfo {
     rigidBodyMass :: Float,
     rigidBodyRestitution :: Float,
     rigidBodyFriction :: Float,
+    rigidBodyStatic :: Bool,
     rigidBodyOtherMods :: BtRigidBody_btRigidBodyConstructionInfo -> IO ()
     }
 instance Default RigidBodyInfo where
-    def = RigidBodyInfo 0 0 1.5 (const $ return ())
+    def = RigidBodyInfo 0 0 1.5 True (const $ return ())
 
 mkPhysics :: IO Physics
 mkPhysics = do
@@ -104,6 +105,18 @@ addAABB shape (AABB (lx :. ly :. lz :. ()) (hx :. hy :. hz :. ())) = do
     void $
         btCompoundShape_addChildShape shape
             (Transform idmtx lowVec) box
+
+addStaticTriangleMesh :: PrimMesh -> RigidBodyInfo -> Physics -> IO BtRigidBody
+addStaticTriangleMesh triangles info physics = do
+    -- Create a mesh and add triangles to it.
+    mesh <- btTriangleMesh True True
+    addTrianglesToMesh triangles mesh
+
+    shape <- btBvhTriangleMeshShape0 mesh True True
+
+    addShape shape info physics
+
+
 
 addTriangleMesh :: PrimMesh -> RigidBodyInfo -> Physics -> IO BtRigidBody
 addTriangleMesh triangles info physics = do
