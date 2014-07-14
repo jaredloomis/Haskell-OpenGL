@@ -7,7 +7,7 @@ module Engine.Graphics.Shaders (
     setUniformsAndRemember, findUniformLocation,
     findMaybeUniformLocation, findUniformLocationAndRemember,
     loadShadersProgram, emptyShader,
-    wrapShader
+    wrapShader, loadShaderCode
 ) where
 
 import Control.Monad (when)
@@ -79,8 +79,12 @@ loadShadersProgram shaders = do
 --   gl_FRAGMENT_SHADER.
 --   Uses given FilePath as shader.
 loadShader :: GLenum -> FilePath -> IO GLuint
-loadShader shaderTypeFlag filePath = do
-    code <- readFile filePath
+loadShader shaderTypeFlag filePath =
+    readFile filePath >>= loadShaderCode shaderTypeFlag
+
+
+loadShaderCode :: GLenum -> String -> IO GLuint
+loadShaderCode shaderTypeFlag code = do
     sid <- glCreateShader shaderTypeFlag
     withCString code $ \codePtr ->
         with codePtr $ \codePtrPtr ->

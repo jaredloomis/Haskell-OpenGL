@@ -34,7 +34,6 @@ import Engine.Graphics.Graphics (makeFrameBuffer)
 import Engine.Graphics.Shaders (loadProgram)
 import Engine.Graphics.Shadows (makeShadowFrameBuffer)
 import Engine.Terrain.Noise (Simplex(..))
-import Engine.Terrain.Generator (Terrain(..))
 import Engine.Mesh.AABB (AABB(..))
 import Engine.Graphics.Graphics (initGL)
 import Engine.Bullet.Bullet
@@ -184,17 +183,16 @@ defaultSettings =
 defaultWorld :: World t
 defaultWorld =
     World undefined []
-          Nothing
           undefined
           emptyGraphics
           emptyWorldState
 
-createWorld :: Proto (World t) -> IO (World t)
+createWorld :: Proto (World ()) -> IO (World ())
 createWorld settings = do
     physics <- mkPhysics
     window <- createWindow $ settingsWindow settings
     objects <- mapM (createFromProto physics) $ settingsObjs settings
-    terrain <- createTerrain settings
+    terrain <- createTerrain physics settings
     player <- mkPlayer physics
 
     fb <- makeFrameBuffer $ windowSize window
@@ -214,8 +212,7 @@ createWorld settings = do
 
     return defaultWorld {
             worldPlayer = player,
-            worldEntities = objects,
-            worldTerrain = terrain,
+            worldEntities = fromJust terrain : objects,
             worldPhysics = physics,
             worldGraphics = graphics,
             worldState = state
@@ -227,8 +224,8 @@ createWindow (ProtoWindow win) = do
     initGL $ fromJust $ windowInner window
     return window
 
-createTerrain :: Proto (World t) -> IO (Maybe Terrain)
-createTerrain settings =
+createTerrain :: Physics -> Proto (World t) -> IO (Maybe (Entity ()))
+createTerrain phys settings =
     let msimplex = settingsSimplex settings
         (vert, frag) = settingsTerrainShaders settings
     in if isJust msimplex
@@ -236,7 +233,7 @@ createTerrain settings =
             let simplex = fromJust msimplex
                 (w, _) = simpDimensions simplex
             in Just <$>
-                generateTerrain vert frag
+                generateTerrain phys vert frag
                     (fromIntegral w) (simpSpacing simplex)
                     (simpOctaves simplex)
                     (simpWavelength simplex)

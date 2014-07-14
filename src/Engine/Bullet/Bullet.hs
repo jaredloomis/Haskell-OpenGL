@@ -207,6 +207,10 @@ linearVelocity :: BtRigidBodyClass o => Attr o Vec3
 linearVelocity = Attr btRigidBody_getLinearVelocity
                       btRigidBody_setLinearVelocity
 
+angularVelocity :: BtRigidBodyClass o => Attr o Vec3
+angularVelocity = Attr btRigidBody_getAngularVelocity
+                       btRigidBody_setAngularVelocity
+
 linearFactor :: BtRigidBodyClass o => Attr o Vec3
 linearFactor = Attr btRigidBody_getLinearFactor
                     btRigidBody_setLinearFactor
@@ -214,6 +218,13 @@ linearFactor = Attr btRigidBody_getLinearFactor
 angularFactor :: BtRigidBodyClass o => Attr o Vec3
 angularFactor = Attr btRigidBody_getAngularFactor
                      btRigidBody_setAngularFactor
+
+linearSleepingThreshold :: BtRigidBodyClass o => Attr o Float
+linearSleepingThreshold =
+    Attr btRigidBody_getLinearSleepingThreshold
+         (\rigidBody linearST -> do
+            angularST <- btRigidBody_getAngularSleepingThreshold  rigidBody
+            btRigidBody_setSleepingThresholds rigidBody linearST angularST)
 
 ---------------
 -- Utilities --

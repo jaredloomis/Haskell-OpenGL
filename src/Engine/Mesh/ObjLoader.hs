@@ -25,13 +25,12 @@ import Engine.Mesh.Material
     (Material(..), emptyMaterial, loadMtlFile)
 import Engine.Mesh.Mesh
     (Mesh(..), createMesh)
-import Engine.Mesh.AABB (AABBSet(..))
 import Engine.Core.Types (Entity(..))
 import Engine.Mesh.DatLoader
     (writeDataToFile, loadDatModel,
      loadDatModelKeepVerts)
 import Engine.Bullet.Bullet
-    (Physics(..), addAABBs, addStaticTriangleMesh)
+    (Physics(..), addStaticTriangleMesh)
 
 -- | Load an .obj into a "Model" and
 --   put that into a "GameObject".
@@ -44,6 +43,7 @@ loadObjObject ::
     IO (Entity t)
 loadObjObject phys vert frag t obj = do
     (model, verts) <- loadObjModelKeepVerts obj vert frag
+    -- TODO: Make it possible to make non-static mesh.
     Entity 0 0 0 return model <$> addStaticTriangleMesh verts def phys <*> return t
     --let AABBSet _ aabbs = meshAABBSet model
     --Entity 0 0 0 return model <$> addAABBs aabbs def phys <*> return t

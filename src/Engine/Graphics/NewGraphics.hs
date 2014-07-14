@@ -7,8 +7,6 @@ module Engine.Graphics.NewGraphics (
 ) where
 
 import Data.Bits ((.|.))
-import Data.Maybe (isJust, fromJust)
-import Data.Vec hiding (head)
 
 import Graphics.Rendering.OpenGL.Raw
     (GLint, glUseProgram, glDrawArrays, gl_TRIANGLES,
@@ -30,7 +28,6 @@ import Engine.Matrix.Matrix
      calculateModelMatrix)
 import Engine.Graphics.Window (Window(..))
 import Engine.Graphics.Shaders (Shader(..))
-import Engine.Terrain.Generator (Terrain(..))
 import Engine.Graphics.Framebuffer (Framebuffer(..))
 import Engine.Graphics.Graphics (renderAllPasses)
 import Engine.Mesh.Mesh (Mesh(..))
@@ -100,6 +97,7 @@ instance Renderable (Entity t) RenderInfo where
         return emptyInfo
     defaultGlobal _ = emptyInfo
 
+{-
 instance Renderable Terrain RenderInfo where
     renderBind obj info =
         let shader = terrainShader obj
@@ -133,6 +131,7 @@ instance Renderable Terrain RenderInfo where
         glUseProgram 0
         return emptyInfo
     defaultGlobal _ = emptyInfo
+-}
         
 
 instance Renderable (World t) RenderInfo where
@@ -205,10 +204,7 @@ renderWorldNew world = do
     let (width, height) = windowSize $ stateWindow $ worldState world
         fbuf = screenFramebuffer (fromIntegral width, fromIntegral height)
     _ <- renderAllWithGlobal fbuf world (worldEntities world) :: IO RenderInfo
-    _ <- if isJust $ worldTerrain world
-            then renderAllWithGlobal fbuf world
-                    [fromJust $ worldTerrain world] :: IO RenderInfo
-            else return emptyInfo
+
     return world
 
 -- | Render World with new API after binding
@@ -217,10 +213,6 @@ renderWorldNewWithFramebuffer :: World t -> Framebuffer -> IO (World t)
 renderWorldNewWithFramebuffer world fbuf = do
     glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
     _ <- renderAllWithGlobal fbuf world (worldEntities world) :: IO RenderInfo
-    _ <- if isJust $ worldTerrain world
-            then renderAllWithGlobal fbuf world
-                    [fromJust $ worldTerrain world] :: IO RenderInfo
-            else return emptyInfo
     return world
 
 -- | Render world with all postprocessing shaders defined by

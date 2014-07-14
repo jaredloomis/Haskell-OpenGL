@@ -18,7 +18,7 @@ import qualified Data.Label as L (set)
 
 import Physics.Bullet.Raw
     (btDynamicsWorld_stepSimulation,
-     btSphereShape)
+     btSphereShape, btBoxShape)
 import Physics.Bullet.Raw.Types (Transform(..))
 import Physics.Bullet.Raw.Class (BtSphereShape)
 import qualified Physics.Bullet.Raw.Types as BT (Vec3(..))
@@ -32,7 +32,9 @@ import Engine.Bullet.Bullet
     (Physics(..), AttrOp(..),
      RigidBodyInfo(..),
      set, worldTransform,
-     linearVelocity, addShape)
+     linearVelocity, addShape,
+     linearSleepingThreshold,
+     angularFactor, angularVelocity)
 import qualified Engine.Bullet.Bullet as B (get)
 
 
@@ -42,6 +44,7 @@ mkPlayer :: Physics -> IO (Player t)
 mkPlayer physics = do
     let info = def{
         rigidBodyMass = 1,
+        rigidBodyFriction = 2,
         rigidBodyStatic = False}
     shape <- mkPlayerShape
     player <-
@@ -53,7 +56,9 @@ mkPlayer physics = do
                baseInput
                <$> addShape shape info physics
     void $ set (playerRigidBody player)
-        [worldTransform :~ (\(Transform mat _) -> Transform mat $ BT.Vec3 0 60 0)]
+        [worldTransform :~ (\(Transform mat _) -> Transform mat $ BT.Vec3 0 60 0),
+         linearSleepingThreshold := (-0),
+         angularFactor := BT.Vec3 1 1 1]
     return player
 
 mkPlayerShape :: IO BtSphereShape

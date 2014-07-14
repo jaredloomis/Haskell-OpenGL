@@ -18,7 +18,7 @@ module Engine.Core.Types (
     emptyWorldState, lPlayerPosition,
     lPlayerRotation, lPlayerVelocity,
     lPlayerSpeed, lPlayerUpdate, lPlayerInput,
-    lWorldPlayer, lWorldEntities, lWorldTerrain,
+    lWorldPlayer, lWorldEntities,
     lWorldGraphics, lWorldState,
     lInputKeys, lInputMouseDelta,
     lInputLastMousePos, lInputMouseSpeed,
@@ -59,7 +59,6 @@ import Engine.Graphics.Window
     (Window(..), defaultWindow)
 import Engine.Mesh.AABB (HasAABB(..), AABB(..), AABBSet(..))
 import Engine.Object.Intersect (Intersect(..))
-import Engine.Terrain.Generator (Terrain(..))
 import Engine.Object.Octree (Octree(..))
 import Engine.Graphics.Shaders (ShaderUniform)
 import Engine.Graphics.Framebuffer (Framebuffer)
@@ -175,7 +174,6 @@ hoistGame game = GameIO . StateT $
 data World t = World {
     worldPlayer :: Player t,
     worldEntities :: [Entity t],
-    worldTerrain :: Maybe Terrain,
     worldPhysics :: Physics,
     worldGraphics :: Graphics,
     worldState :: WorldState
