@@ -128,7 +128,7 @@ bindTextures :: [Texture] -> GLuint -> IO ()
 bindTextures textures shader =
     bindTexturesi shader textures 0
 
-    where
+  where
     bindTexturesi :: GLuint -> [Texture] -> GLuint -> IO ()
     bindTexturesi s ((tid, _):ts) i = do
         glActiveTexture $ gl_TEXTURE0 + i

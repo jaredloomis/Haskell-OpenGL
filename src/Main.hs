@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 module Main where
 
 import Control.Monad.State (unless, evalState, execStateT)
@@ -5,6 +6,7 @@ import Data.Vec ((:.)(..), Vec2)
 
 import qualified Graphics.UI.GLFW as GLFW
 import Graphics.Rendering.OpenGL.Raw (GLfloat)
+import qualified Graphics.Rendering.OpenGL as GL
 
 import Engine.Core.Types (
     World(..), WorldState(..), Game(..),
@@ -19,9 +21,13 @@ import Engine.Object.Player (resetPlayerInput)
 import Engine.Object.GameObject (updateWorld)
 import Engine.Graphics.NewGraphics (renderWorldNewPost)
 import Engine.Core.WorldCreator (createWorld, defaultSettings)
+import Engine.Graphics.Primitive (simpleTest)
 
 main :: IO ()
-main = do
+main = simpleTest
+
+main' :: IO ()
+main' = do
     -- Create default world.
     world <- createWorld defaultSettings
 
@@ -83,6 +89,9 @@ updateStepComplete win world = do
 
     -- Update player input.
     player <- updatePlayerInput win $ worldPlayer world
+
+    print $ playerRotation player
+    putStrLn $ "pos: " ++ show (playerPosition player)
 
     -- Update player
     let worldWithPlayer = world{worldPlayer = player, worldState = newState}

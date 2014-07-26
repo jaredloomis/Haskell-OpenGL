@@ -1,7 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Engine.Mesh.ObjLoader (
     loadObjModel,
-    loadObjObject
+    loadObjObject,
+    loadObjModelKeepVerts
 ) where
 
 import Control.Applicative

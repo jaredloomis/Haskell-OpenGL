@@ -1,12 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Engine.Core.Types (
     Game(..), GameIO(..),
@@ -59,7 +54,6 @@ import Engine.Graphics.Window
     (Window(..), defaultWindow)
 import Engine.Mesh.AABB (HasAABB(..), AABB(..), AABBSet(..))
 import Engine.Object.Intersect (Intersect(..))
-import Engine.Object.Octree (Octree(..))
 import Engine.Graphics.Shaders (ShaderUniform)
 import Engine.Graphics.Framebuffer (Framebuffer)
 import Engine.Mesh.Mesh (Mesh(..), emptyMesh)
@@ -67,7 +61,13 @@ import Engine.Bullet.Bullet (Physics(..))
 
 -- = Vinyl API (unimplemented, just testing with it.)
 
+{-
 import Data.Vinyl
+import Data.Vinyl.Universe
+
+
+type Vec3f = Vec3 GLfloat
+
 
 newtype Game' a = Game' {
     game'State :: State World' a
@@ -77,7 +77,6 @@ newtype GameIO' a = GameIO' {
     gameIo'State :: StateT World' IO a
 } deriving (Functor, Applicative, Monad, MonadIO, MonadState World')
 
-
 data World' = World' {
     world'Objects  :: GameObject',
     world'Octree   :: Octree AABB,
@@ -85,11 +84,7 @@ data World' = World' {
     world'State    :: WorldState
 }
 
-type GameObject' = PlainRec
-   [Position,   Rotation,
-    Velocity,   Update,
-    ModelField, InputField,
-    AABBsField]
+type GameObject' = PlainRec [Position, Rotation]
 
 -- Just to stop errors.
 data Input' = Input' {
@@ -108,28 +103,28 @@ data UpdateType =
 
 type Position = "position" ::: Vec3 GLfloat
 position' :: Position
-position' = Field
+position' = SField
 type Rotation = "rotation" ::: Vec3 GLfloat
 rotation' :: Rotation
-rotation' = Field
+rotation' = SField
 type Velocity = "velocity" ::: Vec3 GLfloat
 velocity' :: Velocity
-velocity' = Field
+velocity' = SField
 type Update = "update" ::: UpdateType
 update' :: Update
-update' = Field
+update' = SField
 type ModelField = "mesh" ::: Mesh
 model' :: ModelField
-model' = Field
+model' = SField
 type InputField = "input" ::: Input'
 input' :: InputField
-input' = Field
+input' = SField
 type AABBsField = "aabbs" ::: AABBSet
 aabb' :: AABBsField
-aabb' = Field
+aabb' = SField
 type Parent = "parent" ::: GameObject'
 parent :: Parent
-parent = Field
+parent = SField
 
 parentPos :: (("parent" ::: GameObject') -?> rs, Functor f) =>
               (Vec3 GLfloat -> f (Vec3 GLfloat)) -> PlainRec rs -> f (PlainRec rs)
@@ -149,6 +144,7 @@ move' :: (rs `Has` Position) => Vec3 GLfloat -> PlainRec rs -> PlainRec rs
 move' dPos obj =
     let curPos = rGet position' obj
     in rPut position' (curPos + dPos) obj
+-}
 
 ---- = Real API = ----
 
