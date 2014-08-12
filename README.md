@@ -98,6 +98,3 @@ Performance by GHC/GHCI command:
 
   0. You just DO WHAT THE FUCK YOU WANT TO.
 ```
-
-<h3>Contact</h3>
-fiendfan1@yahoo.com
