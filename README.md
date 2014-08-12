@@ -83,6 +83,7 @@ Performance by GHC/GHCI command:
 - Better documentation / comments.
 
 <h2>Copyright</h2>
+All source code in this repository is provided under the WTFPL Version 2.
 ```
         DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE 
                     Version 2, December 2004 
