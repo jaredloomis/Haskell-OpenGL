@@ -6,9 +6,8 @@
 - GLSL 4+.
 - Loading and displaying of textures in a variety of formats.
 - Collision detection via AABBs, using Octrees for speed.
-- Gravity / basic physics.
+- Bullet physics integration.
 - Uses own matrices, according to the OpenGL 2.1+ spec.
-- Shadows.
 <h2>Screenshots</h2>
 <h4>Simplex procedurally generated terrain.</h4>
 
@@ -71,7 +70,6 @@ Performance by GHC/GHCI command:
 - When the time comes to add animations, large changes will probably need to be made, but use the [ST monad](https://hackage.haskell.org/package/base-4.7.0.0/docs/Control-Monad-ST.html) for performance, probably [STVectors](https://hackage.haskell.org/package/vector-0.10.0.1/docs/Data-Vector-Mutable.html).
 - Normal mapping / normal textures.
 - Text / GUI.
-- Physics.
 - Audio support using a library.
 - Save files.
 
