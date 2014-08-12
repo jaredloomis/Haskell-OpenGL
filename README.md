@@ -35,41 +35,45 @@ Performance by GHC/GHCI command:
 
 <h2>Todo</h2>
 
+<h4>Changes to Graphics API</h4>
+- Remove Proxies from data types; use `-XScopedTypeVariables`
+- Use `Data.Proxy` instead of `NatProxy` and `SymbolProxy`. (Needs `-XPolyKinds`)
+- Rename `HasBString` to something more clear, like `HasGLSL`.
+- Remove `Assignment` constructor; use `Action` instead.
+
 <h4>Top</h4>
-- <b>Redo Mesh AABB generation, so that it works better with Bullet physics. (Don't make an AABB for every face.)</b>
-- <b>Model graphics API after [LambdaCube 3D](http://lambdacube3d.wordpress.com/2012/09/07/the-lambdacube-3d-pipeline-model/), I like the design. And anything is better than what is currently in place. [GPipe](http://www.haskell.org/haskellwiki/GPipe/Tutorial) can also be used for ideas</b>
-- <b>Decrease GPU usage.</b>
-- <b>General code cleanup, make it easier to use and clearer.</b>
-- <b>Better documentation / comments.</b>
-- <b>Maybe switch to using the OpenGL package instead of OpenGLRaw.</b>
-- <b>A collision detection system for <i>dynamic</i> objects.</b>
-- <b>Try to use bullet physics. Every time I try to use it I get linking errors.</b>
-- Test suite.
-- Repair shadows.
+- Possibly create a fast, polymorphic matrix library; I dont like any of the ones currently available.
+    - Something similar to [hmatrix](https://hackage.haskell.org/package/hmatrix), but polymorphic (Not constrained to use `Double`).
+    - Pure Haskell.
+    - Row-major or Column-major (type-level flag variable).
+    - Use [STVectors](https://hackage.haskell.org/package/vector-0.10.0.1/docs/Data-Vector-Mutable.html) for efficiency (Check out [bed-and-breakfast](https://hackage.haskell.org/package/bed-and-breakfast) for ideas).
+    - Type-level width and height
+    - May also need to define Vec type, to keep things consistent (like hmatrix).
+- Update performance info.
+- Redo Mesh AABB generation, so that it works better with Bullet physics. (Don't make an AABB for every face.)
+- Decrease GPU usage.
+- General code cleanup, make it easier to use and clearer.
+    - More utility functions.
+    - Better documentation / comments.
+- Try using criterion, QuickCheck, and SmallCheck.
+- Add shadow support to graphics API.
 - <b>Use State Monads more. Convert functions with types like `World t -> GameObject t -> a` to `GameObject t -> Game a`</b>
-- Create a FRP module, making it optional (Elerea or Netwire).
-- Normal mapping.
-- AI / Pathfinding (A\*?).
-- Chunks or other methods to allow for infinite terrain.
+- Create a FRP module, making it optional (Elerea and/or Netwire).
 
 <h4>Fixes</h4>
 - Make walking more stable and efficient.
 
 <h4>Additions</h4>
-- When the time comes to add animations, large changes will probably need to be made, but use the [ST monad](https://hackage.haskell.org/package/base-4.7.0.0/docs/Control-Monad-ST.html) for performance, probably [STArrays](http://www.haskell.org/ghc/docs/latest/html/libraries/array/Data-Array-ST.html).
+- Use [mvc](https://hackage.haskell.org/package/mvc)?
+- Normal mapping.
+- AI / Pathfinding (A\*?).
+- Chunks or other methods to allow for infinite terrain.
+- When the time comes to add animations, large changes will probably need to be made, but use the [ST monad](https://hackage.haskell.org/package/base-4.7.0.0/docs/Control-Monad-ST.html) for performance, probably [STVectors](https://hackage.haskell.org/package/vector-0.10.0.1/docs/Data-Vector-Mutable.html).
 - Normal mapping / normal textures.
 - Text / GUI.
 - Physics.
 - Audio support using a library.
 - Save files.
-- A GLSL shader code generator would be cool.
-
-<h4>OpenGL</h4>
-- LOD via [Tesselation shaders](http://prideout.net/blog/?p=48).
-- [Lots of stuff to add shader/graphics-wise](http://developer.download.nvidia.com/SDK/9.5/Samples/samples.html).
-- OpenGL 3.3+ [Sampler Objects](http://www.sinanc.org/blog/?p=215) (Pretty easy) [in OpenGLRaw package](http://hackage.haskell.org/package/OpenGLRaw-1.5.0.0/docs/Graphics-Rendering-OpenGL-Raw-ARB-SamplerObjects.html).
-- Shadows.
-    - [GPUGems](http://http.developer.nvidia.com/GPUGems/gpugems_ch09.html).
 
 <h4>Performance increases</h4>
 - Use more parallelism.
@@ -78,23 +82,22 @@ Performance by GHC/GHCI command:
 - Define classes to constrain functions, instead of forcing the use of `GameObjects`?
 - Better documentation / comments.
 
-<h2>Used libraries Include</h2>
-- [OpenGL](http://hackage.haskell.org/package/OpenGL)
-- [GLFW-b](http://hackage.haskell.org/package/GLFW-b-1.4.3)
-- [JuicyPixels](http://hackage.haskell.org/package/JuicyPixels)
-
 <h2>Copyright</h2>
-Haskell-OpenGL - An open source game/library written in Haskell.
-Copyright (C) 2014  [fiendfan1](https://github.com/fiendfan1/)
+```
+        DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE 
+                    Version 2, December 2004 
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License version 3
-as published by the Free Software Foundation.
+ Copyright (C) 2004 Sam Hocevar <sam@hocevar.net> 
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-[GNU General Public License](https://gnu.org/licenses/gpl.html) for more details.
+ Everyone is permitted to copy and distribute verbatim or modified 
+ copies of this license document, and changing it is allowed as long 
+ as the name is changed. 
+
+            DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE 
+   TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION 
+
+  0. You just DO WHAT THE FUCK YOU WANT TO.
+```
 
 <h3>Contact</h3>
 fiendfan1@yahoo.com
