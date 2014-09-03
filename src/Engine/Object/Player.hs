@@ -48,7 +48,7 @@ mkPlayer physics = do
         rigidBodyStatic = False}
     shape <- mkPlayerShape
     player <-
-        Player (0 :. 60 :. 0 :. ())
+        Player (0 :. 0 :. 0 :. ())
                (0 :. 0 :. 0 :. ())
                (0 :. 0 :. 0 :. ())
                5

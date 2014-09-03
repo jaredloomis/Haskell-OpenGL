@@ -1,11 +1,12 @@
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PackageImports #-}
 module Engine.FRP.FRP where
 
 import Prelude hiding ((.))
 import Data.Monoid (Monoid)
-import Control.Monad.Identity
+import "mtl" Control.Monad.Identity
 import Control.Applicative
 import Data.Time (NominalDiffTime)
 import Control.Monad.IO.Class
@@ -107,21 +108,27 @@ countIf f = foldp (\v c -> c + fromEnum (f v)) 0
 -- Netwire --
 -------------
 
-control :: (Applicative m, MonadIO m, Monoid e) =>
-    (e -> m ()) ->
-    (b -> m ()) ->
+control :: (Monoid e, Show b, Show e) =>
+    (e -> IO ()) ->
+    (b -> IO ()) ->
     Wire (S.Timed NominalDiffTime ()) e Identity () b ->
-    m b1
+    IO b1
 control whenInhibited whenProduced =
     loopN N.clockSession_
   where
     loopN session' wire' = do
         (ds, s) <- S.stepSession session'
         let Identity (mx, w) = C.stepWire wire' ds (Right ())
-        _ <- case mx of
+
+        putChar '\r'
+        case mx of
             Left ex -> whenInhibited ex
             Right x -> whenProduced x
+        putStr "\027"
+        hFlush stdout
+
         loopN s w
+
 controlIO :: (MonadIO m, Applicative m) =>
              (e -> m ()) ->
              (a -> m ()) ->
@@ -135,8 +142,7 @@ controlIO whenInhibited whenProduced =
         (ds, s) <- S.stepSession session
         (mx, w) <- C.stepWire wire ds (Right val)
         case mx of
-            Left ex -> do
-                whenInhibited ex
+            Left ex -> whenInhibited ex
             Right x -> do
                 whenProduced x
                 loopN s w x
@@ -152,11 +158,9 @@ controlIO_ whenInhibited whenProduced =
     loopN session wire = do
         (ds, s) <- S.stepSession session
         (mx, w) <- C.stepWire wire ds (Right ())
-        _ <- case mx of
-            Left ex -> do
-                whenInhibited ex
-            Right x -> do
-                whenProduced x
+        case mx of
+            Left ex -> whenInhibited ex
+            Right x -> whenProduced x
         loopN s w
 
 inputWire :: Monoid s => Wire s e IO (Int, Int) (Int, Int)
@@ -189,7 +193,7 @@ getKey = C.mkGen_ trans
 playerWire :: HasTime t s => Wire s () IO () (Int, Int)
 playerWire = N.holdFor 1 . playerEvent
 
-playerEvent :: Wire s e IO () (N.Event (Int, Int))
+playerEvent :: Wire s () IO () (N.Event (Int, Int))
 playerEvent = N.accumE move (0, 0) . keyPress
   where
     move (x, y) key =
@@ -226,8 +230,8 @@ printWire = C.mkGen trans
 countN :: (Monad m, HasTime t s) => Wire s () m () Double
 countN = N.integral 0 . 1
 
-sequenced :: (Monad m, HasTime t s) => Wire s () m () String
-sequenced = N.for 3 . "First" --> N.for 3 . "Second"
+sequenced :: HasTime t s => Wire s () Identity () String
+sequenced = N.for 3 . "First" --> "Second"
 
 events :: (HasTime t s, Monad m) => Wire s () m () t
 events = N.asSoonAs . (N.at 2 &> N.at 3) . N.time
@@ -235,17 +239,21 @@ events = N.asSoonAs . (N.at 2 &> N.at 3) . N.time
 inParallel :: Wire s e m a a
 inParallel = N.evalWith rpar
 
-mainN :: IO ()
-mainN = controlIO_
-    (const $ putStrLn "Inhibited" >> hFlush stdout)
-    (\p -> putStrLn ("Produced: " ++ show p) >> hFlush stdout)
-    (playerWire)
+createPlayer :: (Int, Int) -> String
+createPlayer (x, y) =
+    replicate (max 0 y) '\n' ++
+    replicate (max 0 x) ' ' ++ "X"
 
-{-
 mainN :: IO ()
-mainN = controlIO
-    (const $ putStrLn "Inhibited" >> hFlush stdout)
-    (\p -> putStrLn ("Produced: " ++ show p) >> hFlush stdout)
-    (inputWire)
+mainN = control
+    (const $ putStr "Inhibited")
+    (\p -> putStr $ "Produced: " ++ show p)
+--    sequenced
+    countN
+
+mainN' :: IO ()
+mainN' = controlIO
+    (const $ putStrLn "Inhibited")
+    (\p -> putStrLn $ createPlayer p)
+    inputWire
     (0, 0)
--}

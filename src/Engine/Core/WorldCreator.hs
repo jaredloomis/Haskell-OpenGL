@@ -8,9 +8,7 @@ module Engine.Core.WorldCreator (
     defaultSettings
 ) where
 
-import Control.Monad (void)
-import Control.Applicative ((<$>))
-import Data.Maybe (isJust, fromJust)
+import Control.Monad.State hiding (modify)
 import System.FilePath ((</>))
 import Data.Vec ((:.)(..))
 
@@ -20,91 +18,21 @@ import Physics.Bullet.Raw.Types
     (Vec3(..), Transform(..), idmtx)
 
 import Graphics.Rendering.OpenGL.Raw (GLfloat)
+import qualified Graphics.UI.GLFW as GLFW
 
 import Engine.Core.Types
-    (World(..), WorldState(..), Graphics(..),
-     Entity(..),
-     emptyGraphics, emptyWorldState)
-import Engine.Graphics.Window (Window(..), defaultWindow, openWindow)
+    (World(..), WorldState(..),
+     Entity(..), GameIO(..), io,
+     emptyWorldState,
+     lWorldShaderUniverse, (%=))
 import Engine.Object.Player (mkPlayer)
 import Engine.Core.World (getWorldTime)
 import Engine.Mesh.ObjLoader (loadObjObject)
-import Engine.Terrain.Generator (generateTerrain)
-import Engine.Graphics.Graphics (makeFrameBuffer)
-import Engine.Graphics.Shaders (loadProgram)
-import Engine.Graphics.Shadows (makeShadowFrameBuffer)
 import Engine.Terrain.Noise (Simplex(..))
 import Engine.Mesh.AABB (AABB(..))
-import Engine.Graphics.Graphics (initGL)
 import Engine.Bullet.Bullet
-    (Physics, AttrOp(..), mkPhysics, set, worldTransform)
-
-class Buildable a where
-    data Proto' a
-    fromProto :: Proto' a -> IO a
-
-instance Buildable (Entity t) where
-    data Proto' (Entity t) = ProtoEntity
-            FilePath                  -- .obj file.
-            FilePath                  -- vertex shader.
-            FilePath                  -- fragment shader.
-            t
-            [Entity t -> Entity t]  -- Any changes to be made after being
-                                      -- created.
-            Physics                   -- Global Physics.
-    fromProto (ProtoEntity objFile vert frag t mods phys) = do
-        objObject <- loadObjObject phys vert frag t objFile
-        let entity = foldr id objObject mods
-            x :. y :. z :. () = entityPosition entity
-            pos = Vec3 (uC x) (uC y) (uC z)
-            trans = Transform idmtx pos
-        void $ set (entityRigidBody entity) [worldTransform := trans]
-        return entity
-      where
-        uC = unsafeCoerce
-
-instance Buildable Window where
-    data Proto' Window = ProtoWindow' Window
-    fromProto (ProtoWindow' win) = do
-        window <- openWindow win
-        initGL $ fromJust $ windowInner window
-        return window
-{-
-instance Buildable (World t) where
-    data Proto' (World t) = ProtoWorld'
-            [Proto' (Entity t)]     -- Objects.
-            (Proto' Window)         -- Window.
-            [(FilePath, FilePath)]  -- Post Shaders.
-    fromProto (ProtoWorld' objs pwin post) = do
-        physics <- mkPhysics
-        window <- fromProto pwin
-        objects <- mapM (createFromProto physics) objs
-        player <- mkPlayer physics
-
-        fb <- makeFrameBuffer $ windowSize window
-        postShaders <- mapM (uncurry loadProgram) post
-
-        sfb <- makeShadowFrameBuffer $ windowSize window
-        let (shV, shF) = settingsShadowShader settings
-        shadowShader <- loadProgram shV shF
-
-        let graphics = Graphics
-                (settingsShaderAttribs settings)
-                (fb, postShaders)
-                (sfb, shadowShader)
-
-        t <- getWorldTime
-        let state = WorldState t 0 False window
-
-        return defaultWorld {
-            worldPlayer = player,
-            worldEntities = objects,
-            worldTerrain = terrain,
-            worldPhysics = physics,
-            worldGraphics = graphics,
-            worldState = state
-            }
--}
+    (AttrOp(..), mkPhysics, set, worldTransform)
+import Engine.Graphics.Primitive
 
 data family Proto a
 
@@ -115,59 +43,63 @@ data instance Proto (World t) =
         settingsTerrainTexture :: Maybe FilePath,
         settingsObjs :: [Proto (Entity t)],
         settingsWholeAABB :: AABB,
-        settingsWindow :: Proto Window,
+        settingsWindow :: GLFW.Window,
         settingsPostShaders :: [(FilePath, FilePath)],
         settingsShadowShader :: (FilePath, FilePath),
         settingsShaderAttribs :: [(String, IO [GLfloat])]
     }
 
 data instance Proto (Entity t) =
-    FromObj FilePath FilePath FilePath [Entity t -> Entity t] t
-
-data instance Proto Window = ProtoWindow Window
+    FromObj FilePath [Entity t -> Entity t] t
 
 -- | Create a "ProtoObject" that contains
 --   instructions to parse a file and create
 --   a "GameObject".
-fromObj :: FilePath -> FilePath -> FilePath -> t -> Proto (Entity t)
-fromObj file vert frag attr = FromObj file vert frag [] attr
+fromObj :: FilePath -> t -> Proto (Entity t)
+fromObj file attr = FromObj file [] attr
 
 -- | Add a function that will modify the
 --   GameObject after it is loaded.
 modify :: (Entity t -> Entity t) ->
           Proto (Entity t) ->
           Proto (Entity t)
-modify f (FromObj file vert frag mods attr) =
-    FromObj file vert frag (f:mods) attr
+modify f (FromObj file mods attr) =
+    FromObj file (f:mods) attr
 
-createFromProto :: Physics -> Proto (Entity t) -> IO (Entity t)
-createFromProto phys (FromObj file vert frag mods attr) = do
-    entity <- (\obj -> foldr (\f o -> f o) obj mods) <$>
-                loadObjObject phys vert frag attr file
+createFromProto :: Proto (Entity t) -> GameIO t (Entity t)
+createFromProto (FromObj file mods attr) = do
+    ent <- loadObjObject attr file
+
+    let (prog, entity) = (\(prg, obj) -> (prg, foldr (\f o -> f o) obj mods)) ent
+    world <- get
+
+    let shaderGalaxy = PureGalaxy prog id (world, entity)
+    lWorldShaderUniverse %= (`addGalaxy` shaderGalaxy)
+
     let x :. y :. z :. () = entityPosition entity
         pos = Vec3 (uC x) (uC y) (uC z)
         trans = Transform idmtx pos
-    void $ set (entityRigidBody entity) [worldTransform := trans]
+    io . void $ set (entityRigidBody entity) [worldTransform := trans]
     return entity
   where
     uC = unsafeCoerce
 
-defaultSettings :: Proto (World ())
-defaultSettings =
+defaultSettings :: GLFW.Window -> Proto (World ())
+defaultSettings win =
     ProtoWorld
         (Just $ Simplex 0 (200, 200) (0, 0) 1 1 20 10 undefined)
         (".." </> "res" </> "shaders" </> "correct_v.glsl",
          ".." </> "res" </> "shaders" </> "correct_f.glsl")
         (Just $ ".." </> "res" </> "textures" </> "grass.jpg")
-        [fromObj (".." </> "res" </> "objects" </> "wow" </> "wow.obj")
+        [
+        {-fromObj (".." </> "res" </> "objects" </> "wow" </> "wow.obj")
          (".." </> "res" </> "shaders" </> "correct_v.glsl")
-         (".." </> "res" </> "shaders" </> "correct_f.glsl") (),
+         (".." </> "res" </> "shaders" </> "correct_f.glsl") (),-}
          modify (\x -> x{entityPosition = (-20) :. (-20) :. (-5) :. ()}) $
          fromObj (".." </> "res" </> "objects" </> "ibanez" </> "ibanez.obj")
-         (".." </> "res" </> "shaders" </> "correct_v.glsl")
-         (".." </> "res" </> "shaders" </> "correct_f.glsl") ()]
+         ()]
         (AABB (-100) 200)
-        (ProtoWindow defaultWindow)
+        (win)
         {-[(".." </> "res" </> "shaders" </> "postprocessing"
           </> "passthrough" </> "passthrough_v.glsl",
           ".." </> "res" </> "shaders" </> "postprocessing"
@@ -182,48 +114,40 @@ defaultSettings =
 
 defaultWorld :: World t
 defaultWorld =
-    World undefined []
+    World undefined
+          ([] -|> [])
           undefined
-          emptyGraphics
           emptyWorldState
 
-createWorld :: Proto (World ()) -> IO (World ())
-createWorld settings = do
+createWorld :: (GLFW.Window -> Proto (World ())) -> IO (World ())
+createWorld settings' = do
+    window <- openWindow
+    initGL window
+
+    let settings = settings' window
+
     physics <- mkPhysics
-    window <- createWindow $ settingsWindow settings
-    objects <- mapM (createFromProto physics) $ settingsObjs settings
-    terrain <- createTerrain physics settings
+
     player <- mkPlayer physics
-
-    fb <- makeFrameBuffer $ windowSize window
-    postShaders <- mapM (uncurry loadProgram) $ settingsPostShaders settings
-
-    sfb <- makeShadowFrameBuffer $ windowSize window
-    let (shV, shF) = settingsShadowShader settings
-    shadowShader <- loadProgram shV shF
-
-    let graphics = Graphics
-            (settingsShaderAttribs settings)
-            (fb, postShaders)
-            (sfb, shadowShader)
-
     t <- getWorldTime
-    let state = WorldState t 0 False window
 
-    return defaultWorld {
-            worldPlayer = player,
-            worldEntities = fromJust terrain : objects,
+    let wstate = WorldState t 0 False window
+    let world = defaultWorld{
             worldPhysics = physics,
-            worldGraphics = graphics,
-            worldState = state
-        }
+            worldPlayer = player,
+            worldState = wstate}
 
-createWindow :: Proto Window -> IO Window
-createWindow (ProtoWindow win) = do
-    window <- openWindow win
-    initGL $ fromJust $ windowInner window
-    return window
+    world' <- createAllObjects world $ settingsObjs settings
 
+    return world'
+
+createAllObjects :: World t -> [Proto (Entity t)] -> IO (World t)
+createAllObjects world (x:xs) = do
+    world' <- execStateT (gameIoState $ createFromProto x) world
+    createAllObjects world' xs
+createAllObjects world [] = return world
+
+{-
 createTerrain :: Physics -> Proto (World t) -> IO (Maybe (Entity ()))
 createTerrain phys settings =
     let msimplex = settingsSimplex settings
@@ -240,3 +164,4 @@ createTerrain phys settings =
                     (simpIntensity simplex)
                     (settingsTerrainTexture settings)
         else return Nothing
+-}

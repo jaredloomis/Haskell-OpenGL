@@ -1,9 +1,11 @@
 module Engine.Graphics.Graphics (
+{-
     initGL, resizeScene,
     cleanupObjects, renderWorld,
     cleanupWorld, renderObjects,
     renderAllPasses, makeFrameBuffer,
     renderWorldWithPostprocessing
+-}
 ) where
 
 import Foreign (alloca, peek, new, withArray)
@@ -26,13 +28,13 @@ import Engine.Graphics.Shaders
 import Engine.Graphics.Framebuffer (Framebuffer(..))
 import Engine.Graphics.GraphicsUtils (offset0, fillNewBuffer)
 import Engine.Core.HasPosition (HasPosition(..), HasRotation(..))
-import Engine.Object.GameObject (getModel)
 import Engine.Matrix.Matrix
     (WorldMatrices(..), calculateMatricesFromPlayer,
      setMatrixUniforms)
 import Engine.Graphics.Window (Window(..))
 import Engine.Mesh.Mesh (Mesh(..))
 
+{-
 renderWorld :: World t -> IO (World t)
 renderWorld world = do
     glClear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
@@ -310,3 +312,4 @@ quadBufferData =
      1.0, -1.0, 0.0,
      1.0,  1.0, 0.0]
 {-# INLINE quadBufferData #-}
+-}

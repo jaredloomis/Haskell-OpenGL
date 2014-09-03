@@ -1,0 +1,1459 @@
+
+./Setup.hs,15
+main main1,2
+
+./Engine/Save/Save.hs,325
+module Save Save0,1
+writeSaveFromWorld writeSaveFromWorld8,9
+writeSaveFromWorld writeSaveFromWorld9,10
+--generateWorldSaveText --generateWorldSaveText14,15
+--generateWorldSaveText --generateWorldSaveText15,16
+generateGameObjectText generateGameObjectText19,20
+generateGameObjectText generateGameObjectText20,21
+
+./Engine/Object/Intersect.hs,626
+module Engine.Object.Intersect Engine.Object.Intersect3,4
+class Intersect Intersect18,19
+class Intersect Intersect18,19
+    intersecting intersecting19,20
+instance instance22,23
+intersectsAny intersectsAny67,68
+intersectsAny intersectsAny68,69
+getObjectAllIntersecters getObjectAllIntersecters73,74
+getObjectAllIntersecters getObjectAllIntersecters75,76
+getObjectIntersecter getObjectIntersecter84,85
+getObjectIntersecter getObjectIntersecter85,86
+getIntersecter getIntersecter94,95
+getIntersecter getIntersecter95,96
+anyIntersectGet anyIntersectGet114,115
+anyIntersectGet anyIntersectGet115,116
+
+./Engine/Object/Octree.hs,1963
+module Engine.Object.Octree Engine.Object.Octree5,6
+subdivideST subdivideST89,90
+subdivideST subdivideST90,91
+getGroupsInNode getGroupsInNode122,123
+getGroupsInNode getGroupsInNode123,124
+emptyOctant emptyOctant126,127
+emptyOctant emptyOctant127,128
+type LinearOctree LinearOctree131,132
+type LinearOctree a a131,132
+data LinearIndex LinearIndex132,133
+    LinearLeaf LinearLeaf133,134
+  | LinearNode LinearNode134,135
+testLinear testLinear137,138
+makeLinear makeLinear147,148
+makeLinear makeLinear149,150
+--makeLinear' --makeLinear'155,156
+makeLinear' makeLinear'156,157
+emptyLinearOctree emptyLinearOctree168,169
+emptyLinearOctree emptyLinearOctree169,170
+octreeNodeCount octreeNodeCount173,174
+octreeNodeCount octreeNodeCount174,175
+data Octree Octree183,184
+    ONode ONode184,185
+  | OLeaf OLeaf185,186
+treeChildren treeChildren188,189
+treeChildren treeChildren189,190
+treeAABB treeAABB192,193
+treeAABB treeAABB193,194
+instance instance196,197
+maxCapacity maxCapacity211,212
+maxCapacity maxCapacity212,213
+createOctree createOctree215,216
+createOctree createOctree216,217
+createOctreeFromAABBs createOctreeFromAABBs219,220
+createOctreeFromAABBs createOctreeFromAABBs220,221
+findNearby findNearby223,224
+findNearby findNearby224,225
+findNearby' findNearby'231,232
+findNearby' findNearby'233,234
+octInsert octInsert240,241
+octInsert octInsert241,242
+getNonEmptyAABBs getNonEmptyAABBs257,258
+getNonEmptyAABBs getNonEmptyAABBs258,259
+takeFirsts takeFirsts265,266
+takeFirsts takeFirsts266,267
+childrenCount childrenCount270,271
+childrenCount childrenCount271,272
+dpartition dpartition276,277
+dpartition dpartition277,278
+dselect dselect280,281
+dselect dselect281,282
+subdivide subdivide284,285
+subdivide subdivide285,286
+checkOctant checkOctant317,318
+checkOctant checkOctant318,319
+checkOctant' checkOctant'324,325
+checkOctant' checkOctant'326,327
+
+./Engine/Object/GameObject.hs,120
+module Engine.Object.GameObject Engine.Object.GameObject1,2
+--getModel --getModel25,26
+--getModel --getModel26,27
+
+./Engine/Object/Player.hs,1370
+module Engine.Object.Player Engine.Object.Player1,2
+mkPlayer mkPlayer42,43
+mkPlayer mkPlayer43,44
+mkPlayerShape mkPlayerShape63,64
+mkPlayerShape mkPlayerShape64,65
+baseInput baseInput67,68
+baseInput baseInput68,69
+aIn aIn79,80
+aIn aIn80,81
+dIn dIn84,85
+dIn dIn85,86
+wIn wIn89,90
+wIn wIn90,91
+sIn sIn94,95
+sIn sIn95,96
+shiftIn shiftIn100,101
+shiftIn shiftIn101,102
+spaceIn spaceIn107,108
+spaceIn spaceIn108,109
+escIn escIn118,119
+escIn escIn119,120
+pUpdate pUpdate130,131
+pUpdate pUpdate131,132
+pUpdateNormal pUpdateNormal137,138
+pUpdateNormal pUpdateNormal138,139
+pUpdatePaused pUpdatePaused154,155
+pUpdatePaused pUpdatePaused155,156
+resetPlayerInput resetPlayerInput164,165
+resetPlayerInput resetPlayerInput165,166
+calculateLookMovement calculateLookMovement169,170
+calculateLookMovement calculateLookMovement170,171
+setVelocityFromLook setVelocityFromLook186,187
+setVelocityFromLook setVelocityFromLook187,188
+playerMouseUpdate playerMouseUpdate192,193
+playerMouseUpdate playerMouseUpdate193,194
+playerKeyUpdateSafe playerKeyUpdateSafe236,237
+playerKeyUpdateSafe playerKeyUpdateSafe237,238
+playerKeyUpdateTail playerKeyUpdateTail250,251
+playerKeyUpdateTail playerKeyUpdateTail251,252
+resolveVelocityBullet resolveVelocityBullet274,275
+resolveVelocityBullet resolveVelocityBullet275,276
+
+./Engine/Matrix/NewMatrix.hs,256
+module Engine.Matrix.NewMatrix Engine.Matrix.NewMatrix7,8
+newtype Matrix Matrix15,16
+newtype Matrix w h t = Matrix Matrix15,16
+newtype Vector Vector18,19
+newtype Vector l t = Vector Vector18,19
+instance instance22,23
+(<&>)<&>26,27
+(<(28,29
+
+./Engine/Matrix/Matrix.hs,701
+module Engine.Matrix.Matrix Engine.Matrix.Matrix1,2
+data WorldMatrices WorldMatrices13,14
+data WorldMatrices = WorldMatrices WorldMatrices13,14
+    matrixModel matrixModel14,15
+    matrixView matrixView15,16
+    matrixProjection matrixProjection16,17
+emptyMatrices emptyMatrices18,19
+emptyMatrices emptyMatrices19,20
+setMatrixUniforms setMatrixUniforms22,23
+setMatrixUniforms setMatrixUniforms23,24
+calculateMatricesFromPlayer calculateMatricesFromPlayer50,51
+calculateMatricesFromPlayer calculateMatricesFromPlayer51,52
+calculateModelMatrix calculateModelMatrix70,71
+calculateModelMatrix calculateModelMatrix71,72
+toGLFormat toGLFormat78,79
+toGLFormat toGLFormat79,80
+
+./Engine/Mesh/Material.hs,1316
+module Engine.Mesh.Material Engine.Mesh.Material1,2
+data Material Material20,21
+data Material = Material Material20,21
+    matName matName21,22
+    matAmbientColor matAmbientColor22,23
+    matDiffuseColor matDiffuseColor23,24
+    matSpecularColor matSpecularColor24,25
+    matTexture matTexture25,26
+    matTexId matTexId26,27
+    matTexturePaths matTexturePaths27,28
+loadMtlFile loadMtlFile37,38
+loadMtlFile loadMtlFile38,39
+loadMtlMaterials loadMtlMaterials43,44
+loadMtlMaterials loadMtlMaterials44,45
+applyDefualtMtl applyDefualtMtl51,52
+applyDefualtMtl applyDefualtMtl52,53
+loadMtlMaterialsRec loadMtlMaterialsRec71,72
+loadMtlMaterialsRec loadMtlMaterialsRec72,73
+executeCommand executeCommand101,102
+    | "Ka " `B.isPrefixOf`B.isPrefixOf103,104
+readMtlLineTriplet readMtlLineTriplet122,123
+readMtlLineTriplet readMtlLineTriplet123,124
+readMtlLine readMtlLine125,126
+readMtlLine readMtlLine126,127
+rawMtlLine rawMtlLine128,129
+rawMtlLine rawMtlLine129,130
+toTripletMtl toTripletMtl131,132
+toTripletMtl toTripletMtl132,133
+emptyMaterial emptyMaterial136,137
+emptyMaterial emptyMaterial137,138
+parseBsFloat parseBsFloat139,140
+parseBsFloat parseBsFloat140,141
+parseBsFloat' parseBsFloat'142,143
+    | isJust ('e' `B.elemIndex`B.elemIndex144,145
+
+./Engine/Mesh/ObjLoader.hs,4241
+module Engine.Mesh.ObjLoader Engine.Mesh.ObjLoader2,3
+loadObjObject loadObjObject49,50
+loadObjObject loadObjObject53,54
+defaultProgram defaultProgram71,72
+defaultProgram defaultProgram74,75
+defaultSequence defaultSequence76,77
+defaultSequence defaultSequence77,78
+defaultVert defaultVert79,80
+defaultVert defaultVert80,81
+defaultFrag defaultFrag92,93
+defaultFrag defaultFrag93,94
+mvpMat mvpMat101,102
+mvpMat mvpMat102,103
+modMatFromEntity modMatFromEntity107,108
+modMatFromEntity modMatFromEntity108,109
+viewMatFromPlayer viewMatFromPlayer110,111
+viewMatFromPlayer viewMatFromPlayer111,112
+projMatDims projMatDims122,123
+projMatDims projMatDims123,124
+loadObjMaterials loadObjMaterials126,127
+loadObjMaterials loadObjMaterials127,128
+loadObjMaterialLib loadObjMaterialLib134,135
+loadObjMaterialLib loadObjMaterialLib135,136
+parseMtlLibs parseMtlLibs140,141
+parseMtlLibs parseMtlLibs141,142
+getMaterialLibs getMaterialLibs143,144
+getMaterialLibs getMaterialLibs144,145
+listOfMats listOfMats151,152
+listOfMats listOfMats152,153
+findMaterial findMaterial166,167
+findMaterial findMaterial167,168
+data ObjData ObjData171,172
+data ObjData = ObjDataObjData171,172
+data VertDataSeq VertDataSeq179,180
+data VertDataSeq = VertDataSeqVertDataSeq179,180
+instance instance183,184
+data ObjLine ObjLine188,189
+    LineVert LineVert189,190
+  | LineNorm LineNorm190,191
+  | LineTex LineTex191,192
+  | LineFace LineFace192,193
+  | Invalid Invalid193,194
+parseObjData parseObjData200,201
+parseObjData parseObjData201,202
+parseVertData parseVertData210,211
+parseVertData parseVertData211,212
+pieceTogether pieceTogether213,214
+pieceTogether pieceTogether214,215
+pieceTogether' pieceTogether'220,221
+pieceTogether' pieceTogether'223,224
+runObjParser runObjParser262,263
+runObjParser runObjParser263,264
+parseObj parseObj267,268
+parseObj parseObj268,269
+parseObjLine parseObjLine271,272
+parseObjLine parseObjLine272,273
+parseVertLine parseVertLine280,281
+parseVertLine parseVertLine281,282
+parseNormLine parseNormLine285,286
+parseNormLine parseNormLine286,287
+parseTexLine parseTexLine290,291
+parseTexLine parseTexLine291,292
+texCoordToGLFormat texCoordToGLFormat298,299
+texCoordToGLFormat texCoordToGLFormat299,300
+parseFaceLine parseFaceLine302,303
+parseFaceLine parseFaceLine303,304
+parseFaceDat parseFaceDat307,308
+parseFaceDat parseFaceDat308,309
+timesSep timesSep319,320
+timesSep timesSep320,321
+parseFaceGroup parseFaceGroup330,331
+parseFaceGroup parseFaceGroup331,332
+parseVec3 parseVec3339,340
+parseVec3 parseVec3340,341
+parseVec2 parseVec2346,347
+parseVec2=parseVec2347,348
+parseInvalid parseInvalid353,354
+parseInvalid parseInvalid354,355
+fromJustSafe fromJustSafe358,359
+fromJustSafe fromJustSafe359,360
+data Material' Material'365,366
+data Material' = Material' Material'365,366
+    materialName materialName366,367
+    materialDiffuse materialDiffuse367,368
+    materialTexture materialTexture368,369
+data MtlLine MtlLine371,372
+    MaterialDecl MaterialDecl372,373
+  | MaterialDiffuse MaterialDiffuse373,374
+  | MaterialTexture MaterialTexture374,375
+  | InvalidMtlLine InvalidMtlLine375,376
+testMtl testMtl385,386
+testMtl testMtl386,387
+testMtl' testMtl'388,389
+testMtl' testMtl'389,390
+runMtlParser runMtlParser394,395
+runMtlParser runMtlParser395,396
+parseMaterials parseMaterials399,400
+parseMaterials parseMaterials400,401
+createMaterials createMaterials402,403
+createMaterials createMaterials403,404
+parseMtlLines parseMtlLines432,433
+parseMtlLines parseMtlLines433,434
+parseMtlLine parseMtlLine435,436
+parseMtlLine parseMtlLine436,437
+parseMaterialName parseMaterialName442,443
+parseMaterialName parseMaterialName443,444
+parseDiffuse parseDiffuse445,446
+parseDiffuse parseDiffuse446,447
+parseTexture parseTexture448,449
+parseTexture parseTexture449,450
+parseInvalidMat parseInvalidMat452,453
+parseInvalidMat parseInvalidMat453,454
+alphaNumWord alphaNumWord456,457
+alphaNumWord alphaNumWord457,458
+alphaNum alphaNum459,460
+alphaNum alphaNum460,461
+isAlphaNum isAlphaNum462,463
+isAlphaNum isAlphaNum463,464
+
+./Engine/Mesh/Mesh.hs,496
+module Engine.Mesh.Mesh Engine.Mesh.Mesh0,1
+data Mesh Mesh18,19
+data Mesh = Mesh Mesh18,19
+    meshShader meshShader19,20
+    meshShaderVars meshShaderVars20,21
+    meshTextures meshTextures21,22
+    meshVertCount meshVertCount22,23
+    meshAABBSet meshAABBSet23,24
+emptyMesh emptyMesh25,26
+emptyMesh emptyMesh26,27
+createMesh createMesh28,29
+createMesh createMesh37,38
+createMeshWithProgram createMeshWithProgram48,49
+createMeshWithProgram createMeshWithProgram56,57
+
+./Engine/Mesh/DatLoader.hs,876
+module Engine.Mesh.DatLoader Engine.Mesh.DatLoader1,2
+loadDatModel loadDatModel29,30
+loadDatModel loadDatModel30,31
+loadDatModelKeepVerts loadDatModelKeepVerts46,47
+loadDatModelKeepVerts loadDatModelKeepVerts47,48
+writeDataToFile writeDataToFile63,64
+writeDataToFile writeDataToFile64,65
+putBinaryFromInfo putBinaryFromInfo71,72
+putBinaryFromInfo putBinaryFromInfo74,75
+loadData loadData87,88
+loadData loadData88,89
+bsToString bsToString94,95
+bsToString bsToString95,96
+getBinaryFromInfo getBinaryFromInfo97,98
+getBinaryFromInfo getBinaryFromInfo98,99
+getImages getImages112,113
+getImages getImages113,114
+writeBinaryDat writeBinaryDat122,123
+writeBinaryDat writeBinaryDat123,124
+getBinaryDat getBinaryDat125,126
+getBinaryDat getBinaryDat126,127
+toFloat toFloat129,130
+toFloat toFloat130,131
+toGL toGL132,133
+toGL toGL133,134
+
+./Engine/Mesh/AABB.hs,1141
+module Engine.Mesh.AABB Engine.Mesh.AABB3,4
+data AABB AABB19,20
+data AABB = AABB AABB19,20
+data AABBSet AABBSet24,25
+data AABBSet = AABBSet AABBSet24,25
+    aabbSetWhole aabbSetWhole25,26
+    aabbSetAll aabbSetAll26,27
+class HasPosition a => HasAABB HasAABB32,33
+class HasPosition a => HasAABB HasAABB32,33
+    getAABBs getAABBs33,34
+    transformedAABBs transformedAABBs34,35
+    getWholeAABB getWholeAABB35,36
+    transformedWholeAABB transformedWholeAABB36,37
+instance instance40,41
+aabbFromPoints aabbFromPoints66,67
+aabbFromPoints aabbFromPoints67,68
+aabbFromPointsAccum aabbFromPointsAccum73,74
+aabbFromPointsAccum aabbFromPointsAccum74,75
+aabbByFace aabbByFace83,84
+aabbByFace aabbByFace84,85
+min3 min392,93
+min3 min393,94
+max3 max396,97
+max3 max397,98
+objectsIntersectInclusive objectsIntersectInclusive103,104
+objectsIntersectInclusive objectsIntersectInclusive104,105
+intersectingInclusive intersectingInclusive120,121
+intersectingInclusiveintersectingInclusive121,122
+anyIntersectInclusive anyIntersectInclusive134,135
+anyIntersectInclusive anyIntersectInclusive135,136
+
+./Engine/Bullet/Bullet.hs,2235
+module Engine.Bullet.Bullet Engine.Bullet.Bullet2,3
+type PrimMesh PrimMesh20,21
+newtype Physics Physics22,23
+newtype Physics = Physics Physics22,23
+    physicsWorld physicsWorld23,24
+data RigidBodyInfo RigidBodyInfo26,27
+data RigidBodyInfo = RigidBodyInfo RigidBodyInfo26,27
+    rigidBodyMass rigidBodyMass27,28
+    rigidBodyRestitution rigidBodyRestitution28,29
+    rigidBodyFriction rigidBodyFriction29,30
+    rigidBodyStatic rigidBodyStatic30,31
+    rigidBodyOtherMods rigidBodyOtherMods31,32
+instance instance33,34
+mkPhysics mkPhysics36,37
+mkPhysics mkPhysics37,38
+addShape addShape60,61
+addShape addShape61,62
+addAABBs addAABBs92,93
+addAABBs addAABBs93,94
+addAABB addAABB98,99
+addAABB addAABB99,100
+addStaticTriangleMesh addStaticTriangleMesh109,110
+addStaticTriangleMesh addStaticTriangleMesh110,111
+addTriangleMesh addTriangleMesh121,122
+addTriangleMesh addTriangleMesh122,123
+addTrianglesToMesh addTrianglesToMesh147,148
+addTrianglesToMesh addTrianglesToMesh148,149
+data Attr Attr162,163
+data Attr o a = forall forall162,163
+data AttrOp AttrOp164,165
+    forall forall165,166
+infixr infixr169,170
+set set175,176
+set set176,177
+get get182,183
+get get183,184
+make make185,186
+make make186,187
+worldTransform worldTransform195,196
+worldTransform worldTransform196,197
+worldGravity worldGravity199,200
+worldGravity worldGravity200,201
+motionState motionState203,204
+motionState motionState204,205
+linearVelocity linearVelocity207,208
+linearVelocity linearVelocity208,209
+angularVelocity angularVelocity211,212
+angularVelocity angularVelocity212,213
+linearFactor linearFactor215,216
+linearFactor linearFactor216,217
+angularFactor angularFactor219,220
+angularFactor angularFactor220,221
+linearSleepingThreshold linearSleepingThreshold223,224
+linearSleepingThreshold linearSleepingThreshold224,225
+getVecMat getVecMat234,235
+getVecMat getVecMat235,236
+mkVecMat mkVecMat237,238
+mkVecMat mkVecMat238,239
+uC uC254,255
+uC uC255,256
+nullTransform nullTransform257,258
+nullTransform nullTransform258,259
+nullVec3 nullVec3260,261
+nullVec3 nullVec3261,262
+bulletize bulletize267,268
+bulletize bulletize268,269
+
+./Engine/Graphics/Shadows.hs,60
+module Engine.Graphics.Shadows Engine.Graphics.Shadows0,1
+
+./Engine/Graphics/Graphics.hs,62
+module Engine.Graphics.Graphics Engine.Graphics.Graphics0,1
+
+./Engine/Graphics/GLSL.hs,9042
+module Engine.Graphics.GLSL Engine.Graphics.GLSL13,14
+generateGLSL generateGLSL37,38
+generateGLSL generateGLSL38,39
+execShaderM execShaderM40,41
+execShaderM execShaderM41,42
+evalShaderM evalShaderM43,44
+evalShaderM evalShaderM44,45
+runShaderM runShaderM46,47
+runShaderM runShaderM47,48
+type VertexShaderM VertexShaderM53,54
+type VertexShaderM t t53,54
+type GeometryShaderM GeometryShaderM54,55
+type FragmentShaderM FragmentShaderM55,56
+newtype ShaderM ShaderM57,58
+newtype ShaderM s t a = ShaderM ShaderM57,58
+    sInnerShaderM sInnerShaderM58,59
+instance instance61,62
+class ShaderType ShaderType67,68
+data GLSLInfo GLSLInfo206,207
+data GLSLInfo t = GLSLInfo GLSLInfo206,207
+inInfo inInfo213,214
+inInfo inInfo214,215
+uniformInfo uniformInfo216,217
+uniformInfo uniformInfo217,218
+outInfo outInfo219,220
+outInfo outInfo220,221
+data In In222,223
+    InFloat InFloat223,224
+  | InInt InInt224,225
+  | InVec2 InVec2225,226
+  | InVec3 InVec3226,227
+  | InVec4 InVec4227,228
+  | InNone InNone228,229
+  | InMat4 InMat4230,231
+data Sampler2D Sampler2D232,233
+data Sampler2D = Sampler2DInfo Sampler2DInfo232,233
+data Uniform Uniform234,235
+    UniformFloat UniformFloat235,236
+  | UniformInt UniformInt236,237
+  | UniformVec2 UniformVec2237,238
+  | UniformVec3 UniformVec3238,239
+  | UniformVec4 UniformVec4239,240
+  | UniformMat4 UniformMat4240,241
+  | UniformSampler2D UniformSampler2D241,242
+data Out Out243,244
+    OutFloat OutFloat244,245
+  | OutInt OutInt245,246
+  | OutBool OutBool246,247
+  | OutVec2 OutVec2247,248
+  | OutVec3 OutVec3248,249
+  | OutVec4 OutVec4249,250
+  | OutMat4 OutMat4250,251
+  | OutSampler2D OutSampler2D251,252
+  | OutNone OutNone252,253
+class GPU GPU255,256
+class GPU GPU255,256
+    type CPU CPU256,257
+    type CPU a a256,257
+    inConstr inConstr257,258
+    uniformConstr uniformConstr258,259
+    outConstr outConstr259,260
+    logIn logIn261,262
+    logIn logIn262,263
+    logUniform logUniform263,264
+    logUniform logUniform264,265
+    logOut logOut265,266
+    logOut logOut266,267
+data GLSLUnit GLSLUnit319,320
+    Version Version320,321
+  | Decl Decl321,322
+  | AssignStatement AssignStatement322,323
+  | Action Action323,324
+type Name Name326,327
+data SymbolProxy SymbolProxy328,329
+data SymbolProxy (a :: Symbol) = SProxySProxy328,329
+data NatProxy NatProxy329,330
+data NatProxy (a :: Nat) = NProxyNProxy329,330
+data Value Value331,332
+    Value Value332,333
+data Array Array334,335
+    Array Array335,336
+data Expression Expression337,338
+    Expression Expression338,339
+newtype Layout Layout340,341
+newtype Layout = Layout Layout340,341
+data Arg Arg343,344
+data Arg = forall forall343,344
+pack pack345,346
+pack pack346,347
+data Qualifier Qualifier350,351
+    OutOut351,352
+  | InIn352,353
+  | UniformUniform353,354
+  | NoneNone354,355
+type QualifierP QualifierP357,358
+outp outp361,362
+outp outp362,363
+inp inp363,364
+inp inp364,365
+uniformp uniformp365,366
+uniformp uniformp366,367
+nonep nonep367,368
+nonep nonep368,369
+data Type Type372,373
+    IntInt373,374
+  | UIntUInt374,375
+  | FloatFloat375,376
+  | Mat4Mat4376,377
+  | Vec4Vec4377,378
+  | Vec3Vec3378,379
+  | Vec2Vec2379,380
+  | Sampler2DSampler2D380,381
+  | NoTypeNoType381,382
+type TypeP TypeP384,385
+int int388,389
+int int389,390
+uint uint390,391
+uint uint391,392
+float float392,393
+float float393,394
+mat4 mat4394,395
+mat4 mat4395,396
+vec3 vec3396,397
+vec3 vec3397,398
+vec2 vec2398,399
+vec2 vec2399,400
+vec4 vec4400,401
+vec4 vec4401,402
+sampler2D sampler2D402,403
+sampler2D sampler2D403,404
+notype notype404,405
+notype notype405,406
+qualifierSymbol qualifierSymbol409,410
+qualifierSymbol qualifierSymbol410,411
+typeSymbol typeSymbol418,419
+typeSymbol typeSymbol419,420
+class BShow BShow436,437
+class BShow BShow436,437
+    bshow bshow437,438
+defaultValue defaultValue479,480
+defaultValue defaultValue480,481
+class WritableQS WritableQS497,498
+class ReadableQS ReadableQS501,502
+class WritableQ WritableQ506,507
+class ReadableQ ReadableQ511,512
+class LayoutQS LayoutQS523,524
+class LayoutQ LayoutQ528,529
+class HasBString HasBString531,532
+class HasBString HasBString531,532
+    getBString getBString532,533
+type family family557,558
+type family VecLength VecLength557,558
+type family family563,564
+type family VecLengthU VecLengthU563,564
+data Index Index571,572
+data Index (len len571,572
+data Index (len :: Nat) (maxI maxI571,572
+    X X572,573
+    Y Y573,574
+    Z Z574,575
+    W W575,576
+    Linked Linked576,577
+data Index (len len571,572
+data Index (len len571,572
+(.(579,580
+(.&).&579,580
+type family family583,584
+type family If If583,584
+(.@).@594,595
+vConcat vConcat606,607
+vConcat vConcat612,613
+(+.+)+.+619,620
+class IndexT IndexT632,633
+(.!).!640,641
+class NumT NumT649,650
+class ScalarT ScalarT659,660
+class VecT VecT665,666
+type family family677,678
+type instance instance678,679
+type instance TypeOf TypeOf678,679
+type instance instance679,680
+type instance instance680,681
+type instance instance681,682
+type instance instance682,683
+type instance instance683,684
+type instance instance684,685
+type family family688,689
+type instance instance689,690
+type instance QualifierOf QualifierOf689,690
+type instance instance690,691
+type instance instance691,692
+type family family695,696
+type instance instance697,698
+type instance Math Math697,698
+type instance instance700,701
+type instance instance701,702
+type instance instance702,703
+type instance instance703,704
+type instance instance704,705
+type instance instance705,706
+type instance instance708,709
+type instance instance709,710
+type instance instance710,711
+type instance instance711,712
+type instance instance712,713
+type instance instance713,714
+type instance instance716,717
+type instance instance717,718
+type instance instance718,719
+type instance instance719,720
+type instance instance720,721
+type instance instance721,722
+type instance instance722,723
+type instance instance723,724
+type instance instance724,725
+type instance instance725,726
+type instance instance726,727
+type instance instance727,728
+type instance instance728,729
+type instance instance729,730
+type instance instance730,731
+type instance instance731,732
+type instance instance732,733
+type instance instance733,734
+type instance instance736,737
+type instance instance737,738
+type instance instance738,739
+type instance instance739,740
+type instance instance740,741
+type instance instance741,742
+programBString programBString747,748
+programBString programBString748,749
+filterVersion filterVersion757,758
+filterVersion filterVersion758,759
+filterTop filterTop768,769
+filterTop filterTop769,770
+testShow testShow790,791
+testShow testShow791,792
+testProg testProg793,794
+testProg testProg794,795
+testLog testLog796,797
+testLog testLog797,798
+simpleProgram simpleProgram799,800
+simpleProgram simpleProgram800,801
+(#=#=871,872
+infixr infixr877,878
+(^=^=879,880
+(.+).+893,894
+(.-).-901,902
+(.*).*909,910
+(./)./917,918
+clamp clamp929,930
+clamp clamp935,936
+transpose transpose940,941
+transpose transpose943,944
+inverse inverse946,947
+inverse inverse949,950
+vlength vlength952,953
+vlength vlength955,956
+normalize normalize959,960
+normalize normalize962,963
+reflect reflect965,966
+reflect reflect968,969
+texture texture972,973
+texture texture977,978
+glPosition glPosition981,982
+glPosition glPosition982,983
+forSM forSM986,987
+forSM forSM987,988
+forSM_ forSM_993,994
+forSM_ forSM_994,995
+call call1004,1005
+call call1005,1006
+(.$).$1007,1008
+(<.)<.1013,1014
+apply apply1019,1020
+apply apply1022,1023
+declArray declArray1030,1031
+declArray declArray1033,1034
+layoutUniformArray layoutUniformArray1039,1040
+layoutUniformArray layoutUniformArray1043,1044
+uniformArray uniformArray1047,1048
+uniformArray uniformArray1050,1051
+logUniformArray logUniformArray1054,1055
+logUniformArray logUniformArray1057,1058
+builtInArray builtInArray1067,1068
+builtInArray builtInArray1069,1070
+builtIn builtIn1071,1072
+builtIn builtIn1072,1073
+ref ref1074,1075
+ref ref1075,1076
+constant constant1077,1078
+constant constant1078,1079
+constNum constNum1080,1081
+constNum constNum1081,1082
+constInt constInt1083,1084
+constInt constInt1084,1085
+constFloat constFloat1086,1087
+constFloat constFloat1087,1088
+rawGLSL rawGLSL1089,1090
+rawGLSL rawGLSL1090,1091
+version version1096,1097
+version version1097,1098
+paren paren1099,1100
+paren paren1100,1101
+fltd fltd1102,1103
+fltd fltd1103,1104
+intd intd1105,1106
+intd intd1106,1107
+ltell ltell1108,1109
+ltell ltell1109,1110
+rtell rtell1111,1112
+rtell rtell1112,1113
+
+./Engine/Graphics/Shaders.hs,2220
+module Engine.Graphics.Shaders Engine.Graphics.Shaders0,1
+data Shader Shader29,30
+data Shader = Shader Shader29,30
+    shaderId shaderId30,31
+    shaderUniforms shaderUniforms31,32
+data ShaderAttrib ShaderAttrib35,36
+data ShaderAttrib = ShaderAttrib ShaderAttrib35,36
+type ShaderUniform ShaderUniform38,39
+emptyShader emptyShader40,41
+emptyShader emptyShader41,42
+wrapShader wrapShader44,45
+wrapShader wrapShader45,46
+createShaderAttribs createShaderAttribs50,51
+createShaderAttribs createShaderAttribs51,52
+loadProgram loadProgram60,61
+loadProgram loadProgram61,62
+loadShadersProgram loadShadersProgram67,68
+loadShadersProgram loadShadersProgram68,69
+loadShader loadShader80,81
+loadShader loadShader81,82
+loadShaderCode loadShaderCode85,86
+loadShaderCode loadShaderCode86,87
+checkStatus checkStatus100,101
+checkStatus checkStatus106,107
+bindTextures bindTextures126,127
+bindTextures bindTextures127,128
+unBindTextures unBindTextures142,143
+unBindTextures unBindTextures143,144
+setShaderAttribs setShaderAttribs154,155
+setShaderAttribs setShaderAttribs155,156
+disableShaderAttribs disableShaderAttribs166,167
+disableShaderAttribs disableShaderAttribs167,168
+setUniformsAndRemember setUniformsAndRemember173,174
+setUniformsAndRemember setUniformsAndRemember174,175
+setUniformAndRemember setUniformAndRemember198,199
+setUniformAndRemember setUniformAndRemember199,200
+findUniformLocationAndRemember findUniformLocationAndRemember217,218
+findUniformLocationAndRemember findUniformLocationAndRemember218,219
+findUniformLocation findUniformLocation229,230
+findUniformLocation findUniformLocation230,231
+findMaybeUniformLocation findMaybeUniformLocation234,235
+findMaybeUniformLocation findMaybeUniformLocation235,236
+setUniforms setUniforms246,247
+setUniforms setUniforms247,248
+setUniform setUniform249,250
+setUniform setUniform250,251
+getAttrLocs getAttrLocs266,267
+getAttrLocs getAttrLocs267,268
+getMatrixFromGL getMatrixFromGL275,276
+getMatrixFromGL getMatrixFromGL276,277
+printMatrix printMatrix278,279
+printMatrix printMatrix279,280
+quickGetUniform quickGetUniform285,286
+quickGetUniform quickGetUniform286,287
+
+./Engine/Graphics/Textures.hs,314
+module Engine.Graphics.Textures Engine.Graphics.Textures0,1
+data Image Image21,22
+data Image = Image Image21,22
+type Texture Texture24,25
+juicyLoadTexture juicyLoadTexture27,28
+juicyLoadTexture juicyLoadTexture28,29
+juicyLoadImageRaw juicyLoadImageRaw47,48
+juicyLoadImageRaw juicyLoadImageRaw48,49
+
+./Engine/Graphics/Types.hs,1498
+module Engine.Graphics.Types Engine.Graphics.Types1,2
+data Graphics Graphics13,14
+data Graphics t = Graphics Graphics13,14
+    graphicsUniforms graphicsUniforms14,15
+    graphicsPostProcessors graphicsPostProcessors15,16
+    graphicsShadowInfo graphicsShadowInfo16,17
+emptyGraphics emptyGraphics19,20
+emptyGraphics emptyGraphics20,21
+data RenderInfo RenderInfo22,23
+data RenderInfo = RenderInfo RenderInfo22,23
+    renderInfoShader renderInfoShader23,24
+    renderInfoMatrices renderInfoMatrices24,25
+emptyInfo emptyInfo27,28
+emptyInfo emptyInfo28,29
+data Framebuffer Framebuffer33,34
+data Framebuffer = FB FB33,34
+    fbufName fbufName34,35
+    fbufTexture fbufTexture35,36
+    fbufDimensions fbufDimensions36,37
+    fbufVBO fbufVBO37,38
+    fbufRenderBuffer fbufRenderBuffer38,39
+data Shader Shader44,45
+data Shader = Shader Shader44,45
+    shaderId shaderId45,46
+    shaderUniforms shaderUniforms46,47
+emptyShader emptyShader49,50
+emptyShader emptyShader50,51
+type ShaderAttrib ShaderAttrib53,54
+type ShaderUniform ShaderUniform56,57
+data Image Image58,59
+data Image = Image Image58,59
+type Texture Texture61,62
+class Renderable Renderable63,64
+class Renderable Renderable63,64
+    renderBind renderBind64,65
+    renderBind renderBind65,66
+    renderDraw renderDraw66,67
+    renderDraw renderDraw67,68
+    renderCleanup renderCleanup68,69
+    renderCleanup renderCleanup69,70
+    defaultGlobal defaultGlobal70,71
+
+./Engine/Graphics/GraphicsUtils.hs,592
+module Engine.Graphics.GraphicsUtils Engine.Graphics.GraphicsUtils0,1
+createBufferIdAll createBufferIdAll17,18
+createBufferIdAll createBufferIdAll18,19
+createBufferId createBufferId25,26
+createBufferId createBufferId26,27
+fillNewBuffer fillNewBuffer32,33
+fillNewBuffer fillNewBuffer33,34
+withNewPtr withNewPtr44,45
+withNewPtr withNewPtr45,46
+withNewPtrArray withNewPtrArray49,50
+withNewPtrArray withNewPtrArray50,51
+useNewPtr useNewPtr54,55
+useNewPtr useNewPtr55,56
+offsetPtr offsetPtr59,60
+offsetPtr offsetPtr60,61
+offset0 offset063,64
+offset0 offset064,65
+
+./Engine/Graphics/Primitive.hs,5398
+module Engine.Graphics.Primitive Engine.Graphics.Primitive13,14
+import import41,42
+toRadians toRadians201,202
+toRadians toRadians202,203
+sinDeg sinDeg205,206
+sinDeg sinDeg206,207
+cosDeg cosDeg208,209
+cosDeg cosDeg209,210
+simpleProgram simpleProgram215,216
+simpleProgram simpleProgram216,217
+postProgram postProgram224,225
+postProgram postProgram225,226
+simpleVert simpleVert230,231
+simpleVert simpleVert231,232
+simpleGeom simpleGeom245,246
+simpleGeom simpleGeom246,247
+simpleFrag simpleFrag265,266
+simpleFrag simpleFrag266,267
+postVert postVert282,283
+postVert postVert283,284
+postFrag postFrag291,292
+postFrag postFrag292,293
+openWindow openWindow310,311
+openWindow openWindow311,312
+initGL initGL339,340
+initGL initGL340,341
+resizeScene resizeScene357,358
+resizeScene resizeScene359,360
+getViewportSize getViewportSize367,368
+getViewportSize getViewportSize368,369
+heightFromWidth heightFromWidth372,373
+heightFromWidth heightFromWidth373,374
+cleanup cleanup376,377
+cleanup cleanup377,378
+makeBuffer makeBuffer385,386
+makeBuffer makeBuffer387,388
+replaceBuffer replaceBuffer398,399
+replaceBuffer replaceBuffer400,401
+data ShaderUniverse ShaderUniverse409,410
+    ShaderUniverse ShaderUniverse410,411
+updateUniverseGlobal updateUniverseGlobal412,413
+updateUniverseGlobal updateUniverseGlobal413,414
+addGalaxy addGalaxy416,417
+addGalaxy addGalaxy417,418
+allGalaxies allGalaxies419,420
+allGalaxies allGalaxies420,421
+allPostPrograms allPostPrograms422,423
+allPostPrograms allPostPrograms423,424
+hasPostShaders hasPostShaders425,426
+hasPostShaders hasPostShaders426,427
+data ShaderGalaxy ShaderGalaxy429,430
+    PureGalaxy PureGalaxy430,431
+  | MonadicGalaxy MonadicGalaxy431,432
+updateGalaxyGlobal updateGalaxyGlobal433,434
+updateGalaxyGlobal updateGalaxyGlobal434,435
+(-|>)-|>437,438
+(-(438,439
+mainLoop mainLoop440,441
+mainLoop mainLoop444,445
+stepUniversePP stepUniversePP469,470
+stepUniversePP stepUniversePP470,471
+stepUniverse stepUniverse484,485
+stepUniverse stepUniverse485,486
+drawGalaxy drawGalaxy491,492
+drawGalaxy drawGalaxy492,493
+cleanupGalaxy cleanupGalaxy499,500
+cleanupGalaxy cleanupGalaxy500,501
+cleanupUniverse cleanupUniverse503,504
+cleanupUniverse cleanupUniverse504,505
+endFrame endFrame509,510
+endFrame endFrame510,511
+data Shader Shader528,529
+    Shader Shader529,530
+  | FromBS FromBS530,531
+  | FromFile FromFile531,532
+type ShaderSequence ShaderSequence539,540
+type ShaderSequence t t539,540
+data WrappedShader WrappedShader540,541
+    forall forall541,542
+(-&>)-&>544,545
+lastly lastly550,551
+lastly lastly552,553
+data ShaderProgram ShaderProgram554,555
+    ShaderProgramShaderProgram555,556
+data ShaderTypeProxy ShaderTypeProxy561,562
+data ShaderTypeProxy (t :: GL.ShaderType) = ProxyProxy561,562
+class ShaderTypeVal ShaderTypeVal563,564
+class ShaderTypeVal ShaderTypeVal563,564
+    typeVal typeVal564,565
+instance instance565,566
+type family family582,583
+type family NextShaderPhase NextShaderPhase582,583
+data AttribGPU AttribGPU594,595
+    forall forall595,596
+data UniformGPU UniformGPU602,603
+data UniformGPU t = UniformGPU UniformGPU602,603
+drawProgram drawProgram608,609
+drawProgram drawProgram609,610
+createProgram createProgram632,633
+createProgram createProgram633,634
+compileAndLink compileAndLink645,646
+compileAndLink compileAndLink646,647
+compileAll compileAll654,655
+compileAll compileAll655,656
+compile compile661,662
+compile compile663,664
+compileShader compileShader675,676
+compileShader compileShader676,677
+gatherInfo gatherInfo689,690
+gatherInfo gatherInfo690,691
+createAttrList createAttrList715,716
+createAttrList createAttrList716,717
+getInGPUInfo getInGPUInfo719,720
+getInGPUInfo getInGPUInfo720,721
+inMkBuffer inMkBuffer738,739
+inMkBuffer inMkBuffer739,740
+inReplaceBuffer inReplaceBuffer749,750
+inReplaceBuffer inReplaceBuffer750,751
+inLength inLength765,766
+inLength inLength766,767
+inDescriptor inDescriptor774,775
+inDescriptor inDescriptor775,776
+inName inName783,784
+inName inName784,785
+bindAttrib bindAttrib792,793
+bindAttrib bindAttrib793,794
+createUniformList createUniformList801,802
+createUniformList createUniformList802,803
+getUniformInfo getUniformInfo804,805
+getUniformInfo getUniformInfo805,806
+uniBind uniBind813,814
+uniBind uniBind814,815
+matToGLFormat matToGLFormat840,841
+matToGLFormat matToGLFormat841,842
+boolToGLuint boolToGLuint848,849
+boolToGLuint boolToGLuint849,850
+uniName uniName852,853
+uniName uniName853,854
+bindUniform bindUniform861,862
+bindUniform bindUniform862,863
+juicyLoadTexture juicyLoadTexture866,867
+juicyLoadTexture juicyLoadTexture867,868
+juicyLoadImageRaw juicyLoadImageRaw896,897
+juicyLoadImageRaw juicyLoadImageRaw897,898
+data FBO FBO924,925
+data FBO = FBOFBO924,925
+fboSampler fboSampler928,929
+fboSampler fboSampler929,930
+drawProgramWithPP drawProgramWithPP931,932
+drawProgramWithPP drawProgramWithPP932,933
+drawPosts drawPosts940,941
+drawPosts drawPosts941,942
+drawPost drawPost949,950
+drawPost drawPost950,951
+makeFramebuffer makeFramebuffer973,974
+makeFramebuffer makeFramebuffer974,975
+screenBufferData screenBufferData1020,1021
+screenBufferData screenBufferData1021,1022
+
+./Engine/Graphics/NewGraphics.hs,1769
+module Engine.Graphics.NewGraphics Engine.Graphics.NewGraphics1,2
+data RenderInfo RenderInfo36,37
+data RenderInfo = RenderInfo RenderInfo36,37
+    renderInfoShader renderInfoShader37,38
+    renderInfoMatrices renderInfoMatrices38,39
+emptyInfo emptyInfo40,41
+emptyInfo emptyInfo41,42
+class Renderable Renderable54,55
+class Renderable Renderable54,55
+    renderBind renderBind55,56
+    renderBind renderBind56,57
+    renderDraw renderDraw57,58
+    renderDraw renderDraw58,59
+    renderCleanup renderCleanup59,60
+    renderCleanup renderCleanup60,61
+    defaultGlobal defaultGlobal61,62
+instance instance63,64
+totalRender totalRender149,150
+totalRender totalRender150,151
+renderToFramebuffer renderToFramebuffer157,158
+renderToFramebuffer renderToFramebuffer158,159
+renderAllToFramebuffer renderAllToFramebuffer163,164
+renderAllToFramebuffer renderAllToFramebuffer164,165
+renderAllWithGlobal renderAllWithGlobal175,176
+renderAllWithGlobal renderAllWithGlobal177,178
+renderAllWithGlobal' renderAllWithGlobal'180,181
+renderAllWithGlobal' renderAllWithGlobal'182,183
+renderWorldNew renderWorldNew200,201
+renderWorldNew renderWorldNew201,202
+renderWorldNewWithFramebuffer renderWorldNewWithFramebuffer211,212
+renderWorldNewWithFramebuffer renderWorldNewWithFramebuffer212,213
+renderWorldNewPost renderWorldNewPost219,220
+renderWorldNewPost renderWorldNewPost220,221
+screenFramebuffer screenFramebuffer233,234
+screenFramebuffer screenFramebuffer234,235
+withFramebuffer withFramebuffer238,239
+withFramebuffer withFramebuffer239,240
+bindFramebuffer bindFramebuffer245,246
+bindFramebuffer bindFramebuffer246,247
+unbindFrameBuffer unbindFrameBuffer248,249
+unbindFrameBuffer unbindFrameBuffer249,250
+
+./Engine/Graphics/Framebuffer.hs,425
+module Engine.Graphics.Framebuffer Engine.Graphics.Framebuffer0,1
+data Framebuffer Framebuffer11,12
+data Framebuffer = Framebuffer Framebuffer11,12
+    fbufName fbufName12,13
+    fbufTexture fbufTexture13,14
+    fbufDimensions fbufDimensions14,15
+    fbufVBO fbufVBO15,16
+    fbufRenderBuffer fbufRenderBuffer16,17
+mkScreenFramebuffer mkScreenFramebuffer18,19
+mkScreenFramebuffer mkScreenFramebuffer19,20
+
+./Engine/Graphics/Window.hs,460
+module Engine.Graphics.Window Engine.Graphics.Window0,1
+data Window Window11,12
+data Window = Window Window11,12
+    windowHints windowHints12,13
+    windowTitle windowTitle13,14
+    windowSize windowSize14,15
+    windowInner windowInner15,16
+instance instance18,19
+defaultWindow defaultWindow21,22
+defaultWindow defaultWindow22,23
+openWindow openWindow30,31
+openWindow openWindow31,32
+shutdown shutdown51,52
+shutdown shutdown52,53
+
+./Engine/FRP/FRP.hs,1685
+module Engine.FRP.FRP Engine.FRP.FRP3,4
+mainE mainE28,29
+mainE mainE29,30
+driveNetwork driveNetwork31,32
+driveNetwork driveNetwork32,33
+driveFor driveFor34,35
+driveFor driveFor35,36
+loop loop38,39
+loop loop39,40
+recieveInput recieveInput42,43
+recieveInput recieveInput43,44
+networkMove networkMove50,51
+networkMove networkMove51,52
+networkFib networkFib61,62
+networkFib networkFib62,63
+constant constant71,72
+constant constant72,73
+(<~)<~75,76
+(<(76,77
+(~~)~~81,82
+foldp foldp92,93
+foldp foldp93,94
+count count97,98
+count count98,99
+countIf countIf102,103
+countIf countIf103,104
+control control109,110
+control control114,115
+controlIO controlIO124,125
+controlIO controlIO130,131
+controlIO_ controlIO_143,144
+controlIO_ controlIO_148,149
+inputWire inputWire161,162
+inputWire inputWire162,163
+keyPress keyPress175,176
+keyPress keyPress176,177
+keyCheck keyCheck178,179
+keyCheck keyCheck179,180
+getKey getKey183,184
+getKey getKey184,185
+playerWire playerWire188,189
+playerWire playerWire189,190
+playerEvent playerEvent191,192
+playerEvent playerEvent192,193
+gameWire gameWire202,203
+gameWire gameWire203,204
+monster monster205,206
+monster monster206,207
+atMonster atMonster208,209
+atMonster atMonster209,210
+liftIOToWire liftIOToWire211,212
+liftIOToWire liftIOToWire212,213
+printWire printWire218,219
+printWire printWire219,220
+countN countN225,226
+countN countN226,227
+sequenced sequenced228,229
+sequenced sequenced229,230
+events events231,232
+events events232,233
+inParallel inParallel234,235
+inParallel inParallel235,236
+mainN mainN237,238
+mainN mainN238,239
+
+./Engine/Audio/Audio.hs,566
+module Engine.Audio.Audio Engine.Audio.Audio0,1
+setAudioMainVolume setAudioMainVolume13,14
+setAudioMainVolume setAudioMainVolume14,15
+loadAudio loadAudio16,17
+loadAudio loadAudio17,18
+playAudio playAudio19,20
+playAudio playAudio20,21
+pauseAudio pauseAudio22,23
+pauseAudio pauseAudio23,24
+stopAudio stopAudio25,26
+stopAudio stopAudio26,27
+setAudioVolume setAudioVolume28,29
+setAudioVolume setAudioVolume29,30
+setAudioLoop setAudioLoop31,32
+setAudioLoop setAudioLoop32,33
+destroyAudio destroyAudio34,35
+destroyAudio destroyAudio35,36
+
+./Engine/Audio/Types.hs,195
+module Engine.Audio.Types Engine.Audio.Types0,1
+data Audio Audio4,5
+data Audio = Audio Audio4,5
+    audioFile audioFile5,6
+    audioVolume audioVolume6,7
+    audioInner audioInner7,8
+
+./Engine/Terrain/Noise.hs,1095
+module Engine.Terrain.Noise Engine.Terrain.Noise0,1
+type Permutation Permutation13,14
+data Simplex Simplex18,19
+data Simplex = Simplex Simplex18,19
+    simpSeed simpSeed19,20
+    simpDimensions simpDimensions20,21
+    simpStartXY simpStartXY21,22
+    simpSpacing simpSpacing22,23
+    simpOctaves simpOctaves23,24
+    simpWavelength simpWavelength24,25
+    simpIntensity simpIntensity25,26
+    simpPerm simpPerm26,27
+g3 g330,31
+g3 g331,32
+int int35,36
+int int36,37
+grad3 grad338,39
+grad3 grad339,40
+dot3 dot344,45
+dot3 dot345,46
+fastFloor fastFloor48,49
+fastFloor fastFloor49,50
+perm perm52,53
+perm perm53,54
+noise3D noise3D57,58
+noise3D noise3D58,59
+harmonic harmonic98,99
+harmonic harmonic99,100
+simplex3D simplex3D106,107
+simplex3D simplex3D107,108
+getSimplexHeight getSimplexHeight110,111
+getSimplexHeight getSimplexHeight111,112
+simplexNoise simplexNoise118,119
+simplexNoise simplexNoise119,120
+splitInterval splitInterval129,130
+splitInterval splitInterval130,131
+parChunk parChunk136,137
+parChunk parChunk137,138
+
+./Engine/Terrain/Generator.hs,696
+module Engine.Terrain.Generator Engine.Terrain.Generator1,2
+generateTerrain generateTerrain22,23
+generateTerrain generateTerrain32,33
+genSimplexModel genSimplexModel50,51
+genSimplexModel genSimplexModel58,59
+createSimplexTerrain createSimplexTerrain107,108
+createSimplexTerrain createSimplexTerrain108,109
+concatMapD concatMapD113,114
+concatMapD concatMapD114,115
+allXs allXs116,117
+allXs allXs117,118
+allYs allYs128,129
+allYs allYs129,130
+makeSquare makeSquare140,141
+makeSquare makeSquare141,142
+makePointFromXY makePointFromXY150,151
+makePointFromXY makePointFromXY151,152
+calculateNormals calculateNormals154,155
+calculateNormals calculateNormals155,156
+
+./Engine/Core/WorldCreator.hs,1313
+module Engine.Core.WorldCreator Engine.Core.WorldCreator2,3
+import import25,26
+data family family115,116
+data instance instance117,118
+    ProtoWorld ProtoWorld118,119
+        settingsSimplex settingsSimplex119,120
+        settingsTerrainShaders settingsTerrainShaders120,121
+        settingsTerrainTexture settingsTerrainTexture121,122
+        settingsObjs settingsObjs122,123
+        settingsWholeAABB settingsWholeAABB123,124
+        settingsWindow settingsWindow124,125
+        settingsPostShaders settingsPostShaders125,126
+        settingsShadowShader settingsShadowShader126,127
+        settingsShaderAttribs settingsShaderAttribs127,128
+data instance instance130,131
+    FromObj FromObj131,132
+--data --data133,134
+fromObj fromObj138,139
+fromObj fromObj139,140
+modify modify143,144
+modify modify146,147
+createFromProto createFromProto149,150
+createFromProto createFromProto150,151
+defaultSettings defaultSettings165,166
+defaultSettings defaultSettings166,167
+defaultWorld defaultWorld193,194
+defaultWorld defaultWorld194,195
+createWorld createWorld200,201
+createWorld createWorld201,202
+createAllObjects createAllObjects220,221
+createAllObjects createAllObjects221,222
+createTerrain createTerrain226,227
+createTerrain createTerrain227,228
+
+./Engine/Core/World.hs,258
+module Engine.Core.World Engine.Core.World0,1
+setWorldPlayer setWorldPlayer16,17
+setWorldPlayer setWorldPlayer17,18
+getWorldDelta getWorldDelta26,27
+getWorldDelta getWorldDelta27,28
+getWorldTime getWorldTime30,31
+getWorldTime getWorldTime31,32
+
+./Engine/Core/Util.hs,179
+module Engine.Core.Util Engine.Core.Util0,1
+toRadians toRadians5,6
+toRadians toRadians6,7
+sinDeg sinDeg9,10
+sinDeg sinDeg10,11
+cosDeg cosDeg12,13
+cosDeg cosDeg13,14
+
+./Engine/Core/HasPosition.hs,619
+module Engine.Core.HasPosition Engine.Core.HasPosition2,3
+class HasPosition HasPosition13,14
+class HasPosition HasPosition13,14
+    getPos getPos14,15
+    setPos setPos15,16
+    movePos movePos16,17
+    movePos movePos17,18
+class HasRotation HasRotation23,24
+class HasRotation HasRotation23,24
+    getRot getRot24,25
+    setRot setRot25,26
+    rotate rotate26,27
+    rotate rotate27,28
+class HasVelocity HasVelocity33,34
+class HasVelocity HasVelocity33,34
+    getVel getVel34,35
+    setVel setVel35,36
+    applyVel applyVel36,37
+    applyVel applyVel37,38
+instance instance41,42
+
+./Engine/Core/Types.hs,2446
+module Engine.Core.Types Engine.Core.Types5,6
+---- ----151,152
+newtype Game Game155,156
+newtype Game t a = Game Game155,156
+    gameState gameState156,157
+newtype GameIO GameIO159,160
+newtype GameIO t a = GameIO GameIO159,160
+    gameIoState gameIoState160,161
+hoistGame hoistGame164,165
+hoistGame hoistGame165,166
+io io169,170
+io io170,171
+data World World176,177
+data World t = World World176,177
+    worldPlayer worldPlayer177,178
+    worldShaderUniverse worldShaderUniverse178,179
+    worldPhysics worldPhysics179,180
+    worldState worldState180,181
+worldEntities worldEntities182,183
+worldEntities worldEntities183,184
+data WorldState WorldState191,192
+data WorldState = WorldState WorldState191,192
+    stateTime stateTime192,193
+    stateDelta stateDelta193,194
+    statePaused statePaused194,195
+    stateWindow stateWindow195,196
+instance instance197,198
+emptyWorldState emptyWorldState199,200
+emptyWorldState emptyWorldState200,201
+data Graphics Graphics204,205
+data Graphics = Graphics Graphics204,205
+    graphicsUniforms graphicsUniforms205,206
+    graphicsPostProcessors graphicsPostProcessors206,207
+    graphicsShadowInfo graphicsShadowInfo207,208
+emptyGraphics emptyGraphics209,210
+emptyGraphics emptyGraphics210,211
+data Player Player214,215
+data Player t = Player Player214,215
+    playerPosition playerPosition215,216
+    playerRotation playerRotation216,217
+    playerVelocity playerVelocity217,218
+    playerSpeed playerSpeed218,219
+    playerUpdate playerUpdate219,220
+    playerInput playerInput220,221
+    playerRigidBody playerRigidBody221,222
+playerAABB playerAABB224,225
+playerAABB playerAABB225,226
+data Entity Entity230,231
+data Entity t = Entity Entity230,231
+    entityPosition entityPosition231,232
+    entityRotation entityRotation232,233
+    entityVelocity entityVelocity233,234
+    entityUpdate entityUpdate234,235
+    entityRigidBody entityRigidBody235,236
+    entityAttribute entityAttribute236,237
+emptyEntity emptyEntity238,239
+emptyEntity emptyEntity239,240
+data Input Input245,246
+data Input t = Input Input245,246
+    inputKeys inputKeys248,249
+    inputMouseDelta inputMouseDelta251,252
+    inputLastMousePos inputLastMousePos252,253
+    inputMouseSpeed inputMouseSpeed253,254
+(.~).~265,266
+(.(266,267
+(.=.=269,270
+infixr infixr271,272
+(%~)%~273,274
+(%=%=277,278
+
+./Engine/Core/NewTypes.hs,54
+module Engine.Core.NewTypes Engine.Core.NewTypes0,1
+
+./Main.hs,368
+module Main Main1,2
+main main23,24
+main main24,25
+--updateStep --updateStep44,45
+--updateStep --updateStep45,46
+updateStepComplete updateStepComplete84,85
+updateStepComplete updateStepComplete85,86
+updatePlayerInput updatePlayerInput124,125
+updatePlayerInput updatePlayerInput125,126
+updateInput updateInput132,133
+updateInput updateInput133,134

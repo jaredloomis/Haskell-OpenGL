@@ -1,148 +1,123 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE BangPatterns #-}
 module Engine.Mesh.ObjLoader (
-    loadObjModel,
-    loadObjObject,
-    loadObjModelKeepVerts
+--    loadObjModel,
+    loadObjObject
+--    loadObjModelKeepVerts
 ) where
 
 import Control.Applicative
-import Data.List (intercalate)
-import Data.List.Split (splitOn)
-import Data.Maybe (isJust, fromJust)
 import Data.Default (def)
-import System.Directory (doesFileExist)
+import Data.List.Split (splitOn)
+import Data.List (intercalate)
 import qualified Data.ByteString.Char8 as B
-import Data.Vec ((:.)(..), Vec3, Vec2)
+import Data.Vec
+    ((:.)(..), Vec3, Vec2,
+     Mat44, translation,
+     perspective, multmm,
+     rotationX, rotationY, rotationZ)
+import qualified Data.Vec as Vec (Map(..))
+import Data.Foldable (toList)
+import Data.Monoid (Monoid(..), (<>))
 
-import qualified Data.Sequence as S (empty, index)
-import Data.Sequence (Seq, (|>))
+import qualified Data.Sequence as S (empty, index, fromList)
+import Data.Sequence (Seq, (|>), (><))
 
 import Data.Attoparsec.ByteString.Char8
-import qualified Data.Attoparsec.ByteString.Char8 as A (takeWhile)
+import qualified Data.Attoparsec.ByteString.Char8 as A
+import Control.Monad.State
 
-import Graphics.Rendering.OpenGL.Raw (GLfloat, GLint)
+import Graphics.Rendering.OpenGL.Raw (GLfloat)
+import qualified Graphics.Rendering.OpenGL as GL
 
 import Engine.Mesh.Material
     (Material(..), emptyMaterial, loadMtlFile)
-import Engine.Mesh.Mesh
-    (Mesh(..), createMesh)
-import Engine.Core.Types (Entity(..))
-import Engine.Mesh.DatLoader
-    (writeDataToFile, loadDatModel,
-     loadDatModelKeepVerts)
-import Engine.Bullet.Bullet
-    (Physics(..), addStaticTriangleMesh)
+import Engine.Core.Types
+    (Entity(..), Player(..), World(..),
+     GameIO (..), io)
+import Engine.Bullet.Bullet (addStaticTriangleMesh)
+import Engine.Graphics.Primitive
+import Engine.Graphics.GLSL
 
--- | Load an .obj into a "Model" and
---   put that into a "GameObject".
 loadObjObject ::
-    Physics ->
-    FilePath ->
-    FilePath ->
     t ->
     FilePath ->
-    IO (Entity t)
-loadObjObject phys vert frag t obj = do
-    (model, verts) <- loadObjModelKeepVerts obj vert frag
-    -- TODO: Make it possible to make non-static mesh.
-    Entity 0 0 0 return model <$> addStaticTriangleMesh verts def phys <*> return t
-    --let AABBSet _ aabbs = meshAABBSet model
-    --Entity 0 0 0 return model <$> addAABBs aabbs def phys <*> return t
+    GameIO t (ShaderProgram (World t, Entity t), Entity t)
+loadObjObject t objFile = do
+    world <- get
     
+    let dir = directoryOfFile objFile
+    objData@(ObjData verts _ _ _ _ _) <-
+        io $ parseObjData dir =<< B.readFile objFile
 
--- | Parse an .obj file and return the "Model"
---   containing the data needed to render it.
-loadObjModel ::
-    FilePath ->
-    FilePath ->
-    FilePath ->
-    IO Mesh
-loadObjModel objFile vert frag =
-    let attrNames = ["position", "texCoord", "normal", "color", "textureId"]
-    in do
-        hasDatFile <- doesFileExist $ objFile ++ ".dat"
-        if hasDatFile
-            then loadDatModel (objFile ++ ".dat") vert frag
-        else do
-            fileContents <- B.readFile objFile
-            let directory = directoryOfFile objFile
+    rigidBody <- io $ addStaticTriangleMesh verts def $ worldPhysics world
+    let entity = Entity 0 0 0 return rigidBody t
 
-            (mats, lib) <- loadObjMaterials directory fileContents
 
-            let total = totalObjData fileContents mats
-                images = concatMap matTexturePaths lib
+    prog <- io $ defaultProgram objData (world, entity)
 
-            writeDataToFile (objFile ++ ".dat") total images
-
-            let (totalData, mTextures) =
-                    (total, map (fromJust . matTexture) $
-                    filter (isJust . matTexture) lib)
-
-            tmp <- createMesh vert frag
-                attrNames
-                totalData
-                [3, 2, 3, 3, 1]
-                (fromIntegral (length . head $ totalData) `div` 3)
-
-            let mTexIds = replicate (length mTextures) 0 :: [GLint]
-            return tmp{meshTextures =
-                zip mTextures
-                    mTexIds}
+    return $ (prog, entity)
   where
     directoryOfFile :: FilePath -> FilePath
     directoryOfFile = (++"/") . intercalate "/" . init . splitOn "/"
 
--- | Parse an .obj file and return the "Model"
---   containing the data needed to render it.
-loadObjModelKeepVerts ::
-    FilePath ->
-    FilePath ->
-    FilePath ->
-    IO (Mesh, [GLfloat])
-loadObjModelKeepVerts objFile vert frag =
-    let attrNames = ["position", "texCoord", "normal", "color", "textureId"]
-    in do
-        hasDatFile <- doesFileExist $ objFile ++ ".dat"
-        if hasDatFile
-            then loadDatModelKeepVerts (objFile ++ ".dat") vert frag
-        else do
-            fileContents <- B.readFile objFile
-            let directory = directoryOfFile objFile
+defaultProgram :: ObjData ->
+    (World t, Entity t) ->
+    IO (ShaderProgram (World t, Entity t))
+defaultProgram objDat pair = createProgram (defaultSequence objDat) pair
 
-            (mats, lib) <- loadObjMaterials directory fileContents
+defaultSequence :: ObjData -> ShaderSequence (World t, Entity t)
+defaultSequence objDat = defaultVert objDat -&> lastly (defaultFrag objDat)
 
-            let total = totalObjData fileContents mats
-                images = concatMap matTexturePaths lib
+defaultVert :: ObjData -> Shader GL.VertexShader (World t, Entity t)
+defaultVert (ObjData verts _ _ _ _ diffuse) = Shader Proxy $ do
+    version "430 core"
 
-            writeDataToFile (objFile ++ ".dat") total images
+    position <- layoutIn ["location=0"] vec3 ("vposition", const verts)
+    color <- layoutIn ["location=1"] vec3 ("vcolor", const diffuse)
 
-            let (totalData, mTextures) =
-                    (total, map (fromJust . matTexture) $
-                    filter (isJust . matTexture) lib)
+    fcolor <- out vec3 "fcolor"
+    fcolor #= color
 
-            tmp <- createMesh vert frag
-                attrNames
-                totalData
-                [3, 2, 3, 3, 1]
-                (fromIntegral (length . head $ totalData) `div` 3)
+    mvpMat' <- uniform mat4 ("mvpMat", uncurry mvpMat)
+    glPosition #= mvpMat' .* (position +.+ fltd 1.0)
 
-            let mTexIds = replicate (length mTextures) 0 :: [GLint]
-            return (tmp{meshTextures =
-                zip mTextures
-                    mTexIds}, head totalData)
+defaultFrag :: ObjData -> Shader GL.FragmentShader (World t, Entity t)
+defaultFrag _ = Shader Proxy $ do
+    version "430 core"
+
+    vcolor <- inn vec3 "fcolor"
+
+    color <- out vec4 "color"
+    color #= vcolor +.+ fltd 1
+
+mvpMat :: World t -> Entity t -> Mat44 GLfloat
+mvpMat w e =
+    projMatDims 800 600 `multmm`
+    viewMatFromPlayer (worldPlayer w) `multmm`
+    modMatFromEntity e
+
+modMatFromEntity :: Entity t -> Mat44 GLfloat
+modMatFromEntity = translation . entityPosition
+
+viewMatFromPlayer :: Player t -> Mat44 GLfloat
+viewMatFromPlayer p =
+    let rx :. ry :. rz :. () = Vec.map (negate . toRadians) $ playerRotation p
+        rotatedX = rotationX rx
+        rotatedY = rotationY ry
+        rotatedZ = rotationZ rz
+        rotation = rotatedX `multmm` rotatedY `multmm` rotatedZ
+    in rotation `multmm`
+        translation (Vec.map negate $ playerPosition p)
   where
-    directoryOfFile :: FilePath -> FilePath
-    directoryOfFile = (++"/") . intercalate "/" . init . splitOn "/"
+    toRadians = (*(pi/180))
 
--- | Parse the contents of an .obj, for the
---   vertices, texture coordinates, and normals
---   in that order.
-totalObjData :: B.ByteString -> [Material] -> [[GLfloat]]
-totalObjData contents mats =
-    let dat = parseObjData contents
-        materialDiffs = fromVec3M $ map matDiffuseColor mats
-        materialTexIds = map (fromIntegral . fromJustSafe . matTexId) mats
-    in dat ++ [materialDiffs, materialTexIds]
+projMatDims :: GLfloat -> GLfloat -> Mat44 GLfloat
+projMatDims width height =
+    perspective 0.1 100 45 (width / height)
+
+-- = Material stuff.
 
 loadObjMaterials :: String -> B.ByteString -> IO ([Material], [Material])
 loadObjMaterials directory contents = do
@@ -187,17 +162,31 @@ listOfMats contents =
 findMaterial :: B.ByteString -> [Material] -> Material
 findMaterial name library = head $ filter (\x -> matName x == name) library
 
--- ATTOPARSEC --
+-- = Data types.
 
-data V3 a = V3 a a a
-    deriving (Show, Eq)
---type V3 a = (a, a, a)
+data ObjData = ObjData
+    [Vec3 GLfloat]      -- Position
+    [Vec3 GLfloat]      -- Normal
+    [Vec2 GLfloat]      -- Texture coords
+    [GL.GLint]          -- Texture ID
+    [GL.TextureObject]  -- Texture Objects
+    [Vec3 GLfloat]      -- Diffuse
+
+data VertDataSeq = VertDataSeq
+    (Seq (Vec3 GLfloat))
+    (Seq (Vec3 GLfloat))
+    (Seq (Vec2 GLfloat))
+instance Monoid VertDataSeq where
+    mappend (VertDataSeq v n t) (VertDataSeq v2 n2 t2) =
+        VertDataSeq (v >< v2) (n >< n2) (t >< t2)
+    mempty = VertDataSeq S.empty S.empty S.empty
 
 data ObjLine =
     LineVert (Vec3 GLfloat)
   | LineNorm (Vec3 GLfloat)
   | LineTex  (Vec2 GLfloat)
-  | LineFace (V3 (V3 Int))
+  | LineFace (Vec3 (Vec3 Int))
+  | MtlRef FilePath
   | Invalid B.ByteString
     deriving (Show, Eq)
 
@@ -205,25 +194,44 @@ data ObjLine =
 -- PROCESSING --
 ----------------
 
-parseObjData :: B.ByteString -> [[GLfloat]]
-parseObjData = pieceTogether . runObjParser
+parseObjData :: String -> B.ByteString -> IO ObjData
+parseObjData dir !f =
+    let objLines = runObjParser f
+        ObjData verts norms texCoords _ _ _ = pieceTogether objLines
+        mtlRefs = filter isMtlRef  objLines
+    in do
+        mats <- fst <$> loadObjMaterials dir f
+        let diffuse =  map (fromJustSafe . matDiffuseColor) mats
+            texIds = map (fromJustSafe . matTexId) mats
+        return $ ObjData verts norms texCoords texIds [] diffuse
+  where
+    isMtlRef (MtlRef _) = True
+    isMtlRef _ = False
 
-pieceTogether :: [ObjLine] -> [[GLfloat]]
-pieceTogether objLines = pieceTogether' objLines (S.empty, S.empty, S.empty)
+parseVertData :: B.ByteString -> ObjData
+parseVertData = pieceTogether . runObjParser
+
+pieceTogether :: [ObjLine] -> ObjData
+pieceTogether objLines = fromVertData . pieceTogether' objLines $
+                        VertDataSeq S.empty S.empty S.empty
+  where
+    fromVertData (VertDataSeq v n t) =
+        ObjData (toList v) (toList n) (toList t) [] [] []
 
 pieceTogether' :: [ObjLine] ->
-                  (Seq (Vec3 GLfloat),
-                   Seq (Vec2 GLfloat),
-                   Seq (Vec3 GLfloat)) ->
-                  [[GLfloat]]
-pieceTogether' (LineVert vert : objLines) (vaccum, taccum, naccum) =
-    pieceTogether' objLines (vaccum |> vert, taccum, naccum)
-pieceTogether' (LineNorm norm : objLines) (vaccum, taccum, naccum) =
-    pieceTogether' objLines (vaccum, taccum, naccum |> norm)
-pieceTogether' (LineTex tex : objLines) (vaccum, taccum, naccum) =
-    pieceTogether' objLines (vaccum, taccum |> tex, naccum)
-pieceTogether' (LineFace (V3 (V3 v1 vt1 vn1) (V3 v2 vt2 vn2) (V3 v3 vt3 vn3)) : objLines)
-              (vaccum, taccum, naccum) =
+                  VertDataSeq ->
+                  VertDataSeq
+pieceTogether' (LineVert vert : objLines) (VertDataSeq vaccum naccum taccum) =
+    pieceTogether' objLines (VertDataSeq (vaccum |> vert) naccum taccum)
+pieceTogether' (LineNorm norm : objLines) (VertDataSeq vaccum naccum taccum) =
+    pieceTogether' objLines (VertDataSeq vaccum (naccum |> norm) taccum)
+pieceTogether' (LineTex tex : objLines) (VertDataSeq vaccum naccum taccum) =
+    pieceTogether' objLines (VertDataSeq vaccum naccum (taccum |> tex))
+pieceTogether' (LineFace (
+    (v1 :. vt1 :. vn1 :. ()) :.
+    (v2 :. vt2 :. vn2 :. ()) :.
+    (v3 :. vt3 :. vn3 :. ()) :. ()) : objLines)
+              (VertDataSeq vaccum naccum taccum) =
     let vert1 = vaccum `S.index` (v1-1)
         tex1  = taccum `S.index` (vt1-1)
         norm1 = naccum `S.index` (vn1-1)
@@ -236,17 +244,19 @@ pieceTogether' (LineFace (V3 (V3 v1 vt1 vn1) (V3 v2 vt2 vn2) (V3 v3 vt3 vn3)) : 
         tex3  = taccum `S.index` (vt3-1)
         norm3 = naccum `S.index` (vn3-1)
 
-        [restV, restT, restN] = pieceTogether' objLines (vaccum, taccum, naccum)
+        curVertData = VertDataSeq
+            (S.fromList [vert1, vert2, vert3])
+            (S.fromList [norm1, norm2, norm3])
+            (S.fromList [tex1, tex2, tex3])
+        restVertData = pieceTogether' objLines $
+                VertDataSeq vaccum naccum taccum
 
-    in [unpackVec3 vert1++unpackVec3 vert2++unpackVec3 vert3++restV,
-        unpackVec2 tex1 ++unpackVec2 tex2 ++unpackVec2 tex3 ++restT,
-        unpackVec3 norm1++unpackVec3 norm2++unpackVec3 norm3++restN]
-  where
-    unpackVec3 (x :. y :. z :. ()) = [x,y,z]
-    unpackVec2 (x :. y :. ()) = [x,y]
+    in curVertData <> restVertData
+pieceTogether' (MtlRef _ : objLines) accum =
+    pieceTogether' objLines accum
 pieceTogether' (Invalid _ : objLines) accum =
     pieceTogether' objLines accum
-pieceTogether' [] _ = [[],[],[]]
+pieceTogether' [] _ = mempty
 
 -------------
 -- PARSING --
@@ -293,16 +303,16 @@ texCoordToGLFormat (x :. y :. ()) = x :. (1-y) :. ()
 {-# INLINE texCoordToGLFormat #-}
 
 parseFaceLine :: Parser ObjLine
-parseFaceLine = do
+parseFaceLine =
     char 'f' *> skipSpace *> (LineFace <$> parseFaceDat)
 {-# INLINE parseFaceLine #-}
 
-parseFaceDat :: Parser (V3 (V3 Int))
+parseFaceDat :: Parser (Vec3 (Vec3 Int))
 parseFaceDat =
     toV3 <$> timesSep 3 parseFaceGroup skipSpace
   where
-    toV3 :: [V3 Int] -> V3 (V3 Int)
-    toV3 [x, y, z] = V3 x y z
+    toV3 :: [Vec3 Int] -> Vec3 (Vec3 Int)
+    toV3 [x, y, z] = x :. y :. z :. ()
     toV3 _ = error ("Engine.Model.ObjLoader." ++
                     "parseFaceDat.toV3 - Bad list length!")
 
@@ -320,14 +330,14 @@ timesSep = times' 0
         | otherwise = return []
 {-# NOINLINE timesSep #-}
 
-parseFaceGroup :: Parser (V3 Int)
+parseFaceGroup :: Parser (Vec3 Int)
 parseFaceGroup = do
     v <- decimal
     _ <- char '/'
     vt <- decimal <|> return (-1)
     _ <- char '/'
     vn <- decimal <|> return (-1)
-    return $ V3 v vt vn
+    return $ v :. vt :. vn :. ()
 
 parseVec3 :: Parser (Vec3 GLfloat)
 parseVec3 = do
@@ -348,13 +358,124 @@ parseInvalid =
     Invalid <$> A.takeWhile (/='\n')
 {-# INLINE parseInvalid #-}
 
-fromVec3M :: [Maybe (Vec3 GLfloat)] -> [GLfloat]
-fromVec3M (Just (x :. y :. z :. ()) : xs) =
-    [x, y, z] ++ fromVec3M xs
-fromVec3M [] = []
-fromVec3M (Nothing : _) = error "fromVec3 GLfloatM: argument contained Nothing."
-
 fromJustSafe :: Num a => Maybe a -> a
 fromJustSafe (Just x) = x
 fromJustSafe Nothing = 0
 {-# INLINE fromJustSafe #-}
+
+-- = .mtl file.
+
+{-
+data Material' = Material' {
+    materialName :: B.ByteString,
+    materialDiffuse :: Vec3 GLfloat,
+    materialTexture :: Maybe FilePath
+    } deriving (Show, Eq)
+
+data MtlLine =
+    MaterialDecl B.ByteString
+  | MaterialDiffuse (Vec3 GLfloat)
+  | MaterialTexture FilePath
+  | InvalidMtlLine B.ByteString
+    deriving (Show)
+
+testMtl :: [Material']
+testMtl = runMtlParser "newmtl Wasabi\nKd 0 1 0\n"
+
+testMtl2 :: [MtlLine]
+testMtl2 = runMtlParser' "newmtl Wasabi\nKd 0 1 0\n"
+
+testMtl' :: [Material']
+testMtl' = createMaterials
+    [MaterialDecl "wasabi",
+     MaterialDiffuse $ 0 :. 1 :. 0 :. (),
+     MaterialTexture "/home/akakakak"]
+
+--getMtls :: B.ByteString -> [Material']
+--getMtls =
+
+--parseMtlRefs :: Parser [FilePath]
+--parseMtlRefs = many $ parseMtlRef <* endOfLine
+
+
+
+runMtlParser :: B.ByteString -> [Material']
+runMtlParser contents =
+    let Right results = parseOnly parseMaterials contents
+    in results
+
+runMtlParser' :: B.ByteString -> [MtlLine]
+runMtlParser' contents =
+    let Right results = parseOnly parseMtlLines contents
+    in results
+
+parseMaterials :: Parser [Material']
+parseMaterials = createMaterials <$> parseMtlLines
+
+createMaterials :: [MtlLine] -> [Material']
+createMaterials = createMats [] --map createMaterial . groupMats
+  where
+    createMats :: [MtlLine] -> [MtlLine] -> [Material']
+    createMats acc (n@MaterialDecl{} : xs) =
+        if null acc
+            then createMats [n] xs
+        else createMaterial acc : createMats [n] xs
+    createMats acc (x:xs) = createMats (x:acc) xs
+    createMats acc [] = [createMaterial acc]
+
+    createMaterial :: [MtlLine] -> Material'
+    createMaterial xs =
+        let name = findName xs
+            diff = findDiffuse xs
+            tex  = findTexture xs
+        in Material' name diff tex
+
+    findName (MaterialDecl name:_) = name
+    findName (_:xs) = findName xs
+    findName [] = error "ObjLoader.createMaterial.findName"
+
+    findDiffuse (MaterialDiffuse color:_) = color
+    findDiffuse (_:xs) = findDiffuse xs
+    findDiffuse []     = 0.8 :. 0.8 :. 0.8 :. ()
+
+    findTexture (MaterialTexture tex:_) = Just tex
+    findTexture (_:xs) = findTexture xs
+    findTexture []     = Nothing
+
+parseMtlLines :: Parser [MtlLine]
+parseMtlLines = many $ parseMtlLine <* endOfLine
+
+parseMtlLine :: Parser MtlLine
+parseMtlLine =
+        parseMaterialName
+    <|> parseDiffuse
+    <|> parseTexture
+    <|> parseInvalidMat
+
+parseMaterialName :: Parser MtlLine
+parseMaterialName = MaterialDecl <$> ("newmtl " *> skipSpace *> alphaNumWord)
+
+parseDiffuse :: Parser MtlLine
+parseDiffuse = MaterialDiffuse <$> ("Kd " *> skipSpace *> parseVec3)
+
+parseTexture :: Parser MtlLine
+parseTexture = MaterialTexture <$>
+    ("map_Kd " *> skipSpace *> (B.unpack <$> A.takeWhile (/='\n')))
+
+parseInvalidMat :: Parser MtlLine
+parseInvalidMat =
+    InvalidMtlLine <$> A.takeWhile (/='\n')
+
+alphaNum :: Parser Char
+alphaNum = satisfy isAlphaNum
+
+alphaNumWord :: Parser B.ByteString
+alphaNumWord = A.takeWhile isAlphaNum
+
+isAlphaNum :: Char -> Bool
+isAlphaNum w = isLower || isUpper || isNum
+  where
+    isNum = w >= '0' && w <= '9'
+    isUpper = w >= 'A' && w <= 'Z'
+    isLower = w >= 'a' && w <= 'z'
+-}

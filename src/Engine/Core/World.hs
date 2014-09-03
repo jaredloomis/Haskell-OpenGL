@@ -1,6 +1,6 @@
 module Engine.Core.World (
     setWorldPlayer,
-    setWorldUniforms, getWorldDelta,
+    getWorldDelta,
     getWorldTime
 ) where
 
@@ -17,10 +17,12 @@ import Engine.Graphics.Shaders (Shader(..), setUniformsAndRemember)
 setWorldPlayer :: Player t -> World t -> World t
 setWorldPlayer player world = world{worldPlayer = player}
 
+{-
 -- | Set a world's uniforms to given shader.
 setWorldUniforms :: World t -> Shader -> IO Shader
 setWorldUniforms world shader =
     setUniformsAndRemember shader $ graphicsUniforms $ worldGraphics world
+-}
 
 getWorldDelta :: World t -> GLfloat
 getWorldDelta = stateDelta . worldState

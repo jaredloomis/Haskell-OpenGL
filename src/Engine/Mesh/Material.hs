@@ -40,7 +40,6 @@ loadMtlFile file = do
     let directory = (intercalate "/" . init $ splitOn "/" file) ++ "/"
     openFile file ReadMode >>= loadMtlMaterials directory
 
-
 loadMtlMaterials :: FilePath -> Handle -> IO [Material]
 loadMtlMaterials directory handle =
     liftM (map applyDefualtMtl . tail)

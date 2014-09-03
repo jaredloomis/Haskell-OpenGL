@@ -8,17 +8,19 @@ module Engine.Core.Types (
     World(..), WorldState(..), Graphics(..),
     Player(..), Entity(..), Input(..),
     (.~), (.=), (%~), (%=),
-    hoistGame,
+    hoistGame, io,
     emptyEntity, playerAABB, emptyGraphics,
     emptyWorldState, lPlayerPosition,
     lPlayerRotation, lPlayerVelocity,
     lPlayerSpeed, lPlayerUpdate, lPlayerInput,
-    lWorldPlayer, lWorldEntities,
-    lWorldGraphics, lWorldState,
+    lWorldPlayer,
+    worldEntities,
+    lWorldState,
+    lWorldShaderUniverse,
     lInputKeys, lInputMouseDelta,
     lInputLastMousePos, lInputMouseSpeed,
     lEntityPosition, lEntityRotation,
-    lEntityVelocity, lEntityUpdate, lEntityModel,
+    lEntityVelocity, lEntityUpdate,
     lEntityAttribute,
     lGraphicsUniforms, lGraphicsPostProcessors,
     lGraphicsShadowInfo,
@@ -35,7 +37,7 @@ import Control.Applicative (Applicative)
 import Data.Maybe (isNothing)
 import Control.Monad.State
     (State, StateT(..), MonadIO,
-     MonadState, runStateT)
+     MonadState, runStateT, liftIO)
 import Data.Functor.Identity (runIdentity)
 
 import Data.Vec ((:.)(..), Vec3, Vec2)
@@ -58,6 +60,7 @@ import Engine.Graphics.Shaders (ShaderUniform)
 import Engine.Graphics.Framebuffer (Framebuffer)
 import Engine.Mesh.Mesh (Mesh(..), emptyMesh)
 import Engine.Bullet.Bullet (Physics(..))
+import Engine.Graphics.Primitive
 
 -- = Vinyl API (unimplemented, just testing with it.)
 
@@ -161,7 +164,11 @@ newtype GameIO t a = GameIO {
 -- | Do a "Game" action in the "GameIO" Monad.
 hoistGame :: Game t a -> GameIO t a
 hoistGame game = GameIO . StateT $
-    (\s -> return (runIdentity (runStateT (gameState game) s)))
+    \s -> return (runIdentity (runStateT (gameState game) s))
+
+-- | Do an IO action in the "GameIO" Monad.
+io :: IO a -> GameIO t a
+io = GameIO . liftIO
 
 -- = Global data types
 
@@ -169,11 +176,16 @@ hoistGame game = GameIO . StateT $
 --   the entire game.
 data World t = World {
     worldPlayer :: Player t,
-    worldEntities :: [Entity t],
+    worldShaderUniverse :: ShaderUniverse (World t, Entity t),
     worldPhysics :: Physics,
-    worldGraphics :: Graphics,
     worldState :: WorldState
     }
+worldEntities :: World t -> [Entity t]
+worldEntities =
+    map getVal . allGalaxies . worldShaderUniverse
+  where
+    getVal (PureGalaxy _ _ x) = snd x
+    getVal (MonadicGalaxy _ _ x) = snd x
 
 -- | The type used to contain values that
 --   change and affect the state of the World.
@@ -181,12 +193,12 @@ data WorldState = WorldState {
     stateTime :: GLfloat,
     stateDelta :: GLfloat,
     statePaused :: Bool,
-    stateWindow :: Window
+    stateWindow :: GLFW.Window
     } deriving (Show)
 instance Default WorldState where
-    def = WorldState 0 0 False def
+    def = WorldState 0 0 False undefined
 emptyWorldState :: WorldState
-emptyWorldState = WorldState 0 0 False defaultWindow
+emptyWorldState = WorldState 0 0 False undefined
 
 -- | The type used to contain global values relating to
 --   graphics / shaders.
@@ -221,12 +233,11 @@ data Entity t = Entity {
     entityRotation :: Vec3 GLfloat,
     entityVelocity :: Vec3 GLfloat,
     entityUpdate :: Entity t -> Game t (Entity t),
-    entityModel :: Mesh,
     entityRigidBody :: BtRigidBody,
     entityAttribute :: t
     }
 emptyEntity :: Entity ()
-emptyEntity = Entity 0 0 0 return emptyMesh undefined ()
+emptyEntity = Entity 0 0 0 return undefined ()
 
 -- = Input
 
@@ -275,7 +286,7 @@ instance Show (Entity t) where
         "Entity{" ++
         "position = " ++ show (getPos obj) ++
         ", rotation = " ++ show (getRot obj) ++
-        ", model = " ++ show (entityModel obj) ++
+--        ", model = " ++ show (entityModel obj) ++
         "}"
 instance Show (Player t) where
     show obj@(Player{}) =
@@ -306,12 +317,13 @@ instance HasVelocity (Player t) where
     getVel p = playerVelocity p
     setVel p vel = p{playerVelocity = vel}
 
+{-
 instance HasAABB (Entity t) where
     getAABBs pe =
-        aabbSetAll $ meshAABBSet $ entityModel pe
+        aabbSetAll $ entityAABBSet pe --meshAABBSet $ entityModel pe
 
     getWholeAABB pe =
-        aabbSetWhole $ meshAABBSet $ entityModel pe
+        aabbSetWhole $ entityAABBSet pe --meshAABBSet $ entityModel pe
 
     transformedAABBs obj
         | null $ getAABBs obj = []
@@ -326,6 +338,7 @@ instance HasAABB (Entity t) where
             let Just (AABB l r) = getWholeAABB obj
                 pos = getPos obj
             in Just $ AABB (l + pos) (r + pos)
+-}
 instance HasAABB (Player t) where
     getAABBs _ = [playerAABB]
 
@@ -345,6 +358,7 @@ instance HasAABB (Player t) where
                 pos = getPos obj
             in Just $ AABB (l + pos) (r + pos)
 
+{-
 instance Intersect (Entity t) AABB where
     intersecting object aabb = anyIntersecting aabb (getAABBs object)
         where
@@ -352,6 +366,7 @@ instance Intersect (Entity t) AABB where
             needle `intersecting` hay ||
                 anyIntersecting needle haystack
         anyIntersecting _ [] = False
+-}
 instance Intersect (Player t) AABB where
     intersecting object aabb = anyIntersecting aabb (getAABBs object)
         where
@@ -360,6 +375,7 @@ instance Intersect (Player t) AABB where
                 anyIntersecting needle haystack
         anyIntersecting _ [] = False
 
+{-
 instance Intersect AABB (Entity t) where
     intersecting aabb object = anyIntersecting aabb (getAABBs object)
         where
@@ -367,6 +383,7 @@ instance Intersect AABB (Entity t) where
             needle `intersecting` hay ||
                 anyIntersecting needle haystack
         anyIntersecting _ [] = False
+-}
 instance Intersect AABB (Player t) where
     intersecting aabb object = anyIntersecting aabb (getAABBs object)
         where

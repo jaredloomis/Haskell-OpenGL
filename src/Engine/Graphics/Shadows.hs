@@ -1,8 +1,11 @@
 module Engine.Graphics.Shadows (
+{-
     makeShadowFrameBuffer, renderWorldWithShadows,
     setMatrixUniformsBias 
+-}
 ) where
 
+{-
 import Data.Bits ((.|.))
 import Data.Vec
 
@@ -218,3 +221,4 @@ setMatrixUniformsBias shader wm depthMVP = do
         $ glUniformMatrix4fv mvpBiasMatrix 1 (fromIntegral gl_FALSE)
 
     return shader'''''
+-}

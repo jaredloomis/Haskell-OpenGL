@@ -11,6 +11,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE Rank2Types #-}
 module Engine.Graphics.Primitive where
 
 import Control.Monad (unless, when)
@@ -46,6 +47,7 @@ import qualified Graphics.UI.GLFW as GLFW
 
 import Engine.Graphics.GLSL hiding (($=), simpleProgram)
 
+{-
 -------------
 -- Testing --
 -------------
@@ -104,7 +106,7 @@ simpleTest = do
     prog <- simpleProgram
     postProg <- postProgram
     let galaxy = MonadicGalaxy prog (updateStep win prog) world
-    mainLoop win $ ShaderUniverse [galaxy] [postProg]
+    mainLoop win $ [galaxy] -|> [postProg]
 
 updateStep :: GLFW.Window -> ShaderProgram World -> World -> IO World
 updateStep win _ (World (Player ppos prot _ curPos) obj) = do
@@ -214,15 +216,15 @@ cosDeg = cos . toRadians
 
 simpleProgram :: IO (ShaderProgram World)
 simpleProgram = do
-    texture <- juicyLoadTexture "../res/textures/grass.jpg"
-    texture2 <- juicyLoadTexture "../res/objects/ibanez/texture0.jpg"
-    let shSeq = simpleVert -&> lastly (simpleFrag [texture, texture2])
+    --let Shader _ glsl = simpleGeom
+    --C.putStrLn $ generateGLSL glsl
+    tex1 <- juicyLoadTexture "../res/textures/grass.jpg"
+    tex2 <- juicyLoadTexture "../res/objects/ibanez/texture0.jpg"
+    let shSeq = simpleVert -&> simpleGeom -&> lastly (simpleFrag [tex1, tex2])
     createProgram shSeq testWorld
 
 postProgram :: IO (ShaderProgram FBO)
 postProgram = do
-    let (Shader _ glsl) = postFrag
-    C.putStrLn $ generateGLSL glsl
     createProgram
         (postVert -&> lastly postFrag)
         (FBO GL.defaultFramebufferObject (GL.Size 800 600) (GL.TextureObject 0))
@@ -232,56 +234,76 @@ simpleVert = Shader Proxy $ do
     version "430 core"
 
     position <- inn vec3 ("position", getObjVerts . worldObj)
-    texCoord <- inn vec2 ("texCoord" ,const [(-1) :. (-1) :. (), 1 :. (-1), 0 :. 1])
+    texCoord <- inn vec2 ("texCoord", const [(-1) :. (-1) :. (), 1 :. (-1), 0 :. 1])
     textureCoord <- out vec2 "textureCoord"
 
     textureCoord #= texCoord
 
-    let position4 = "vec4" .$ [pack position, pack $ constant float "1.0"]
-            :: Expression "vec4"
-
+    let position4 = position +.+ fltd 1.0
     matrix <- uniform mat4 ("matrix", worldMatrix)
 
     glPosition #= matrix .* position4
 
+simpleGeom :: Shader GL.GeometryShader World
+simpleGeom = Shader Proxy $ do
+    version "430 core"
+
+    layoutIn ["triangles"] notype ""
+    layoutOut ["triangle_strip", "max_vertices=3"] notype ""
+
+    textureCoord <- declArrayNoLen [] (NProxy :: NatProxy 3) inp vec2 "textureCoord"
+    texCoord <- out vec2 "texCoord"
+
+    let inPos i = builtIn vec4 $
+            "gl_in[" <> getBString i <> "].gl_Position"
+
+    forSM 0 2 $ \i -> do
+        glPosition #= inPos i
+        texCoord #= textureCoord .! i
+        call "EmitVertex"
+
+    call "EndPrimitive"
+
 simpleFrag :: [GL.TextureObject] -> Shader GL.FragmentShader World
 simpleFrag [texObject, texObject2] = Shader Proxy $ do
     version "430 core"
-    textureCoord <- inn vec2 "textureCoord"
-    textures <- layoutUniformArray ["location=10"] sampler2D "textures" (NProxy :: NatProxy 2)
-        [const $ Sampler2DInfo texObject (GL.TextureUnit 0),
-         const $ Sampler2DInfo texObject2 (GL.TextureUnit 1)]
+    textureCoord <- inn vec2 "texCoord"
+    textures <- layoutUniformArray ["location=10"] sampler2D "textures"
+                                   (NProxy :: NatProxy 2) $
+        const [Sampler2DInfo texObject (GL.TextureUnit 0),
+               Sampler2DInfo texObject2 (GL.TextureUnit 1)]
     color <- out vec3 "color"
 
-    let textureColor4 = "texture" .$ [pack $ textures .! 0, pack textureCoord]
-            :: Expression "vec4"
-        totalColor = (textureColor4 .@ X .& Y .& Z :: Expression "vec3")
-                        -- .+ constant vec3 "vec3(1,0,0)"
+    let textureColor4 = texture (textures .! constNum int (0::Int)) textureCoord
+        totalColor = textureColor4 .@ X .& Y .& Z
+
     color #= totalColor
+
+-- = Post shader (inverts colors).
 
 postVert :: Shader GL.VertexShader FBO
 postVert = Shader Proxy $ do
     version "430 core"
     position <- inn vec3 ("position", const screenBufferData)
     textureCoord <- out vec2 "textureCoord"
-    glPosition #= "vec4" .$ [pack position, pack $ fltd 1.0]
-    textureCoord #= ((position .@ X .& Y :: Expression "vec2")
-                    .+ ("vec2" .$ [fltd 1.0, fltd 1.0] :: Expression "vec2")) ./ fltd 2.0
+    glPosition #= position +.+ fltd 1.0
+    let positionXY = position .@ X .& Y
+    textureCoord #= (positionXY .+ (fltd 1.0 +.+ fltd 1.0)) ./ fltd 2.0
 
 postFrag :: Shader GL.FragmentShader FBO
 postFrag = Shader Proxy $ do
     version "430 core"
     textureCoord <- inn vec2 "textureCoord"
-    framebuffer <- uniform sampler2D ("framebuffer",
-        \(FBO _ _ texObj) -> Sampler2DInfo texObj $ GL.TextureUnit 0)
+    framebuffer <- uniform sampler2D ("framebuffer", fboSampler)
 
     color <- out vec4 "color"
-    let realColor = "texture" .$ [pack framebuffer, pack textureCoord] :: Expression "vec4"
-        inverted = "vec4" .$ [pack $ fltd 1.0 .- (realColor .@ X :: Expression "float"),
-                              pack $ fltd 1.0 .- (realColor .@ Y :: Expression "float"),
-                              pack $ fltd 1.0 .- (realColor .@ Z :: Expression "float"),
-                              pack $ fltd 1.0] :: Expression "vec4"
+    let realColor = texture framebuffer textureCoord
+        inverted = (fltd 1.0 .- realColor .@ X) +.+
+                   (fltd 1.0 .- realColor .@ Y) +.+
+                   (fltd 1.0 .- realColor .@ Z) +.+
+                   fltd 1.0
     color #= inverted
+-}
 
 ---------------------
 -- Default actions --
@@ -382,13 +404,19 @@ replaceBuffer target elems len =
         let dataSize = fromIntegral $ len * sizeOf (error "replaceBuffer" :: a)
         GL.bufferData target $= (dataSize, ptr, GL.StaticDraw)
 
-
 --------------------
 -- ShaderGalaxy's --
 --------------------
 
 data ShaderUniverse t =
     ShaderUniverse [ShaderGalaxy t] [ShaderProgram FBO]
+
+updateUniverseGlobal :: [t] -> ShaderUniverse t -> ShaderUniverse t
+updateUniverseGlobal gs (ShaderUniverse galaxies post) =
+    ShaderUniverse (map (uncurry updateGalaxyGlobal) $ zip gs galaxies) post
+
+addGalaxy :: ShaderUniverse t -> ShaderGalaxy t -> ShaderUniverse t
+addGalaxy (ShaderUniverse xs post) x = ShaderUniverse (xs ++ [x]) post
 
 allGalaxies :: ShaderUniverse t -> [ShaderGalaxy t]
 allGalaxies (ShaderUniverse xs _) = xs
@@ -403,6 +431,13 @@ hasPostShaders _ = True
 data ShaderGalaxy t =
     PureGalaxy (ShaderProgram t) (t -> t) t
   | MonadicGalaxy (ShaderProgram t) (t -> IO t) t
+
+updateGalaxyGlobal :: t -> ShaderGalaxy t -> ShaderGalaxy t
+updateGalaxyGlobal g (PureGalaxy p f _) = PureGalaxy p f g
+updateGalaxyGlobal g (MonadicGalaxy p f _) = MonadicGalaxy p f g
+
+(-|>) :: [ShaderGalaxy t] -> [ShaderProgram FBO] -> ShaderUniverse t
+(-|>) = ShaderUniverse
 
 mainLoop ::
     GLFW.Window ->
@@ -419,43 +454,64 @@ mainLoop win univ = do
     GLFW.destroyWindow win
     GLFW.terminate
   where
-    loop (ShaderUniverse galaxies posts) = do
-        GL.clear [GL.ColorBuffer, GL.DepthBuffer]
-        galaxies' <- mapM drawGalaxy galaxies
-        endFrame
+    loop universe = do
+        universe' <- stepUniverse win universe
+
         shouldClose <- GLFW.windowShouldClose win
         unless shouldClose $
-            loop $ ShaderUniverse galaxies' posts
+            loop universe'
 
-    drawGalaxy (PureGalaxy prog updateFunc global) = do
-        drawProgram prog global
-        return . PureGalaxy prog updateFunc $ updateFunc global
-    drawGalaxy (MonadicGalaxy prog updateFunc global) = do
-        drawProgram prog global
-        MonadicGalaxy prog updateFunc <$> updateFunc global
+    loopPP fbo universe = do
+        universe' <- stepUniversePP win fbo universe
 
-    loopPP fbo@(FBO fbuf size _) (ShaderUniverse galaxies posts) = do
-        GL.bindFramebuffer GL.Framebuffer $= fbuf
-        GL.viewport $= (GL.Position 0 0, size)
-        GL.clear [GL.ColorBuffer, GL.DepthBuffer]
-
-        galaxies' <- mapM drawGalaxy galaxies
-
-        GL.bindFramebuffer GL.Framebuffer $= GL.defaultFramebufferObject
-        GL.clear [GL.ColorBuffer, GL.DepthBuffer]
-        drawPosts fbo posts fbo
-
-        endFrame
         shouldClose <- GLFW.windowShouldClose win
         unless shouldClose $
-            loopPP fbo $ ShaderUniverse galaxies' posts
+            loopPP fbo universe'
 
-    endFrame = do
-        GLFW.swapBuffers win
-        GLFW.pollEvents
+stepUniversePP :: GLFW.Window -> FBO -> ShaderUniverse t -> IO (ShaderUniverse t)
+stepUniversePP win fbo@(FBO fbuf size _) (ShaderUniverse galaxies posts) = do
+    GL.bindFramebuffer GL.Framebuffer $= fbuf
+    GL.viewport $= (GL.Position 0 0, size)
+    GL.clear [GL.ColorBuffer, GL.DepthBuffer]
 
-    cleanupGalaxy (PureGalaxy prog _ _) = cleanup prog
-    cleanupGalaxy (MonadicGalaxy prog _ _) = cleanup prog
+    galaxies' <- mapM drawGalaxy galaxies
+
+    GL.bindFramebuffer GL.Framebuffer $= GL.defaultFramebufferObject
+    GL.clear [GL.ColorBuffer, GL.DepthBuffer]
+    drawPosts fbo posts fbo
+
+    endFrame win
+    return $ ShaderUniverse galaxies' posts
+
+stepUniverse :: GLFW.Window -> ShaderUniverse t -> IO (ShaderUniverse t)
+stepUniverse win (ShaderUniverse galaxies posts) = do
+    GL.clear [GL.ColorBuffer, GL.DepthBuffer]
+    galaxies' <- mapM drawGalaxy galaxies
+    endFrame win
+    return $ ShaderUniverse galaxies' posts
+
+drawGalaxy :: ShaderGalaxy t -> IO (ShaderGalaxy t)
+drawGalaxy (PureGalaxy prog updateFunc global) = do
+    drawProgram prog global
+    return . PureGalaxy prog updateFunc $ updateFunc global
+drawGalaxy (MonadicGalaxy prog updateFunc global) = do
+    drawProgram prog global
+    MonadicGalaxy prog updateFunc <$> updateFunc global
+
+cleanupGalaxy :: ShaderGalaxy t -> IO ()
+cleanupGalaxy (PureGalaxy prog _ _) = cleanup prog
+cleanupGalaxy (MonadicGalaxy prog _ _) = cleanup prog
+
+cleanupUniverse :: GLFW.Window -> ShaderUniverse t -> IO ()
+cleanupUniverse win univ = do
+    mapM_ cleanupGalaxy $ allGalaxies univ
+    GLFW.destroyWindow win
+    GLFW.terminate
+
+endFrame :: GLFW.Window -> IO ()
+endFrame win = do
+    GLFW.swapBuffers win
+    GLFW.pollEvents
 
 
 {-
@@ -472,7 +528,9 @@ test = [WrappedGalaxy (undefined :: ShaderGalaxy Int),
 ------------------------------------------
 
 data Shader (p :: GL.ShaderType) t =
-    Shader (ShaderTypeProxy p) (ShaderM p t ())
+    Shader (ShaderTypeProxy p) (forall a. ShaderM p t a ())
+  | FromBS (ShaderTypeProxy p) (GLSLInfo t) B.ByteString
+  | FromFile (ShaderTypeProxy p) (GLSLInfo t) FilePath
 
 {-
 data ShaderSequence t = ShaderSequence {
@@ -608,6 +666,13 @@ compile (Shader proxy glsl) =
     let code = generateGLSL glsl
         shaderType = typeVal proxy
     in compileShader shaderType code
+compile (FromBS proxy _ code) =
+    let shaderType = typeVal proxy
+    in compileShader shaderType code
+compile (FromFile proxy _ file) =
+    let shaderType = typeVal proxy
+    in compileShader shaderType =<<
+        B.readFile file
 
 compileShader :: GL.ShaderType -> B.ByteString -> IO GL.Shader
 compileShader shaderType src = do
@@ -632,6 +697,18 @@ gatherInfo (Wrapped (Shader proxy glsl) : shaders) =
         outs' = case typeVal proxy of
             GL.FragmentShader -> outs
             _                 -> []
+    in GLSLInfo ins' uniforms outs' <> gatherInfo shaders
+gatherInfo (Wrapped (FromBS proxy info _) : shaders) =
+    let GLSLInfo ins uniforms outs = info
+        (ins', outs') = case typeVal proxy of
+            GL.VertexShader -> (ins, outs)
+            _               -> ([], [])
+    in GLSLInfo ins' uniforms outs' <> gatherInfo shaders
+gatherInfo (Wrapped (FromFile proxy info _) : shaders) =
+    let GLSLInfo ins uniforms outs = info
+        (ins', outs') = case typeVal proxy of
+            GL.VertexShader -> (ins, outs)
+            _               -> ([], [])
     in GLSLInfo ins' uniforms outs' <> gatherInfo shaders
 gatherInfo [] = mempty
 
@@ -666,9 +743,10 @@ inMkBuffer (InInt valFunc _) global = makeBuffer GL.ArrayBuffer $ valFunc global
 inMkBuffer (InVec2 valFunc _) global = makeBuffer GL.ArrayBuffer $ valFunc global
 inMkBuffer (InVec3 valFunc _) global = makeBuffer GL.ArrayBuffer $ valFunc global
 inMkBuffer (InVec4 valFunc _) global = makeBuffer GL.ArrayBuffer $ valFunc global
-inMkBuffer (InMat4 _ _) _ =
+inMkBuffer InMat4{} _ =
     error "Primitive.inMkBuffer Given Mat4. Idk what to do."
-    --map VAOIndex . valFunc
+inMkBuffer InNone{} _ =
+    error "Primitive.inMkBuffer Given InNone. Idk what to do."
 
 inReplaceBuffer :: In t -> t -> Int -> IO ()
 inReplaceBuffer (InFloat valFunc _) global lenVals =
@@ -681,8 +759,10 @@ inReplaceBuffer (InVec3 valFunc _) global lenVals =
     replaceBuffer GL.ArrayBuffer (valFunc global) lenVals
 inReplaceBuffer (InVec4 valFunc _) global lenVals =
     replaceBuffer GL.ArrayBuffer (valFunc global) lenVals
-inReplaceBuffer (InMat4 _ _) _ _ =
+inReplaceBuffer InMat4{} _ _ =
     error "Primitive.inReplaceBuffer: InMat4"
+inReplaceBuffer InNone{} _ _ =
+    error "Primitive.inReplaceBuffer: InNone"
 
 inLength :: In t -> t -> Int
 inLength (InFloat valFunc _) = length . valFunc
@@ -691,6 +771,7 @@ inLength (InVec2 valFunc _) = length . valFunc
 inLength (InVec3 valFunc _) = length . valFunc
 inLength (InVec4 valFunc _) = length . valFunc
 inLength (InMat4 valFunc _) = length . valFunc
+inLength InNone{} = error "Primitive.inLength: Given InNone."
 
 inDescriptor :: In t -> (GL.GLint, GL.DataType)
 inDescriptor InFloat{} = (1, GL.Float)
@@ -699,6 +780,7 @@ inDescriptor InVec2{} = (2, GL.Float)
 inDescriptor InVec3{} = (3, GL.Float)
 inDescriptor InVec4{} = (4, GL.Float)
 inDescriptor InMat4{} = (16, GL.Float)
+inDescriptor InNone{} = error "Primitive.inDescriptor: Given InNone."
 
 inName :: In t -> B.ByteString
 inName (InFloat _ name) = name
@@ -707,6 +789,7 @@ inName (InVec2 _ name) = name
 inName (InVec3 _ name) = name
 inName (InVec4 _ name) = name
 inName (InMat4 _ name) = name
+inName (InNone name) = name
 
 bindAttrib :: t -> AttribGPU t -> IO ()
 bindAttrib global (AttribGPU buffer updateFunc location descriptor _) = do
@@ -844,6 +927,9 @@ data FBO = FBO
     GL.FramebufferObject GL.Size GL.TextureObject
   deriving (Show)
 
+fboSampler :: FBO -> Sampler2D
+fboSampler (FBO _ _ texObj) = Sampler2DInfo texObj $ GL.TextureUnit 0
+
 drawProgramWithPP :: ShaderProgram t -> [ShaderProgram t] -> FBO -> t -> IO ()
 drawProgramWithPP mainSh postSh fbo@(FBO fbuf size _) global = do
     GL.bindFramebuffer GL.Framebuffer $= fbuf
@@ -867,16 +953,13 @@ drawPost (FBO _ _ texObj) (ShaderProgram prog _ attribs unis) global = do
     -- Use shader program.
     GL.currentProgram $= Just prog
 
+    -- Activate FBO.
+    GL.activeTexture $= GL.TextureUnit 0
+    GL.textureBinding GL.Texture2D $= Just texObj
+
     -- Bind all vars.
     mapM_ (bindAttrib global) attribs
     mapM_ (bindUniform global) unis
-
-    fbufLocation <- GL.get $ GL.uniformLocation prog "framebuffer"
-
-    -- Bind Framebuffer uniform.
-    GL.activeTexture $= GL.TextureUnit 0
-    GL.textureBinding GL.Texture2D $= Just texObj
-    GL.uniform fbufLocation $= GL.Index1 (0 :: GL.GLint)
 
     -- Draw.
     let len = lenAttr $ head attribs

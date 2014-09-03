@@ -10,8 +10,10 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Engine.Graphics.GLSL where
 
+import Data.Proxy (Proxy(..))
 import GHC.TypeLits
 import Data.Vec (Vec2, Vec3, Vec4, Mat44, identity)
 
@@ -33,16 +35,16 @@ import Graphics.Rendering.OpenGL.Raw (GLfloat)
 -- Execution --
 ---------------
 
-generateGLSL :: ShaderM s t a -> B.ByteString
+generateGLSL :: ShaderM s t a b -> B.ByteString
 generateGLSL = programBString . execShaderM
 
-execShaderM :: ShaderM s t a -> [GLSLUnit]
+execShaderM :: ShaderM s t a b -> [GLSLUnit]
 execShaderM = fst . runShaderM
 
-evalShaderM :: ShaderM s t a -> GLSLInfo t
+evalShaderM :: ShaderM s t a b -> GLSLInfo t
 evalShaderM = snd . runShaderM
 
-runShaderM :: ShaderM s t a -> ([GLSLUnit], GLSLInfo t)
+runShaderM :: ShaderM s t a b -> ([GLSLUnit], GLSLInfo t)
 runShaderM = execWriter . sInnerShaderM
 
 ------------------
@@ -53,11 +55,11 @@ type VertexShaderM t a = ShaderM GL.VertexShader t a
 type GeometryShaderM t a = ShaderM GL.GeometryShader t a
 type FragmentShaderM t a = ShaderM GL.FragmentShader t a
 
-newtype ShaderM s t a = ShaderM {
-    sInnerShaderM :: Writer ([GLSLUnit], GLSLInfo t) a
+newtype ShaderM s t a b = ShaderM {
+    sInnerShaderM :: Writer ([GLSLUnit], GLSLInfo t) b
     }
     deriving (Functor, Applicative, Monad)
-instance MonadWriter ([GLSLUnit], GLSLInfo t) (ShaderM s t) where
+instance MonadWriter ([GLSLUnit], GLSLInfo t) (ShaderM s t a) where
     listen (ShaderM glsl) = ShaderM $ listen glsl
     pass (ShaderM glsl) = ShaderM $ pass glsl
     tell = ShaderM . tell
@@ -68,34 +70,34 @@ class ShaderType (s :: GL.ShaderType) where
     type UniformArgs s gt (t :: Symbol) :: *
 
     layoutDecl :: (KnownSymbol t, GPU t, KnownSymbol q) =>
-        [B.ByteString] -> SymbolProxy q -> SymbolProxy t ->
-        B.ByteString -> ShaderM s gt (Value q t)
+        [B.ByteString] -> Proxy q -> Proxy t ->
+        B.ByteString -> ShaderM s gt a (Value q t)
 
     layoutIn :: (KnownSymbol t, GPU t) =>
-        [B.ByteString] -> SymbolProxy t -> InArgs s gt t ->
-        ShaderM s gt (Value "in" t)
+        [B.ByteString] -> Proxy t -> InArgs s gt t ->
+        ShaderM s gt a (Value "in" t)
     layoutUniform :: (KnownSymbol t, GPU t) =>
-        [B.ByteString] -> SymbolProxy t -> UniformArgs s gt t ->
-        ShaderM s gt (Value "uniform" t)
+        [B.ByteString] -> Proxy t -> UniformArgs s gt t ->
+        ShaderM s gt a (Value "uniform" t)
     layoutOut :: (KnownSymbol t, GPU t) =>
-        [B.ByteString] -> SymbolProxy t -> B.ByteString ->
-        ShaderM s gt (Value "out" t)
+        [B.ByteString] -> Proxy t -> B.ByteString ->
+        ShaderM s gt a (Value "out" t)
 
     none :: (KnownSymbol t, GPU t) =>
-        SymbolProxy t -> B.ByteString ->
-        ShaderM s gt (Value "none" t)
-    none = layoutDecl [] SProxy
+        Proxy t -> B.ByteString ->
+        ShaderM s gt a (Value "none" t)
+    none = layoutDecl [] Proxy
 
     inn :: (KnownSymbol t, GPU t) =>
-        SymbolProxy t -> InArgs s gt t -> ShaderM s gt (Value "in" t)
+        Proxy t -> InArgs s gt t -> ShaderM s gt a (Value "in" t)
     inn = layoutIn []
 
     uniform :: (KnownSymbol t, GPU t) =>
-        SymbolProxy t -> UniformArgs s gt t -> ShaderM s gt (Value "uniform" t)
+        Proxy t -> UniformArgs s gt t -> ShaderM s gt a (Value "uniform" t)
     uniform = layoutUniform []
 
     out :: (KnownSymbol t, GPU t) =>
-        SymbolProxy t -> B.ByteString -> ShaderM s gt (Value "out" t)
+        Proxy t -> B.ByteString -> ShaderM s gt a (Value "out" t)
     out = layoutOut []
 
 instance ShaderType GL.VertexShader where
@@ -108,15 +110,55 @@ instance ShaderType GL.VertexShader where
 
     layoutIn layouts glType (name, values) = do
         logIn glType values name
-        layoutDecl layouts SProxy glType name
+        layoutDecl layouts Proxy glType name
 
     layoutUniform layouts glType (name, value) = do
         logUniform glType value name
-        layoutDecl layouts SProxy glType name
+        layoutDecl layouts Proxy glType name
 
     layoutOut layouts glType name = do
         logOut glType name
-        layoutDecl layouts SProxy glType name
+        layoutDecl layouts Proxy glType name
+
+instance ShaderType GL.TessControlShader where
+    type InArgs GL.TessControlShader gt t = B.ByteString
+    type UniformArgs GL.TessControlShader gt t = (B.ByteString, gt -> CPU t)
+
+    layoutDecl layouts qualifier glType name = do
+        ltell $ Decl (Layout layouts) (qualifierSymbol qualifier) (typeSymbol glType) name
+        ShaderM . return $ Value name qualifier glType
+
+    layoutIn layouts glType name = do
+        logIn glType (const []) name
+        layoutDecl layouts Proxy glType name
+
+    layoutUniform layouts glType (name, value) = do
+        logUniform glType value name
+        layoutDecl layouts Proxy glType name
+
+    layoutOut layouts glType name = do
+        logOut glType name
+        layoutDecl layouts Proxy glType name
+
+instance ShaderType GL.TessEvaluationShader where
+    type InArgs GL.TessEvaluationShader gt t = B.ByteString
+    type UniformArgs GL.TessEvaluationShader gt t = (B.ByteString, gt -> CPU t)
+
+    layoutDecl layouts qualifier glType name = do
+        ltell $ Decl (Layout layouts) (qualifierSymbol qualifier) (typeSymbol glType) name
+        ShaderM . return $ Value name qualifier glType
+
+    layoutIn layouts glType name = do
+        logIn glType (const []) name
+        layoutDecl layouts Proxy glType name
+
+    layoutUniform layouts glType (name, value) = do
+        logUniform glType value name
+        layoutDecl layouts Proxy glType name
+
+    layoutOut layouts glType name = do
+        logOut glType name
+        layoutDecl layouts Proxy glType name
 
 instance ShaderType GL.GeometryShader where
     type InArgs GL.GeometryShader gt t = B.ByteString
@@ -128,15 +170,15 @@ instance ShaderType GL.GeometryShader where
 
     layoutIn layouts glType name = do
         logIn glType (const []) name
-        layoutDecl layouts SProxy glType name
+        layoutDecl layouts Proxy glType name
 
     layoutUniform layouts glType (name, value) = do
         logUniform glType value name
-        layoutDecl layouts SProxy glType name
+        layoutDecl layouts Proxy glType name
 
     layoutOut layouts glType name = do
         logOut glType name
-        layoutDecl layouts SProxy glType name
+        layoutDecl layouts Proxy glType name
 
 instance ShaderType GL.FragmentShader where
     type InArgs GL.FragmentShader gt t = B.ByteString
@@ -148,21 +190,19 @@ instance ShaderType GL.FragmentShader where
 
     layoutIn layouts glType name = do
         logIn glType (const []) name
-        layoutDecl layouts SProxy glType name
+        layoutDecl layouts Proxy glType name
 
     layoutUniform layouts glType (name, value) = do
         logUniform glType value name
-        layoutDecl layouts SProxy glType name
+        layoutDecl layouts Proxy glType name
 
     layoutOut layouts glType name = do
         logOut glType name
-        layoutDecl layouts SProxy glType name
+        layoutDecl layouts Proxy glType name
 
 -------------------
 -- Logging Stuff --
 -------------------
-
---type ShaderM s t a = Writer ([GLSLUnit], GLSLInfo t) a
 
 data GLSLInfo t = GLSLInfo [In t] [Uniform t] [Out]
 
@@ -186,6 +226,7 @@ data In t =
   | InVec2 (t -> [Vec2 GLfloat]) Name
   | InVec3 (t -> [Vec3 GLfloat]) Name
   | InVec4 (t -> [Vec4 GLfloat]) Name
+  | InNone Name
   -- Unlikely, but...
   | InMat4 (t -> [Mat44 GLfloat]) Name
 
@@ -209,19 +250,20 @@ data Out =
   | OutVec4 Name
   | OutMat4 Name
   | OutSampler2D Name
+  | OutNone Name
   deriving (Show, Eq)
 
 class GPU (a :: Symbol) where
     type CPU a :: *
-    inConstr :: SymbolProxy a -> ((t -> [CPU a]) -> Name -> GLSLInfo t)
-    uniformConstr :: SymbolProxy a -> ((t -> CPU a) -> Name -> GLSLInfo t)
-    outConstr :: SymbolProxy a -> (Name -> GLSLInfo t)
+    inConstr :: Proxy a -> ((t -> [CPU a]) -> Name -> GLSLInfo t)
+    uniformConstr :: Proxy a -> ((t -> CPU a) -> Name -> GLSLInfo t)
+    outConstr :: Proxy a -> (Name -> GLSLInfo t)
 
-    logIn :: SymbolProxy a -> (t -> [CPU a]) -> Name -> ShaderM s t ()
+    logIn :: Proxy a -> (t -> [CPU a]) -> Name -> ShaderM s t k ()
     logIn proxy values = rtell . inConstr proxy values
-    logUniform :: SymbolProxy a -> (t -> CPU a) -> Name -> ShaderM s t ()
+    logUniform :: Proxy a -> (t -> CPU a) -> Name -> ShaderM s t k ()
     logUniform proxy value = rtell . uniformConstr proxy value
-    logOut :: SymbolProxy a -> Name -> ShaderM s t ()
+    logOut :: Proxy a -> Name -> ShaderM s t k ()
     logOut proxy = rtell . outConstr proxy
 
 instance GPU "int" where
@@ -264,6 +306,13 @@ instance GPU "sampler2D" where
     uniformConstr _ value = uniformInfo . UniformSampler2D value
     outConstr _ = outInfo . OutSampler2D
 
+instance GPU "notype" where
+    type CPU "notype" = ()
+    inConstr _ _ = inInfo . InNone 
+    uniformConstr _ _ _ =
+        error "ShaderM.uniformConstr: notype cannot be an uniform."
+    outConstr _ = outInfo . OutNone
+
 -----------
 -- Types --
 -----------
@@ -272,6 +321,7 @@ data GLSLUnit =
     Version B.ByteString
   | Decl Layout Qualifier Type Name
   | AssignStatement Name B.ByteString
+  | Action B.ByteString
   deriving Eq
 
 type Name = B.ByteString
@@ -280,10 +330,10 @@ data SymbolProxy (a :: Symbol) = SProxy
 data NatProxy (a :: Nat) = NProxy
 
 data Value (q :: Symbol) (t :: Symbol) =
-    Value Name (SymbolProxy q) (SymbolProxy t)
+    Value Name (Proxy q) (Proxy t)
 
-data Array (l :: Nat) (q :: Symbol) (t :: Symbol) =
-    Array Name (NatProxy l) (SymbolProxy q) (SymbolProxy t)
+data Array (q :: Symbol) (t :: Symbol) =
+    Array Name (Proxy q) (Proxy t)
 
 data Expression (t :: Symbol) =
     Expression B.ByteString (SymbolProxy t)
@@ -309,14 +359,14 @@ type QualifierP = SymbolProxy
 
 -- = Representation of ShaderM qualifiers in
 --   Haskell type level, using TypeLits.
-outp :: QualifierP "out"
-outp = SProxy
-inp :: QualifierP "in"
-inp = SProxy
-uniformp :: QualifierP "uniform"
-uniformp = SProxy
-nonep :: QualifierP "none"
-nonep = SProxy
+outp :: Proxy "out"
+outp = Proxy
+inp :: Proxy "in"
+inp = Proxy
+uniformp :: Proxy "uniform"
+uniformp = Proxy
+nonep :: Proxy "none"
+nonep = Proxy
 
 -- | Representation of ShaderM s types in
 --   Haskell value level.
@@ -329,32 +379,35 @@ data Type =
   | Vec3
   | Vec2
   | Sampler2D
+  | NoType
   deriving Eq
 
 type TypeP = SymbolProxy
 
 -- = Representation of ShaderM s types in
 --   Haskell type level, using TypeLits.
-int :: TypeP "int"
-int = SProxy
-uint :: TypeP "uint"
-uint = SProxy
-float :: TypeP "float"
-float = SProxy
-mat4 :: TypeP "mat4"
-mat4 = SProxy
-vec3 :: TypeP "vec3"
-vec3 = SProxy
-vec2 :: TypeP "vec2"
-vec2 = SProxy
-vec4 :: TypeP "vec4"
-vec4 = SProxy
-sampler2D :: TypeP "sampler2D"
-sampler2D = SProxy
+int :: Proxy "int"
+int = Proxy
+uint :: Proxy "uint"
+uint = Proxy
+float :: Proxy "float"
+float = Proxy
+mat4 :: Proxy "mat4"
+mat4 = Proxy
+vec3 :: Proxy "vec3"
+vec3 = Proxy
+vec2 :: Proxy "vec2"
+vec2 = Proxy
+vec4 :: Proxy "vec4"
+vec4 = Proxy
+sampler2D :: Proxy "sampler2D"
+sampler2D = Proxy
+notype :: Proxy "notype"
+notype = Proxy
 
 -- = TypeLits to B.ByteString stuff.
 
-qualifierSymbol :: KnownSymbol q => SymbolProxy q -> Qualifier
+qualifierSymbol :: KnownSymbol q => Proxy q -> Qualifier
 qualifierSymbol q =
     case symbolVal q of
         "uniform" -> Uniform
@@ -363,7 +416,7 @@ qualifierSymbol q =
         "none" -> None
         _ -> error "Primitive.toTypeQ"
 
-typeSymbol :: KnownSymbol t => SymbolProxy t -> Type
+typeSymbol :: KnownSymbol t => Proxy t -> Type
 typeSymbol t =
     case symbolVal t of
         "int" -> Int
@@ -374,6 +427,7 @@ typeSymbol t =
         "vec3" -> Vec3
         "vec2" -> Vec2
         "sampler2D" -> Sampler2D
+        "notype" -> NoType
         _ -> error "Primitive.toTypeT"
 
 ---------------------
@@ -392,6 +446,7 @@ instance BShow Type where
     bshow Vec3 = "vec3"
     bshow Vec4 = "vec4"
     bshow Sampler2D = "sampler2D"
+    bshow NoType = ""
 
 instance BShow Qualifier where
     bshow In = "in"
@@ -402,24 +457,25 @@ instance BShow Qualifier where
 instance BShow Layout where
     bshow (Layout layouts)
         | not . null $ layouts =
-            "layout" `B.append` paren (B.intercalate ", " layouts)
-            `B.append` " "
+            "layout" <> paren (B.intercalate ", " layouts)
+            <> " "
         | otherwise = B.empty
 
 instance BShow GLSLUnit where
-    bshow (Version v) = "#version " `B.append` v `B.append` "\n"
+    bshow (Version v) = "#version " <> v <> "\n"
     bshow (Decl layout None glType name) =
-        bshow layout `B.append`
-        bshow glType `B.append` " " `B.append` name `B.append`
-        " = " `B.append` defaultValue glType `B.append`
+        bshow layout <>
+        bshow glType <> " " <> name <>
+        " = " <> defaultValue glType <>
         ";\n"
     bshow (Decl layout qualifier glType name) =
-        bshow layout `B.append`
-        bshow qualifier `B.append` " " `B.append`
-        bshow glType `B.append` " " `B.append`
-        name `B.append` ";\n"
+        bshow layout <>
+        bshow qualifier <> " " <>
+        bshow glType <> " " <>
+        name <> ";\n"
     bshow (AssignStatement a b) =
-        a `B.append` " = " `B.append` b `B.append` ";\n"
+        a <> " = " <> b <> ";\n"
+    bshow (Action a) = a <> ";\n"
 
 defaultValue :: Type -> B.ByteString
 defaultValue Int = "0"
@@ -432,7 +488,9 @@ defaultValue Vec4 = "vec4(0.0, 0.0, 0.0, 0.0)"
 defaultValue Sampler2D =
     error $ "ShaderM.defaultValue: Sampler2D does" ++
             "not have a default value."
-
+defaultValue NoType =
+    error $ "ShaderM.defaultValue: NoType does" ++
+            "not have a default value."
 -------------
 -- Classes --
 -------------
@@ -448,12 +506,12 @@ instance ReadableQS "none"
 
 class WritableQ q
 instance WritableQS q => WritableQ (Value q t)
-instance WritableQS q => WritableQ (Array l q t)
+instance WritableQS q => WritableQ (Array q t)
 instance WritableQ (Expression t)
 
 class ReadableQ q
 instance ReadableQS q => ReadableQ (Value q t)
-instance ReadableQS q => ReadableQ (Array l q t)
+instance ReadableQS q => ReadableQ (Array q t)
 instance ReadableQ (Expression t)
 instance ReadableQ Arg
 instance ReadableQ B.ByteString
@@ -493,6 +551,22 @@ instance HasBString Bool where
     getBString True = "true"
     getBString False = "false"
 
+--------------------
+-- Vec conversion --
+--------------------
+
+type family VecLength (v :: Symbol) :: Nat where
+    VecLength "float" = 1
+    VecLength "vec2" = 2
+    VecLength "vec3" = 3
+    VecLength "vec4" = 4
+
+type family VecLengthU (n :: Nat) :: Symbol where
+    VecLengthU 1 = "float"
+    VecLengthU 2 = "vec2"
+    VecLengthU 3 = "vec3"
+    VecLengthU 4 = "vec4"
+
 -- = Swizzling
 
 data Index (len :: Nat) (maxI :: Nat) where
@@ -516,56 +590,58 @@ instance BShow (Index len s) where
     bshow Y = "y"
     bshow Z = "z"
     bshow W = "w"
-    bshow (Linked list1 list2) = bshow list1 `B.append` bshow list2
+    bshow (Linked list1 list2) = bshow list1 <> bshow list2
 
-class Swizzle (glType :: Symbol) index (result :: Symbol) where
-    (.@) :: (HasBString a, ReadableQ a, TypeOf a ~ glType) =>
-            a -> index -> Expression result
-    infixl 8 .@
-instance (len ~ 1, maxI <= 2) => Swizzle "vec2" (Index len maxI) "float" where
-    (.@) value index =
-        Expression ("(" `B.append` getBString value `B.append` ")." `B.append` bshow index) SProxy
-instance (len ~ 1, maxI <= 3) => Swizzle "vec3" (Index len maxI) "float" where
-    (.@) value index =
-        Expression ("(" `B.append` getBString value `B.append` ")." `B.append` bshow index) SProxy
-instance (len ~ 1, maxI <= 4) => Swizzle "vec4" (Index len maxI) "float" where
-    (.@) value index =
-        Expression ("(" `B.append` getBString value `B.append` ")." `B.append` bshow index) SProxy
-instance (len ~ 2, maxI <= 2) => Swizzle "vec2" (Index len maxI) "vec2" where
-    (.@) value index =
-        Expression ("(" `B.append` getBString value `B.append` ")." `B.append` bshow index) SProxy
-instance (len ~ 3, maxI <= 3) => Swizzle "vec3" (Index len maxI) "vec3" where
-    (.@) value index =
-        Expression ("(" `B.append` getBString value `B.append` ")." `B.append` bshow index) SProxy
-instance (len ~ 4, maxI <= 4) => Swizzle "vec4" (Index len maxI) "vec4" where
-    (.@) value index =
-        Expression ("(" `B.append` getBString value `B.append` ")." `B.append` bshow index) SProxy
-instance (len ~ 2, maxI <= 3) => Swizzle "vec3" (Index len maxI) "vec2" where
-    (.@) value index =
-        Expression ("(" `B.append` getBString value `B.append` ")." `B.append` bshow index) SProxy
-instance (len ~ 2, maxI <= 4) => Swizzle "vec4" (Index len maxI) "vec2" where
-    (.@) value index =
-        Expression ("(" `B.append` getBString value `B.append` ")." `B.append` bshow index) SProxy
-instance (len ~ 3, maxI <= 2) => Swizzle "vec2" (Index len maxI) "vec3" where
-    (.@) value index =
-        Expression ("(" `B.append` getBString value `B.append` ")." `B.append` bshow index) SProxy
-instance (len ~ 3, maxI <= 4) => Swizzle "vec4" (Index len maxI) "vec3" where
-    (.@) value index =
-        Expression ("(" `B.append` getBString value `B.append` ")." `B.append` bshow index) SProxy
-instance (len ~ 4, maxI <= 2) => Swizzle "vec2" (Index len maxI) "vec4" where
-    (.@) value index =
-        Expression ("(" `B.append` getBString value `B.append` ")." `B.append` bshow index) SProxy
-instance (len ~ 4, maxI <= 3) => Swizzle "vec3" (Index len maxI) "vec4" where
-    (.@) value index =
-        Expression ("(" `B.append` getBString value `B.append` ")." `B.append` bshow index) SProxy
+(.@) :: forall a maxI len.
+        (HasBString a, ReadableQ a,
+         maxI <= VecLength (TypeOf a)) =>
+    a -> Index len maxI -> Expression (VecLengthU len)
+(.@) vec index =
+    let swizzleStr = bshow index
+    in Expression (paren $ getBString vec <> "." <> swizzleStr)
+        SProxy
+infixl 8 .@
+
+-- = Vec "concatenation"
+
+vConcat :: forall a at b bt ct.
+           (HasBString a, ReadableQ a, TypeOf a ~ at,
+            HasBString b, ReadableQ b, TypeOf b ~ bt,
+            VecLengthU (VecLength at + VecLength bt) ~ ct,
+            KnownSymbol ct) =>
+     a -> b -> Expression ct
+vConcat left right =
+    let resultProxy = SProxy :: SymbolProxy ct
+        resultCtor = fromString $ symbolVal resultProxy
+    in Expression (paren $ resultCtor <>
+        (paren $ getBString left <> ", " <> getBString right))
+        SProxy
+
+(+.+) :: forall a at b bt ct.
+           (HasBString a, ReadableQ a, TypeOf a ~ at,
+            HasBString b, ReadableQ b, TypeOf b ~ bt,
+            VecLengthU (VecLength at + VecLength bt) ~ ct,
+            KnownSymbol ct) =>
+     a -> b -> Expression ct
+(+.+) = vConcat
+infixr 5 +.+
 
 --------------------
 -- Array indexing --
 --------------------
 
-(.!) :: ReadableQS q => Array l q t -> Integer -> Expression t
-(.!) (Array name _ _ _) i =
-    Expression (name `B.append` "[" `B.append` (fromString $ show i) `B.append` "]") SProxy
+class IndexT t
+instance IndexT Int
+instance IndexT Integer
+instance IndexT (Expression "int")
+instance IndexT (Value q "int")
+instance IndexT (Expression "uint")
+instance IndexT (Value q "uint")
+
+(.!) :: (ReadableQ a, HasBString a, IndexT a) =>
+    Array q t -> a -> Expression t
+(.!) (Array name _ _) i =
+    Expression (name <> "[" <> getBString i <> "]") SProxy
 
 ---------------------------
 -- Classes and instances --
@@ -602,7 +678,7 @@ instance VecT "vec4"
 type family TypeOf a :: Symbol
 type instance TypeOf (Value q t) = t
 type instance TypeOf (Expression t) = t
-type instance TypeOf (Array l q t) = t
+type instance TypeOf (Array q t) = t
 type instance TypeOf Float = "float"
 type instance TypeOf Double = "float"
 type instance TypeOf Int = "int"
@@ -613,7 +689,7 @@ type instance TypeOf Integer = "int"
 type family QualifierOf a :: Symbol
 type instance QualifierOf (Value q t) = q
 type instance QualifierOf (Expression t) = "none"
-type instance QualifierOf (Array l q t) = q
+type instance QualifierOf (Array q t) = q
 
 -- = Math type family.
 
@@ -672,10 +748,21 @@ type instance Math "vec2" "mat4" = "vec2"
 programBString :: [GLSLUnit] -> B.ByteString
 programBString xs =
     let (top, bottom) = filterTop xs
-    in B.concat (map bshow top) `B.append`
-       "\nvoid main(){\n" `B.append`
-       B.concat (map bshow bottom) `B.append`
+        (versions, top') = filterVersion top
+    in bshow (head versions) <>
+       B.concat (map bshow top') <>
+       "\nvoid main(){\n" <>
+       B.concat (map bshow bottom) <>
        "}"
+
+filterVersion :: [GLSLUnit] -> ([GLSLUnit], [GLSLUnit])
+filterVersion (v@Version{} : xs) =
+    let (versions, others) = filterVersion xs
+    in (v : versions, others)
+filterVersion (x : xs) =
+    let (versions, others) = filterVersion xs
+    in (versions, x : others)
+filterVersion [] = ([], [])
 
 -- | Filter declarations that appear at
 --   the top of the file.
@@ -710,7 +797,7 @@ testProg = execShaderM simpleProgram
 testLog :: GLSLInfo t
 testLog = evalShaderM simpleProgram
 
-simpleProgram :: ShaderM GL.VertexShader t ()
+simpleProgram :: ShaderM GL.VertexShader t a ()
 simpleProgram = do
     version "430 core"
 
@@ -727,8 +814,8 @@ simpleProgram = do
     modelMatrix <- uniform mat4 ("modelMatrix", const identity)
     mvpMatrix <- uniform mat4 ("mvpMatrix", const identity)
 
-    uniformArray sampler2D "textures" (NProxy :: NatProxy 2)
-        [const $ Sampler2DInfo undefined undefined]
+    uniformArray sampler2D "textures" 2
+        $ const [Sampler2DInfo undefined undefined]
 
     -- Out variables.
     positionCS <- out vec3 "positionCS"
@@ -744,19 +831,19 @@ simpleProgram = do
 
     -- Create normal matrix.
     let normalMatrixE = transpose . inverse $ viewMatrix .* modelMatrix
-    normalMatrix <- none mat4 "normalMatrix" $= normalMatrixE
+    normalMatrix <- none mat4 "normalMatrix" ^= normalMatrixE
 
     -- Pass the normal in camera space.
-    let normalVec4 = "vec4" .$ [pack normal, pack (fltd 0.0)] :: Expression "vec4"
+    let normalVec4 = normal +.+ fltd 0.0
     normalCS #= normalMatrix .* normalVec4
 
     -- Pass model space position.
     positionMS #= position
 
     -- Pass position in camera space.
-    let positionVec4 = "vec4" .$ [pack position, pack (fltd 1.0)] :: Expression "vec4"
+    let positionVec4 = position +.+ fltd 1.0
         positionCS4 = viewMatrix .* modelMatrix .* positionVec4
-    positionCS #= positionCS4 .@ X .& Y .& Z
+    positionCS #= (positionCS4 .@ (X .& Y .& Z))
 
     -- Pass texture coord.
     textureCoord #= texCoord
@@ -767,10 +854,10 @@ simpleProgram = do
     glPosition #= mvpMatrix .* positionVec4
 
     -- Fog coord is the length of gl_Position.
-    fogCoord <- none float "fogCoord" $= vlength glPosition
+    fogCoord <- none float "fogCoord" ^= vlength glPosition
 
-    fogDensity <- none float "fogDensity" $= fltd 0.03
-    log2 <- none float "log2" $= fltd 1.442695
+    fogDensity <- none float "fogDensity" ^= fltd 0.03
+    log2 <- none float "log2" ^= fltd 1.442695
 
     fogFactor #= "exp2" <. 
         (fogDensity .* fogDensity .* intd (-1) .*
@@ -785,20 +872,20 @@ simpleProgram = do
 (#=) :: (HasBString a, HasBString b,
          WritableQ a, ReadableQ b,
          TypeOf a ~ TypeOf b) =>
-    a -> b -> ShaderM s t ()
+    a -> b -> ShaderM s t a2 ()
 (#=) to from =
     ltell $ AssignStatement (getBString to) (getBString from)
 infixr 1 #=
 
-($=) :: (HasBString a, HasBString b,
+(^=) :: (HasBString a, HasBString b,
          WritableQ a, ReadableQ b,
          TypeOf a ~ TypeOf b) =>
-    ShaderM s t a -> b -> ShaderM s t a
-($=) to from = do
+    ShaderM s t k a -> b -> ShaderM s t k a
+(^=) to from = do
     toVal <- to
     toVal #= from
     return toVal
-infixr 1 $=
+infixr 1 ^=
 
 ------------------------
 -- Numeric operations --
@@ -808,7 +895,7 @@ infixr 1 $=
          ReadableQ a, ReadableQ b) =>
     a -> b -> Expression (Math (TypeOf a) (TypeOf b))
 (.+) left right =
-    Expression (paren (getBString left) `B.append` " + " `B.append` paren (getBString right))
+    Expression (paren (getBString left) <> " + " <> paren (getBString right))
                 SProxy
 infixl 6 .+
 
@@ -816,7 +903,7 @@ infixl 6 .+
          ReadableQ a, ReadableQ b) =>
     a -> b -> Expression (Math (TypeOf a) (TypeOf b))
 (.-) left right =
-    Expression (paren (getBString left) `B.append` " - " `B.append` paren (getBString right))
+    Expression (paren (getBString left) <> " - " <> paren (getBString right))
                 SProxy
 infixl 6 .-
 
@@ -824,7 +911,7 @@ infixl 6 .-
          ReadableQ a, ReadableQ b) =>
     a -> b -> Expression (Math (TypeOf a) (TypeOf b))
 (.*) left right =
-    Expression (paren (getBString left) `B.append` " * " `B.append` paren (getBString right))
+    Expression (paren (getBString left) <> " * " <> paren (getBString right))
                 SProxy
 infixl 7 .*
 
@@ -832,7 +919,7 @@ infixl 7 .*
          ReadableQ a, ReadableQ b) =>
     a -> b -> Expression (Math (TypeOf a) (TypeOf b))
 (./) left right =
-    Expression (paren (getBString left) `B.append` " / " `B.append` paren (getBString right))
+    Expression (paren (getBString left) <> " / " <> paren (getBString right))
                 SProxy
 infixl 7 ./
 
@@ -847,48 +934,76 @@ clamp :: (HasBString value, ReadableQ value, NumT (TypeOf value),
           TypeOf value ~ TypeOf top) =>
     value -> bottom -> top -> Expression (TypeOf value)
 clamp value bottom top =
-    Expression ("clamp(" `B.append` getBString value `B.append` "," `B.append`
-                            getBString bottom `B.append` "," `B.append`
-                            getBString top `B.append` ")") SProxy
+    Expression ("clamp(" <> getBString value <> "," <>
+                            getBString bottom <> "," <>
+                            getBString top <> ")") SProxy
 
 transpose :: (HasBString mat, ReadableQ mat,
               TypeOf mat ~ "mat4") =>
     mat -> Expression "mat4"
 transpose matrix =
-    Expression ("transpose(" `B.append` getBString matrix `B.append` ")") SProxy
+    Expression ("transpose(" <> getBString matrix <> ")") SProxy
 
 inverse :: (HasBString mat, ReadableQ mat,
             TypeOf mat ~ "mat4") =>
     mat -> Expression "mat4"
 inverse matrix =
-    Expression ("inverse(" `B.append` getBString matrix `B.append` ")") SProxy
+    Expression ("inverse(" <> getBString matrix <> ")") SProxy
 
 vlength :: (HasBString vec, ReadableQ vec,
             VecT (TypeOf vec)) =>
     vec -> Expression "float"
 vlength vec =
-    Expression ("length(" `B.append` getBString vec `B.append` ")") SProxy
+    Expression ("length(" <> getBString vec <> ")") SProxy
 
 
 normalize :: (HasBString vec, ReadableQ vec,
               VecT (TypeOf vec)) =>
-    vec -> Expression "float"
+    vec -> Expression (TypeOf vec)
 normalize vec =
-    Expression ("normalize(" `B.append` getBString vec `B.append` ")") SProxy
+    Expression ("normalize(" <> getBString vec <> ")") SProxy
 
 reflect :: (HasBString vec, ReadableQ vec,
             VecT (TypeOf vec)) =>
     vec -> vec -> Expression "float"
 reflect veca vecb =
-    Expression ("reflect(" `B.append` getBString veca `B.append` ", " `B.append` getBString vecb `B.append` ")")
+    Expression ("reflect(" <> getBString veca <> ", " <> getBString vecb <> ")")
                SProxy
+
+texture :: (HasBString tex, ReadableQ tex,
+            TypeOf tex ~ "sampler2D",
+            HasBString vec, ReadableQ vec,
+            VecT (TypeOf vec)) =>
+    tex -> vec -> Expression "vec4"
+texture tex vec =
+    Expression ("texture(" <> getBString tex <> ", " <> getBString vec <> ")")
+        SProxy
 
 glPosition :: Value "none" "vec4"
 glPosition = builtIn vec4 "gl_Position"
 
+-- = For loops.
+
+forSM :: Int -> Int -> (Value "none" "int" -> ShaderM s t a ()) -> ShaderM s t a ()
+forSM start end action = do
+    ltell . Action $ "for(int i = " <> fromString (show start) <> "; " <>
+                          "i <= " <> fromString (show end) <> "; i++)\n{"
+    action $ Value "i" Proxy Proxy
+    ltell . Action $ "}"
+
+forSM_ :: Int -> Int -> ShaderM s t a () -> ShaderM s t a ()
+forSM_ start end action = do
+    ltell . Action $ "for(int i = " <> fromString (show start) <> "; " <>
+                          "i <= " <> fromString (show end) <> "; i++)\n{"
+    action
+    ltell . Action $ "}"
+
 --------------------------
 -- Function application --
 --------------------------
+
+call :: B.ByteString -> ShaderM s t a ()
+call name = ltell . Action $ name <> "()"
 
 (.$) :: (HasBString a,
          ReadableQ a) =>
@@ -906,89 +1021,58 @@ apply :: (HasBString a,
           ReadableQ a) =>
     B.ByteString -> [a] -> Expression b
 apply func args = Expression
-    (func `B.append` paren (B.intercalate ", " $ map getBString args))
+    (func <> paren (B.intercalate ", " $ map getBString args))
     SProxy
-
---------------------------
--- Variable declaration --
---------------------------
-
-{-
-decl :: (KnownSymbol q, KnownSymbol t) =>
-    SymbolProxy q -> SymbolProxy t -> B.ByteString ->
-    ShaderM gt (Value q t)
-decl qualifier glType name = do
-    ltell $ Decl (Layout []) (qualifierSymbol qualifier) (typeSymbol glType) name
-    return $ Value name qualifier glType
-
-uniform :: (KnownSymbol t, GPU t) =>
-    SymbolProxy t -> B.ByteString -> (gt -> CPU t) -> ShaderM gt (Value "uniform" t)
-uniform glType name value = do
-    logUniform glType value name
-    decl (SProxy :: SymbolProxy "uniform") glType name
-
-out :: (KnownSymbol t, GPU t) =>
-    SymbolProxy t -> B.ByteString -> ShaderM gt (Value "out" t)
-out glType name = do
-    logOut glType name
-    decl (SProxy :: SymbolProxy "out") glType name
-
-inn :: (KnownSymbol t, GPU t) =>
-    SymbolProxy t -> B.ByteString -> (gt -> [CPU t]) -> ShaderM gt (Value "in" t)
-inn glType name value = do
-    logIn glType value name
-    decl (SProxy :: SymbolProxy "in") glType name
-
-none :: KnownSymbol t => SymbolProxy t -> B.ByteString -> ShaderM gt (Value "none" t)
-none = decl (SProxy :: SymbolProxy "none")
--}
 
 ----------------------
 -- Declaring Arrays --
 ----------------------
 
-declArray :: (KnownNat l, KnownSymbol q, KnownSymbol t) =>
-    [B.ByteString] -> NatProxy l -> SymbolProxy q -> SymbolProxy t -> B.ByteString ->
-    ShaderM s gt (Array l q t)
-declArray layouts len qualifier glType name = do
-    let fullName = name `B.append` "[" `B.append` (fromString . show $ natVal len) `B.append` "]"
+declArray :: (KnownSymbol q, KnownSymbol t) =>
+    [B.ByteString] -> Proxy q -> Proxy t ->
+    B.ByteString -> Maybe Int -> ShaderM s g a (Array q t)
+declArray layouts qualifier glType name mlen = do
+    let len = maybe "" (fromString . show) mlen
+        fullName = name <> "[" <> len <> "]"
     ltell $ Decl (Layout layouts) (qualifierSymbol qualifier) (typeSymbol glType) fullName
-    return $ Array name len qualifier glType
+    return $ Array name qualifier glType
 
-layoutUniformArray :: (KnownNat l, KnownSymbol t, GPU t) =>
+layoutUniformArray :: (KnownSymbol t, GPU t) =>
     [B.ByteString] ->
-    SymbolProxy t -> B.ByteString -> NatProxy l -> [gt -> CPU t] ->
-    ShaderM s gt (Array l "uniform" t)
+    Proxy t -> B.ByteString -> Int -> (gt -> [CPU t]) ->
+    ShaderM s gt a (Array "uniform" t)
 layoutUniformArray layouts glType name len values = do
-    logUniformArray glType values name
-    declArray layouts len (SProxy :: SymbolProxy "uniform") glType name
+    logUniformArray len glType values name
+    declArray layouts (Proxy :: Proxy "uniform") glType name $ Just len
 
-uniformArray :: (KnownNat l, KnownSymbol t, GPU t) =>
-    SymbolProxy t -> B.ByteString -> NatProxy l -> [gt -> CPU t] -> ShaderM s gt (Array l "uniform" t)
+uniformArray :: (KnownSymbol t, GPU t) =>
+    Proxy t -> B.ByteString -> Int -> (gt -> [CPU t]) ->
+    ShaderM s gt a (Array "uniform" t)
 uniformArray glType name len values = do
-    logUniformArray glType values name
-    declArray [] len (SProxy :: SymbolProxy "uniform") glType name
+    logUniformArray len glType values name
+    declArray [] (Proxy :: Proxy "uniform") glType name $ Just len
 
 logUniformArray :: (KnownSymbol t, GPU t) =>
-    SymbolProxy t -> [gt -> CPU t] -> B.ByteString -> ShaderM s gt ()
-logUniformArray glType xs name =
-    loop (0::Int) xs
-  where
-    loop i (valueFunc:otherFuncs) = do
-        let fullName = name `B.append` "[" `B.append`
-                (fromString $ show i) `B.append` "]"
-        logUniform glType valueFunc fullName
-        loop (i+1) otherFuncs
-    loop _ [] = return ()
+    Int ->
+    Proxy t -> (gt -> [CPU t]) -> B.ByteString -> ShaderM s gt a ()
+logUniformArray len glType valuesFunc name =
+    forM_ [0..len-1] $ \i -> do
+        let fullName = name <> "[" <>
+                (fromString $ show i) <> "]"
+        logUniform glType (\x -> valuesFunc x !! i) fullName
 
 ------------------------
 -- Const Declarations --
 ------------------------
 
-builtIn :: KnownSymbol t => SymbolProxy t -> B.ByteString -> Value "none" t
+builtInArray :: KnownSymbol t =>
+    Proxy t -> B.ByteString-> Array "none" t
+builtInArray glType name = Array name Proxy glType
+
+builtIn :: KnownSymbol t => Proxy t -> B.ByteString -> Value "none" t
 builtIn glType name = Value name nonep glType
 
-ref :: KnownSymbol t => SymbolProxy t -> B.ByteString -> Value "none" t
+ref :: KnownSymbol t => Proxy t -> B.ByteString -> Value "none" t
 ref = builtIn
 
 constant :: KnownSymbol t => SymbolProxy t -> B.ByteString -> Expression t
@@ -1003,50 +1087,18 @@ constInt = constant (SProxy :: SymbolProxy "int") . fromString . show
 constFloat :: Float -> Expression "float"
 constFloat = constant (SProxy :: SymbolProxy "float") . fromString . show
 
-------------
--- Layout --
-------------
-
-{-
-layoutDecl :: (KnownSymbol q, KnownSymbol t) =>
-    [B.ByteString] ->
-    SymbolProxy q -> SymbolProxy t -> B.ByteString ->
-    ShaderM gt (Value q t)
-layoutDecl layouts qualifier glType name = do
-    ltell $ Decl (Layout layouts) (qualifierSymbol qualifier) (typeSymbol glType) name
-    return $ Value name qualifier glType
-
-layoutUniform :: (KnownSymbol t, GPU t) =>
-    [B.ByteString] ->
-    SymbolProxy t -> B.ByteString -> (gt -> CPU t) -> ShaderM gt (Value "uniform" t)
-layoutUniform layouts glType name value = do
-    logUniform glType value name
-    layoutDecl layouts (SProxy :: SymbolProxy "uniform") glType name
-
-layoutOut :: (KnownSymbol t, GPU t) =>
-    [B.ByteString] ->
-    SymbolProxy t -> B.ByteString -> ShaderM gt (Value "out" t)
-layoutOut layouts glType name = do
-    logOut glType name
-    layoutDecl layouts (SProxy :: SymbolProxy "out") glType name
-
-layoutIn :: (KnownSymbol t, GPU t) =>
-    [B.ByteString] ->
-    SymbolProxy t -> B.ByteString -> (gt -> [CPU t]) -> ShaderM gt (Value "in" t)
-layoutIn layouts glType name value = do
-    logIn glType value name
-    layoutDecl layouts (SProxy :: SymbolProxy "in") glType name
--}
+rawGLSL :: B.ByteString -> ShaderM s t a ()
+rawGLSL = ltell . Action
 
 -----------------
 -- Other utils --
 -----------------
 
-version :: B.ByteString -> ShaderM s t ()
+version :: B.ByteString -> ShaderM s t a ()
 version = ltell . Version
 
 paren :: B.ByteString -> B.ByteString
-paren s = "(" `B.append` s `B.append` ")"
+paren s = "(" <> s <> ")"
 
 fltd :: Float -> Float
 fltd = id
@@ -1054,8 +1106,8 @@ fltd = id
 intd :: Int -> Int
 intd = id
 
-ltell :: GLSLUnit -> ShaderM s t ()
+ltell :: GLSLUnit -> ShaderM s t a ()
 ltell s = tell ([s], mempty)
 
-rtell :: GLSLInfo t -> ShaderM s t ()
+rtell :: GLSLInfo t -> ShaderM s t a ()
 rtell s = tell ([], s)

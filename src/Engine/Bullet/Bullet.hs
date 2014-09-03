@@ -8,6 +8,7 @@ import Control.Applicative ((<$>))
 import Data.Default (Default(..))
 
 import Data.Vec ((:.)(..), Mat44)
+import qualified Data.Vec as Vec (Vec3)
 
 import Physics.Bullet.Raw
 import Physics.Bullet.Raw.Types
@@ -16,8 +17,6 @@ import Physics.Bullet.Raw.Class
 import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
 import Engine.Mesh.AABB (AABB(..))
-
-type PrimMesh = [GLfloat]
 
 newtype Physics = Physics {
     physicsWorld :: BtDiscreteDynamicsWorld
@@ -95,6 +94,7 @@ addAABBs xs info physics = do
     mapM_ (addAABB shape) xs
     addShape shape info physics
 
+
 addAABB :: BtCompoundShape -> AABB -> IO ()
 addAABB shape (AABB (lx :. ly :. lz :. ()) (hx :. hy :. hz :. ())) = do
     let halfVec = Vec3 ((/2) $ uC hx - uC lx)
@@ -106,19 +106,21 @@ addAABB shape (AABB (lx :. ly :. lz :. ()) (hx :. hy :. hz :. ())) = do
         btCompoundShape_addChildShape shape
             (Transform idmtx lowVec) box
 
-addStaticTriangleMesh :: PrimMesh -> RigidBodyInfo -> Physics -> IO BtRigidBody
-addStaticTriangleMesh triangles info physics = do
-    -- Create a mesh and add triangles to it.
-    mesh <- btTriangleMesh True True
-    addTrianglesToMesh triangles mesh
+addStaticTriangleMesh :: [Vec.Vec3 GLfloat] -> RigidBodyInfo -> Physics -> IO BtRigidBody
+addStaticTriangleMesh triangles info physics
+    | not (null triangles) = do
+        -- Create a mesh and add triangles to it.
+        mesh <- btTriangleMesh True True
+        addTrianglesToMesh triangles mesh
 
-    shape <- btBvhTriangleMeshShape0 mesh True True
+        shape <- btBvhTriangleMeshShape0 mesh True True
 
-    addShape shape info physics
+        addShape shape info physics
+    | otherwise = error "Engine.Bullet.Bullet.addStaticTriangleMesh"
 
 
 
-addTriangleMesh :: PrimMesh -> RigidBodyInfo -> Physics -> IO BtRigidBody
+addTriangleMesh :: [Vec.Vec3 GLfloat] -> RigidBodyInfo -> Physics -> IO BtRigidBody
 addTriangleMesh triangles info physics = do
     -- Create a mesh and add triangles to it.
     mesh <- btTriangleMesh True True
@@ -144,8 +146,9 @@ addTriangleMesh triangles info physics = do
 
     addShape shape info physics
 
-addTrianglesToMesh :: PrimMesh -> BtTriangleMesh -> IO ()
-addTrianglesToMesh (x1:y1:z1:x2:y2:z2:x3:y3:z3:others) mesh =
+addTrianglesToMesh :: [Vec.Vec3 GLfloat] -> BtTriangleMesh -> IO ()
+addTrianglesToMesh (
+    (x1:.y1:.z1:.()):(x2:.y2:.z2:.()):(x3:.y3:.z3:.()):others) mesh =
     let v1 = Vec3 (uC x1) (uC y1) (uC z1)
         v2 = Vec3 (uC x2) (uC y2) (uC z2)
         v3 = Vec3 (uC x3) (uC y3) (uC z3)

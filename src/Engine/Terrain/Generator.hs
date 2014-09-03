@@ -8,6 +8,7 @@ import Control.Applicative ((<$>), (<*>))
 import Data.Default (def)
 import qualified Data.DList as D
 import System.Random (randomRIO)
+import Data.Vec (Vec3, (:.)(..))
 
 import Graphics.Rendering.OpenGL.Raw (GLfloat)
 
@@ -35,15 +36,17 @@ generateTerrain phys vert frag w spacing octaves wavelength intensity texture = 
             Simplex seed (floor w, floor w) (0, 0) spacing octaves
             wavelength intensity (perm seed)
         vertices = D.toList $ createSimplexTerrain simplex
-        normals = calculateNormals vertices
-
+--        normals = calculateNormals vertices
+    undefined
+{-
     mesh <- maybe
         (loadTerrainNoTexture vert frag vertices normals)
         (loadTerrainWithTexture vert frag vertices normals)
         texture
 
-    Entity 0 0 0 return mesh
+    Entity 0 0 0 return
             <$> addStaticTriangleMesh vertices def phys <*> return ()
+-}
 
 genSimplexModel :: FilePath -> FilePath ->
     GLfloat ->          -- Width
@@ -59,16 +62,19 @@ genSimplexModel vert frag w spacing octaves wavelength intensity texture = do
             Simplex seed (floor w, floor w) (0, 0) spacing
             octaves wavelength intensity (perm seed)
         vertices = D.toList $ createSimplexTerrain simplex
-        normals = calculateNormals vertices
-
+--        normals = calculateNormals vertices
+    undefined
+{-
     maybe
         (loadTerrainNoTexture vert frag vertices normals)
         (loadTerrainWithTexture vert frag vertices normals)
         texture
+-}
 
+{-
 loadTerrainWithTexture ::
     FilePath -> FilePath ->
-    [GLfloat] -> [GLfloat] ->
+    [Vec3 GLfloat] -> [Vec3 GLfloat] ->
     FilePath ->
     IO Mesh
 loadTerrainWithTexture vert frag vertices normals texture =
@@ -97,8 +103,9 @@ loadTerrainNoTexture vert frag vertices normals =
             replicate lengthVertices (-1)]
             [3, 3, 3, 2, 1]
             (fromIntegral $ lengthVertices `div` 3)
+-}
 
-createSimplexTerrain :: Simplex -> D.DList GLfloat
+createSimplexTerrain :: Simplex -> D.DList (Vec3 GLfloat)
 createSimplexTerrain simplex =
     concatMapD
         (\x -> concatMapD (makeSquare simplex x) $ allYs simplex) $
@@ -131,7 +138,7 @@ allYs simplex =
                 in cur `D.cons` allYs' simplex cur (j+1)
             | otherwise = D.empty
 
-makeSquare :: Simplex -> GLfloat -> GLfloat -> D.DList GLfloat
+makeSquare :: Simplex -> GLfloat -> GLfloat -> D.DList (Vec3 GLfloat)
 makeSquare simplex x z =
     let spacing = simpSpacing simplex
     in makePointFromXY simplex x z `D.append`
@@ -141,8 +148,9 @@ makeSquare simplex x z =
         makePointFromXY simplex x (z+spacing) `D.append`
         makePointFromXY simplex (x+spacing) (z+spacing)
 
-makePointFromXY :: Simplex -> GLfloat -> GLfloat -> D.DList GLfloat
-makePointFromXY simp x z = D.fromList [x, getSimplexHeight simp x z, z]
+makePointFromXY :: Simplex -> GLfloat -> GLfloat -> D.DList (Vec3 GLfloat)
+makePointFromXY simp x z =
+    D.singleton $ x :. getSimplexHeight simp x z :. z :. ()
 
 calculateNormals :: [GLfloat] -> [GLfloat]
 calculateNormals (x1:y1:z1:x2:y2:z2:x3:y3:z3:rest) =

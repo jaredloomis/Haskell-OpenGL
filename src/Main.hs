@@ -1,79 +1,46 @@
 {-# LANGUAGE DataKinds #-}
 module Main where
 
-import Control.Monad.State (unless, evalState, execStateT)
-import Data.Vec ((:.)(..), Vec2)
+import           Control.Monad.State (unless, execStateT)
+import           Data.Vec ((:.)(..), Vec2)
 
 import qualified Graphics.UI.GLFW as GLFW
-import Graphics.Rendering.OpenGL.Raw (GLfloat)
-import qualified Graphics.Rendering.OpenGL as GL
+import           Graphics.Rendering.OpenGL.Raw (GLfloat)
 
 import Engine.Core.Types (
-    World(..), WorldState(..), Game(..),
-    Input(..), Player(..), GameIO(..))
-import Engine.Graphics.Graphics
-    (resizeScene, cleanupWorld,
-     cleanupObjects)
-import Engine.Graphics.Window
-    (Window(..), shutdown)
-import Engine.Core.World (getWorldTime, setWorldPlayer)
-import Engine.Object.Player (resetPlayerInput)
-import Engine.Object.GameObject (updateWorld)
-import Engine.Graphics.NewGraphics (renderWorldNewPost)
-import Engine.Core.WorldCreator (createWorld, defaultSettings)
-import Engine.Graphics.Primitive (simpleTest)
+    World(..), WorldState(..),
+    Input(..), Player(..), GameIO(..),
+    worldEntities, gameIoState)
+
+import           Engine.Core.World (getWorldTime, setWorldPlayer)
+import           Engine.Object.Player (resetPlayerInput)
+import           Engine.Core.WorldCreator (createWorld, defaultSettings)
+import Engine.Graphics.Primitive (FBO(..), stepUniverse,
+                                  updateUniverseGlobal)
 
 main :: IO ()
-main = simpleTest
-
-main' :: IO ()
-main' = do
+main = do
     -- Create default world.
     world <- createWorld defaultSettings
 
-    let Just win = windowInner $ stateWindow $ worldState world
-
-    -- Register the function called when the window is resized.
-    GLFW.setFramebufferSizeCallback win (Just resizeScene)
+    let win = stateWindow $ worldState world
 
     -- Make cursor Hidden.
     GLFW.setCursorInputMode win GLFW.CursorInputMode'Disabled
 
-    -- Begin game loop.
-    loop win world
-    -- Delete stuff left in OpenGL.
-    cleanupWorld world
-    cleanupObjects $ worldEntities world
-    -- Shutdown when game loop is done.
-    shutdown win
+    --fbo <- makeFramebuffer (800, 600)
+    let fbo = undefined
 
+    loop win fbo world
   where
-    loop :: GLFW.Window -> World t -> IO ()
-    loop win world = do
-        -- Check if any events have occured.
-        GLFW.pollEvents
-
-        -- Perform logic update on the world and render.
-        newWorld <- updateStepComplete win world >>=
-              (`renderStep` win)
-
-        -- Swap back and front buffer.
-        GLFW.swapBuffers win
-
+    loop win fbo world = do
+        world' <- updateStepComplete win fbo world
         shouldClose <- GLFW.windowShouldClose win
         unless shouldClose $
-            loop win newWorld
+           loop win fbo world'
 
-renderStep :: World t -> GLFW.Window -> IO (World t)
-renderStep world _ =
-    renderWorldNewPost world
-    --renderWorldWithPostprocessing world
-    --renderWorldNew world
-    --renderWorldMat world
-    --renderWorldWithShadows world
-
-updateStepComplete :: GLFW.Window -> World t -> IO (World t)
-updateStepComplete win world = do
+updateStepComplete :: GLFW.Window -> FBO -> World t -> IO (World t)
+updateStepComplete win _fbo world = do
     let wState = worldState world
 
     -- Set cursor as hidden or visible.
@@ -90,8 +57,8 @@ updateStepComplete win world = do
     -- Update player input.
     player <- updatePlayerInput win $ worldPlayer world
 
-    print $ playerRotation player
-    putStrLn $ "pos: " ++ show (playerPosition player)
+    --print $ playerRotation player
+    --putStrLn $ "pos: " ++ show (playerPosition player)
 
     -- Update player
     let worldWithPlayer = world{worldPlayer = player, worldState = newState}
@@ -101,8 +68,16 @@ updateStepComplete win world = do
             setWorldPlayer (resetPlayerInput $ worldPlayer updatedWorld)
                             updatedWorld
 
+    let universe = updateUniverseGlobal
+            (map (\x -> (updatedWorldWithUpdatedPlayer, x)) $
+                worldEntities updatedWorldWithUpdatedPlayer)
+            $ worldShaderUniverse updatedWorldWithUpdatedPlayer
+    universe' <- stepUniverse win universe
+
     -- Update the rest of the world.
-    return $ evalState (gameState updateWorld) updatedWorldWithUpdatedPlayer
+    return $ updatedWorldWithUpdatedPlayer{
+        worldShaderUniverse = universe'
+        }
 
 updatePlayerInput :: GLFW.Window -> Player t -> IO (Player t)
 updatePlayerInput win player = do
